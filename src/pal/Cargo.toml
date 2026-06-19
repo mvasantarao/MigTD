@@ -1,0 +1,13 @@
+[package]
+name = "pal"
+version = "0.1.0"
+license = "BSD-2-Clause-Patent"
+edition = "2021"
+
+[features]
+default = []
+snp-emu = ["dep:sev"]
+
+[dependencies]
+log = "0.4"
+sev = { version = "7.1.0", default-features = false, features = ["snp", "crypto_nossl"], optional = true }
