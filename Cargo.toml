@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "src/pal",
     "src/attestation",
     "src/crypto",
     "src/devices/pci",
@@ -30,7 +31,8 @@ exclude = [
     "deps/td-shim",
     "deps/rustls",
     "deps/td-shim-AzCVMEmu",
-    "deps/spdm-rs/sys_time"
+    "deps/spdm-rs/sys_time",
+    "deps/amd-sev-snp"
     ]
 
 resolver = "2"
@@ -50,5 +52,6 @@ lto = true
 
 [patch.crates-io]
 ring = { path = "deps/td-shim/library/ring" }
+sev  = { path = "deps/amd-sev-snp/external/virtee/sev" }
 sys_time = { path = "src/std-support/sys_time" }
 
