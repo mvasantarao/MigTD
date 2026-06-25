@@ -387,6 +387,9 @@ pub async fn send_and_receive_sdm_migration_attest_info(
         .ok_or(SPDM_STATUS_BUFFER_FULL)?;
 
     //event log src
+    #[cfg(feature = "SnpEmu")]
+    let event_log_src: &[u8] = &[];  // SnpEmu: no TDX CCEL hardware
+    #[cfg(not(feature = "SnpEmu"))]
     let event_log_src = get_event_log().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
     let event_log_element = VdmMessageElement {
         element_type: VdmMessageElementType::EventLogMy,
@@ -407,8 +410,14 @@ pub async fn send_and_receive_sdm_migration_attest_info(
     };
     #[cfg(not(feature = "policy_v2"))]
     let mig_policy_src_hash = {
-        let mig_policy_src = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
-        digest_sha384(mig_policy_src).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        // SnpEmu: no TDX firmware config volume; use SHA384([]) as placeholder policy hash
+        #[cfg(feature = "SnpEmu")]
+        { digest_sha384(&[]).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)? }
+        #[cfg(not(feature = "SnpEmu"))]
+        {
+            let mig_policy_src = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
+            digest_sha384(mig_policy_src).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        }
     };
 
     let mig_policy_element = VdmMessageElement {
