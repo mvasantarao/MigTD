@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg_attr(not(feature = "AzCVMEmu"), no_std)]
-#![cfg_attr(not(feature = "AzCVMEmu"), no_main)]
+#![cfg_attr(not(any(feature = "AzCVMEmu", feature = "SnpEmu")), no_std)]
+#![cfg_attr(not(any(feature = "AzCVMEmu", feature = "SnpEmu")), no_main)]
 
 extern crate alloc;
 
@@ -35,6 +35,8 @@ use tdx_tdcall::tdreport;
 
 #[cfg(feature = "AzCVMEmu")]
 mod cvmemu;
+#[cfg(feature = "SnpEmu")]
+mod snpemu;
 
 #[cfg(feature = "vmcall-raw")]
 fn dump_td_info_and_hash() {
@@ -62,7 +64,7 @@ fn dump_td_info_and_hash() {
 
 const MIGTD_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 #[no_mangle]
 pub extern "C" fn main() {
     #[cfg(feature = "test_stack_size")]
@@ -78,6 +80,12 @@ pub extern "C" fn main() {
 #[cfg(feature = "AzCVMEmu")]
 fn main() {
     cvmemu::main();
+}
+
+// SnpEmu entry point - standard Rust main function
+#[cfg(feature = "SnpEmu")]
+fn main() {
+    snpemu::main();
 }
 
 pub fn runtime_main() {

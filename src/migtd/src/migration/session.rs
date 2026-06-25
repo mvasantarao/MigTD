@@ -1266,6 +1266,12 @@ fn read_msk(mig_info: &MigtdMigrationInformation, msk: &mut MigrationSessionKey)
 }
 
 pub fn write_msk(mig_info: &MigtdMigrationInformation, msk: &MigrationSessionKey) -> Result<()> {
+    // SnpEmu: no real VM migration memory - MSK write is a no-op in Phase 1
+    #[cfg(feature = "SnpEmu")]
+    {
+        log::info!(migration_request_id = mig_info.mig_request_id; "SnpEmu: write_msk no-op (Phase 1)");
+        return Ok(());
+    }
     for idx in 0..msk.fields.len() {
         tdx::tdcall_servtd_wr(
             mig_info.binding_handle,

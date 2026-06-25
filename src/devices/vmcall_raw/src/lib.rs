@@ -7,14 +7,14 @@
 extern crate alloc;
 
 // Re-export TDX dependencies conditionally to avoid feature gates throughout the code
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 extern crate td_payload;
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 extern crate tdx_tdcall;
 
-#[cfg(feature = "AzCVMEmu")]
+#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
 extern crate td_payload_emu as td_payload;
-#[cfg(feature = "AzCVMEmu")]
+#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
 extern crate tdx_tdcall_emu as tdx_tdcall;
 
 use core::fmt::{self, Display};

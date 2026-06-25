@@ -59,6 +59,7 @@ tokio = { version = "1.0", features = ["rt", "rt-multi-thread"], optional = true
 
 minicov = { version = "0.2", default-features = false, optional = true }
 td-benchmark = { path = "../../deps/td-shim/devtools/td-benchmark", default-features = false,  optional = true }
+pal = { path = "../pal", features = ["snp-emu"], optional = true }
 
 spdmlib = {path = "../../deps/spdm-rs/spdmlib", default-features = false, features = ["spdm-ring", "chunk-cap", "mut-auth", "hashed-transcript-data"]}
 codec = {path= "../../deps/spdm-rs/codec"}
@@ -104,3 +105,15 @@ AzCVMEmu = [
 	"tokio",
 ]
 
+SnpEmu = [
+	"main",                     # entry point + attestation crate
+	"spdm_attestation",         # enables spdm/mod.rs compilation
+	"vmcall-raw",               # enable vmcall_raw crate
+	"vmcall_raw/SnpEmu",        # enable SnpEmu TCP transport in vmcall_raw
+	"td-shim-interface-emu",
+	"td-shim-emu",
+	"tdx-tdcall-emu",
+	"td-payload-emu",
+	"td-logger-emu",
+	"tokio",
+]

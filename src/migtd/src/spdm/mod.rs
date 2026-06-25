@@ -132,6 +132,24 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
 }
 
 pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
+    #[cfg(feature = "SnpEmu")]
+    {
+        // Build mock AMD SNP AttestationReport (1184 bytes).
+        // SHA384(report_data) embedded at offset 0x50 (80) for verify_peer_report_data.
+        // Phase 2: sign report[0..0x2A0] with mock VCEK key + append cert chain DER.
+        const SNP_ATTESTATION_REPORT_SIZE: usize = 1184;
+        const SNP_REPORT_DATA_OFFSET: usize = 0x50;
+        const SNP_REPORT_DATA_SIZE: usize = 48;
+
+        let hash = digest_sha384(report_data)?;
+        let mut report = vec![0u8; SNP_ATTESTATION_REPORT_SIZE];
+        report[SNP_REPORT_DATA_OFFSET..SNP_REPORT_DATA_OFFSET + SNP_REPORT_DATA_SIZE]
+            .copy_from_slice(hash.as_ref());
+        log::debug!("SnpEmu gen_quote_spdm: built mock SNP report
+");
+        return Ok(report);
+    }
+
     let hash = digest_sha384(report_data)?;
 
     // Generate the TD Report that contains the public key hash as nonce
@@ -157,15 +175,20 @@ pub fn verify_peer_report_data(
     supplemental_data: &[u8],
     expected_report_data: &[u8],
 ) -> Result<(), MigrationResult> {
-    const REPORT_DATA_OFFSET: usize = 520;
+    // TDX: supplemental_data offset 520; SnpEmu: SNP AttestationReport.report_data at offset 0x50
+    #[cfg(not(feature = "SnpEmu"))]
+    let report_data_offset: usize = 520;
+    #[cfg(feature = "SnpEmu")]
+    let report_data_offset: usize = 0x50;
+
     const REPORT_DATA_SIZE: usize = 48;
 
-    if supplemental_data.len() < REPORT_DATA_OFFSET + REPORT_DATA_SIZE {
+    if supplemental_data.len() < report_data_offset + REPORT_DATA_SIZE {
         return Err(MigrationResult::InvalidParameter);
     }
 
     let hash = digest_sha384(expected_report_data)?;
-    let actual = &supplemental_data[REPORT_DATA_OFFSET..REPORT_DATA_OFFSET + REPORT_DATA_SIZE];
+    let actual = &supplemental_data[report_data_offset..report_data_offset + REPORT_DATA_SIZE];
 
     if actual != hash.as_slice() {
         return Err(MigrationResult::InvalidParameter);
@@ -194,6 +217,24 @@ pub fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Ve
 /// When the `test_disable_ra_and_accept_all` feature is enabled, verification
 /// is bypassed and an empty `Vec` is returned.
 pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<Vec<u8>> {
+    // SnpEmu + test_disable: return raw SNP report bytes as supplemental data
+    // so verify_peer_report_data finds report_data hash at offset 0x50.
+    #[cfg(all(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all"))]
+    {
+        const SNP_ATTESTATION_REPORT_SIZE: usize = 1184;
+        let report_bytes = quote[..SNP_ATTESTATION_REPORT_SIZE.min(quote.len())].to_vec();
+        log::debug!("SnpEmu spdm_verify_quote: returning {} bytes
+", report_bytes.len());
+        return Ok(report_bytes);
+    }
+
+    // SnpEmu without test_disable: full SNP chain + sig verification (Phase 2)
+    #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
+    {
+        // TODO Phase 2: call pal::snp::qvl::verify::SnpQvl.verify(quote)
+        return Err(SPDM_STATUS_INVALID_MSG_FIELD);
+    }
+
     #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
     let res = attestation::verify_quote(quote);
     #[cfg(feature = "test_disable_ra_and_accept_all")]
