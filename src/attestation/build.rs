@@ -8,7 +8,7 @@ use std::process::Command;
 fn main() {
     // Skip the compilation of attestation library when the remote attestation is not enabled or
     // running unit test.
-    if cfg!(feature = "test") {
+    if cfg!(any(feature = "test", feature = "SnpEmu")) {
         return;
     }
 

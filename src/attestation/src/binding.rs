@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#[cfg(not(feature = "test"))]
+#[cfg(not(any(feature = "test", feature = "SnpEmu")))]
 pub(crate) use attest_lib_binding::*;
-#[cfg(feature = "test")]
+#[cfg(any(feature = "test", feature = "SnpEmu"))]
 pub(crate) use null_binding::*;
 
 #[allow(unused)]
@@ -155,7 +155,7 @@ mod attest_lib_binding {
     }
 }
 
-#[cfg(feature = "test")]
+#[cfg(any(feature = "test", feature = "SnpEmu"))]
 mod null_binding {
     use super::*;
     use crate::TD_VERIFIED_REPORT_SIZE;

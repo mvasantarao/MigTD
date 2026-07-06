@@ -236,20 +236,28 @@ fn process_buffer(buffer: &[u8]) -> RequestDataBufferHeader {
 
 #[cfg(feature = "vmcall-raw")]
 fn calculate_shared_page_nums(reqbufferhdrlen: usize) -> Result<usize> {
-    // The response payload for GetMigtdData is just the raw 512-byte TDINFO_STRUCT.
-    let policy_size = crate::config::get_policy()
-        .ok_or(MigrationResult::InvalidParameter)?
-        .len();
-    let event_log_size = crate::event_log::get_event_log()
-        .ok_or(MigrationResult::InvalidParameter)?
-        .len();
-    let report_size = 1024;
-    let total_size = reqbufferhdrlen
-        + crate::migration::TD_INFO_SIZE
-        + policy_size
-        + event_log_size
-        + report_size;
-    Ok((total_size + PAGE_SIZE - 1) / PAGE_SIZE)
+    // In SnpEmu/AzCVMEmu emulation mode, policy and event_log live in firmware
+    // CFV/CCEL areas that don't exist on bare Linux. Return a 4-page minimum
+    // (16KB) sufficient for all request headers + SNP blob (~6KB).
+    #[cfg(any(feature = "SnpEmu", feature = "AzCVMEmu"))]
+    {
+        let _ = reqbufferhdrlen;
+        return Ok(4);
+    }
+    #[cfg(not(any(feature = "SnpEmu", feature = "AzCVMEmu")))]
+    {
+        let init_data_header_size = 44; // size of MIGTD_DATA_STRUCT header + MIGTD_DATA_ENTRY_STRUCT header
+        let policy_size = crate::config::get_policy()
+            .ok_or(MigrationResult::InvalidParameter)?
+            .len();
+        let event_log_size = crate::event_log::get_event_log()
+            .ok_or(MigrationResult::InvalidParameter)?
+            .len();
+        let report_size = 1024;
+        let total_size =
+            reqbufferhdrlen + init_data_header_size + policy_size + event_log_size + report_size;
+        Ok((total_size + PAGE_SIZE - 1) / PAGE_SIZE)
+    }
 }
 
 #[cfg(feature = "vmcall-raw")]
@@ -1107,9 +1115,9 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
 
     let mut transport = setup_transport(
         info.mig_info.mig_request_id,
-        #[cfg(any(feature = "vmcall-vsock", feature = "virtio-vsock"))]
+        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
         info.mig_socket_info.mig_td_cid,
-        #[cfg(any(feature = "vmcall-vsock", feature = "virtio-vsock"))]
+        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
         info.mig_socket_info.mig_channel_port,
     )
     .await?;

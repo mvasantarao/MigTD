@@ -716,6 +716,7 @@ fn verify_peer_attestation_v1(
     // 2. Verify REPORTDATA binding
     #[cfg(not(any(
         feature = "AzCVMEmu",
+        feature = "SnpEmu",
         feature = "test_disable_ra_and_accept_all",
         feature = "test_mock_report",
         feature = "use-mock-quote"
@@ -731,7 +732,7 @@ fn verify_peer_attestation_v1(
     }
 
     // 3. Authenticate policy
-    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+    #[cfg(not(any(feature = "test_disable_ra_and_accept_all", feature = "SnpEmu")))]
     {
         let policy_check_result = mig_policy::authenticate_policy(
             true,
@@ -804,6 +805,7 @@ fn verify_peer_attestation_v2(
         // 3. Verify REPORTDATA binding using supplemental data from authenticate_remote
         #[cfg(not(any(
             feature = "AzCVMEmu",
+            feature = "SnpEmu",
             feature = "test_mock_report",
             feature = "use-mock-quote"
         )))]

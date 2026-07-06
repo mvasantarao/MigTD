@@ -110,6 +110,7 @@ SnpEmu = [
 	"main",                     # entry point + attestation crate
 	"spdm_attestation",         # enables spdm/mod.rs compilation
 	"vmcall-raw",               # enable vmcall_raw crate
+	"attestation/SnpEmu",      # skip SGX servtd_attest library for SNP
 	"vmcall_raw/SnpEmu",        # enable SnpEmu TCP transport in vmcall_raw
 	"td-shim-interface-emu",
 	"td-shim-emu",

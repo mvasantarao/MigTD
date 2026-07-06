@@ -56,3 +56,10 @@ ring = { path = "deps/td-shim/library/ring" }
 sev  = { path = "deps/amd-sev-snp/external/virtee/sev" }
 sys_time = { path = "src/std-support/sys_time" }
 
+
+[profile.dev-debug]
+inherits = "dev"
+strip = false
+opt-level = 0
+lto = false
+debug = true
