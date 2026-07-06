@@ -2,6 +2,7 @@
 
 members = [
     "src/pal",
+    "src/snp_emu",
     "src/attestation",
     "src/crypto",
     "src/devices/pci",

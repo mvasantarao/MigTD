@@ -1,0 +1,9 @@
+[package]
+name = "snp_emu"
+version = "0.1.0"
+license = "BSD-2-Clause-Patent"
+edition = "2021"
+
+[dependencies]
+pal    = { path = "../pal", features = ["snp-emu"] }
+log    = "0.4"

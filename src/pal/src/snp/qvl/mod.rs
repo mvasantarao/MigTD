@@ -2,4 +2,5 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
+pub mod validate;
 pub mod verify;

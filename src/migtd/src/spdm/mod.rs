@@ -134,20 +134,16 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
 pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
     #[cfg(feature = "SnpEmu")]
     {
-        // Build mock AMD SNP AttestationReport (1184 bytes).
-        // SHA384(report_data) embedded at offset 0x50 (80) for verify_peer_report_data.
-        // Phase 2: sign report[0..0x2A0] with mock VCEK key + append cert chain DER.
-        const SNP_ATTESTATION_REPORT_SIZE: usize = 1184;
-        const SNP_REPORT_DATA_OFFSET: usize = 0x50;
-        const SNP_REPORT_DATA_SIZE: usize = 48;
-
-        let hash = digest_sha384(report_data)?;
-        let mut report = vec![0u8; SNP_ATTESTATION_REPORT_SIZE];
-        report[SNP_REPORT_DATA_OFFSET..SNP_REPORT_DATA_OFFSET + SNP_REPORT_DATA_SIZE]
-            .copy_from_slice(hash.as_ref());
-        log::debug!("SnpEmu gen_quote_spdm: built mock SNP report
-");
-        return Ok(report);
+        // Return real AMD SNP fixture blob: report[1184B] + cert chain DERs.
+        // SnpFixtureProvider ignores report_data — fixture carries pre-captured report_data.
+        // TH1 binding failure is accepted Phase 1 limitation; bypassed by test_disable.
+        use pal::traits::AttestationProvider;
+        let bundle = snp_emu::provider_fixture::SnpFixtureProvider
+            .get_report(&[0u8; 64])
+            .map_err(|_| MigrationResult::MutualAttestationError)?;
+        log::debug!("SnpEmu gen_quote_spdm: fixture blob {} bytes
+", bundle.ma_report_blob.len());
+        return Ok(bundle.ma_report_blob);
     }
 
     let hash = digest_sha384(report_data)?;
@@ -228,11 +224,40 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
         return Ok(report_bytes);
     }
 
-    // SnpEmu without test_disable: full SNP chain + sig verification (Phase 2)
+    // SnpEmu without test_disable: full SNP chain + sig verification
     #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
     {
-        // TODO Phase 2: call pal::snp::qvl::verify::SnpQvl.verify(quote)
-        return Err(SPDM_STATUS_INVALID_MSG_FIELD);
+        use pal::snp::qvl::validate::AttestationVerificationParams;
+        use pal::snp::qvl::verify::SnpQvl;
+        use pal::traits::QvlLibrary;
+
+        const SNP_REPORT_SIZE: usize = 1184;
+        if quote.len() < SNP_REPORT_SIZE {
+            error!("SnpEmu spdm_verify_quote: quote too short ({} bytes)
+", quote.len());
+            return Err(SPDM_STATUS_INVALID_MSG_FIELD);
+        }
+        let report_bytes = &quote[..SNP_REPORT_SIZE];
+        let cert_chain = parse_snp_cert_chain(&quote[SNP_REPORT_SIZE..])
+            .ok_or_else(|| {
+                error!("SnpEmu spdm_verify_quote: cert chain parse failed
+");
+                SPDM_STATUS_INVALID_MSG_FIELD
+            })?;
+
+        // Phase 1: validate() is a stub — expected_report_data not checked here.
+        // report_data binding is verified separately by verify_report_data_binding().
+        let dummy_expected = [0u8; 48];
+        let params = AttestationVerificationParams::phase1(report_bytes, &dummy_expected);
+        SnpQvl.verify(&params, &cert_chain).map_err(|e| {
+            error!("SnpEmu QVL verification failed: {:?}
+", e);
+            SPDM_STATUS_INVALID_MSG_FIELD
+        })?;
+
+        log::info!("SnpEmu spdm_verify_quote: VCEK chain + report sig verified OK
+");
+        return Ok(report_bytes.to_vec());
     }
 
     #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
@@ -244,6 +269,25 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
         error!("Quote verification failed!\n");
         SPDM_STATUS_INVALID_MSG_FIELD
     })
+}
+
+/// Parse cert chain DERs from the trailing bytes of an SNP attestation blob.
+///
+/// Blob format: vcek_len[4LE] || vcek || ask_len[4LE] || ask || ark_len[4LE] || ark
+/// Returns Vec of [vcek_der, ask_der, ark_der] on success, None on parse error.
+#[cfg(feature = "SnpEmu")]
+fn parse_snp_cert_chain(data: &[u8]) -> Option<Vec<Vec<u8>>> {
+    let mut certs = Vec::new();
+    let mut pos = 0;
+    for _ in 0..3 {
+        if pos + 4 > data.len() { return None; }
+        let len = u32::from_le_bytes([data[pos], data[pos+1], data[pos+2], data[pos+3]]) as usize;
+        pos += 4;
+        if pos + len > data.len() { return None; }
+        certs.push(data[pos..pos+len].to_vec());
+        pos += len;
+    }
+    Some(certs)
 }
 
 /// Verify that the peer's REPORTDATA is bound to the expected prefix and TH1.

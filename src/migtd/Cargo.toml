@@ -60,6 +60,7 @@ tokio = { version = "1.0", features = ["rt", "rt-multi-thread"], optional = true
 minicov = { version = "0.2", default-features = false, optional = true }
 td-benchmark = { path = "../../deps/td-shim/devtools/td-benchmark", default-features = false,  optional = true }
 pal = { path = "../pal", features = ["snp-emu"], optional = true }
+snp_emu = { path = "../snp_emu", optional = true }
 
 spdmlib = {path = "../../deps/spdm-rs/spdmlib", default-features = false, features = ["spdm-ring", "chunk-cap", "mut-auth", "hashed-transcript-data"]}
 codec = {path= "../../deps/spdm-rs/codec"}
@@ -116,4 +117,6 @@ SnpEmu = [
 	"td-payload-emu",
 	"td-logger-emu",
 	"tokio",
+	"pal",
+	"snp_emu",
 ]
