@@ -242,12 +242,13 @@ fn verify_signature_with_algorithm(
 ) -> Result<()> {
     // ECDSA with SHA-384: 1.2.840.10045.4.3.3
     const ECDSA_WITH_SHA384: &[u32] = &[1, 2, 840, 10045, 4, 3, 3];
+    // id-RSASSA-PSS: 1.2.840.113549.1.1.10 (algorithm params carry the hash OID)
+    const RSA_PSS: &[u32] = &[1, 2, 840, 113549, 1, 1, 10];
 
     // Match against known signature algorithm OIDs
     let algorithm_oid = &signature_algorithm.algorithm;
     let oid_arcs: Vec<u32> = algorithm_oid.arcs().collect();
 
-    // Only ECDSA-P384 with SHA384 signature is supported
     match oid_arcs.as_slice() {
         ECDSA_WITH_SHA384 => ecdsa::ecdsa_verify_with_algorithm(
             public_key,
@@ -256,11 +257,23 @@ fn verify_signature_with_algorithm(
             &ecdsa::ECDSA_P384_SHA384_ASN1,
         )
         .map_err(|_| Error::SignatureVerification),
+        // AMD ARK/ASK/VCEK certs use RSA-PSS with SHA-384 (2048-bit keys)
+        RSA_PSS => rsa_pss_sha384_verify(public_key, message, signature),
         _ => {
             // Unsupported algorithm
             Err(Error::UnsupportedAlgorithm)
         }
     }
+}
+
+/// Verify RSA-PSS (SHA-384, 2048–4096-bit) signature.
+/// public_key: PKCS#1 RSAPublicKey DER bytes (bit-string content from SPKI).
+/// Used for AMD ARK/ASK/VCEK certificate chain verification.
+#[cfg(feature = "rustls_impl")]
+fn rsa_pss_sha384_verify(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<()> {
+    use ring::signature::{UnparsedPublicKey, RSA_PSS_2048_8192_SHA384};
+    let pk = UnparsedPublicKey::new(&RSA_PSS_2048_8192_SHA384, public_key);
+    pk.verify(message, signature).map_err(|_| Error::SignatureVerification)
 }
 
 /// Validates a peer's certificate chain against the local certificate chain.
@@ -274,6 +287,44 @@ fn verify_signature_with_algorithm(
 ///    prevents a peer from presenting `[fake_leaf, legit_leaf, …]` where the
 ///    legit leaf's private key was stolen and used to sign a synthetic
 ///    sub-leaf — the legit leaf is not a CA, so it is not a valid issuer.
+
+/// Verify an AMD ARK->ASK->VCEK DER certificate chain.
+/// Returns the VCEK raw public key bytes (uncompressed P-384 point, 97 bytes).
+#[cfg(feature = "rustls_impl")]
+pub fn verify_snp_cert_chain_der(ark_der: &[u8], ask_der: &[u8], vcek_der: &[u8]) -> Result<Vec<u8>> {
+    let ark  = x509::Certificate::from_der(ark_der) .map_err(|_| Error::ParseCertificate)?;
+    let ask  = x509::Certificate::from_der(ask_der) .map_err(|_| Error::ParseCertificate)?;
+    let vcek = x509::Certificate::from_der(vcek_der).map_err(|_| Error::ParseCertificate)?;
+    verify_cert_signature(&ark, &ark)?;
+    verify_cert_signature(&ask, &ark)?;
+    verify_cert_signature(&vcek, &ask)?;
+    extract_public_key_from_cert(&vcek)
+}
+
+/// Verify an AMD SNP attestation report ECDSA-P384 signature.
+/// vcek_pubkey: uncompressed P-384 point (0x04||x||y, 97 bytes).
+/// report: 1184-byte SNP attestation report.
+/// Signed portion: report[0..0x2A0]. Sig r@0x2A0, s@0x2E8 (72B each, little-endian).
+#[cfg(feature = "rustls_impl")]
+pub fn verify_snp_report_sig(vcek_pubkey: &[u8], report: &[u8]) -> Result<()> {
+    const SIGNED_END: usize = 0x2A0;
+    const R_OFF: usize = 0x2A0;
+    const S_OFF: usize = 0x2A0 + 72;
+    const SZ: usize = 48;
+    if report.len() < S_OFF + SZ { return Err(Error::ParseCertificate); }
+    let mut r_be = [0u8; SZ];
+    let mut s_be = [0u8; SZ];
+    r_be.copy_from_slice(&report[R_OFF..R_OFF + SZ]);
+    s_be.copy_from_slice(&report[S_OFF..S_OFF + SZ]);
+    r_be.reverse();
+    s_be.reverse();
+    let mut sig = [0u8; SZ * 2];
+    sig[..SZ].copy_from_slice(&r_be);
+    sig[SZ..].copy_from_slice(&s_be);
+    ecdsa::ecdsa_verify_with_raw_public_key(vcek_pubkey, &report[..SIGNED_END], &sig)
+        .map_err(|_| Error::SignatureVerification)
+}
+
 pub fn validate_peer_cert_chain(local_chain_pem: &[u8], peer_chain_pem: &[u8]) -> Result<()> {
     let local_chain = extract_cert_chain_from_pem(local_chain_pem)?;
     let peer_chain = extract_cert_chain_from_pem(peer_chain_pem)?;

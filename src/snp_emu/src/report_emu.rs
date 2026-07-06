@@ -35,3 +35,27 @@ pub fn build_fixture_blob() -> Result<Vec<u8>, PalError> {
 pub fn fixture_report_bytes() -> &'static [u8] {
     FIXTURE_REPORT
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crypto::{verify_snp_cert_chain_der, verify_snp_report_sig};
+
+    #[test]
+    fn test_fixture_chain_verification() {
+        // Verify real AMD fixture: ARK->ASK->VCEK chain + VCEK report signature
+        let vcek_pubkey = verify_snp_cert_chain_der(FIXTURE_ARK, FIXTURE_ASK, FIXTURE_VCEK)
+            .expect("cert chain ARK->ASK->VCEK");
+        verify_snp_report_sig(&vcek_pubkey, FIXTURE_REPORT)
+            .expect("SNP report ECDSA-P384 sig");
+        println!("Fixture chain + report sig verified OK (ring-based, cpuid_fam_id=0xD9)");
+    }
+
+    #[test]
+    fn test_build_fixture_blob() {
+        let blob = build_fixture_blob().expect("build_fixture_blob");
+        assert_eq!(&blob[..1184], FIXTURE_REPORT, "report bytes match");
+        assert!(blob.len() > 1184, "cert chain appended");
+        println!("build_fixture_blob OK: {} bytes total", blob.len());
+    }
+}

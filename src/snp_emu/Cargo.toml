@@ -5,5 +5,8 @@ license = "BSD-2-Clause-Patent"
 edition = "2021"
 
 [dependencies]
-pal    = { path = "../pal", features = ["snp-emu"] }
-log    = "0.4"
+pal = { path = "../pal", features = ["snp-emu"] }
+log = "0.4"
+
+[dev-dependencies]
+crypto = { path = "../crypto" }
