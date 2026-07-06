@@ -9,6 +9,10 @@
 //! P-384 signature — Phase 1 uses it as-is for chain verification.
 //!
 //! Blob format: report[1184B] || vcek_len[4LE] || vcek || ask_len[4LE] || ask || ark_len[4LE] || ark
+//!
+//! Note on fixture extraction: the raw HCLA response has a 32-byte header (magic "HCLA",
+//! version, payload_size, report_type, reserved). The 1184-byte SNP report starts at byte
+//! 0x20. The fixture was extracted at offset 0x20; cpuid_fam_id=0x19 (Milan), version=5.
 
 use pal::traits::PalError;
 
@@ -39,16 +43,34 @@ pub fn fixture_report_bytes() -> &'static [u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crypto::{verify_snp_cert_chain_der, verify_snp_report_sig};
+    use tee_attestation_verification_lib::{
+        certificate_from_der,
+        snp::{
+            report::{AttestationReport, TryFromBytes},
+            verify::{sync::verify_attestation, ChainVerification},
+        },
+    };
 
     #[test]
     fn test_fixture_chain_verification() {
-        // Verify real AMD fixture: ARK->ASK->VCEK chain + VCEK report signature
-        let vcek_pubkey = verify_snp_cert_chain_der(FIXTURE_ARK, FIXTURE_ASK, FIXTURE_VCEK)
-            .expect("cert chain ARK->ASK->VCEK");
-        verify_snp_report_sig(&vcek_pubkey, FIXTURE_REPORT)
-            .expect("SNP report ECDSA-P384 sig");
-        println!("Fixture chain + report sig verified OK (ring-based, cpuid_fam_id=0xD9)");
+        // Parse certs from DER
+        let ark  = certificate_from_der(FIXTURE_ARK).expect("ARK DER parse");
+        let ask  = certificate_from_der(FIXTURE_ASK).expect("ASK DER parse");
+        let vcek = certificate_from_der(FIXTURE_VCEK).expect("VCEK DER parse");
+
+        // Parse SNP report (zerocopy, 1184 bytes, version=5, cpuid_fam_id=0x19 Milan)
+        let report = AttestationReport::try_read_from_bytes(FIXTURE_REPORT)
+            .expect("SNP report parse");
+
+        // Verify via TAV: ARK->ASK->VCEK chain + VCEK report sig
+        verify_attestation(
+            &report,
+            &vcek,
+            &ChainVerification::WithProvidedArk { ask: &ask, ark: &ark },
+        )
+        .expect("TAV verify_attestation");
+
+        println!("Fixture chain + report sig verified OK (TAV, cpuid_fam_id=0x19 Milan)");
     }
 
     #[test]
