@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-pub use sev::certs::snp::{
-    ca::Chain as CaChain,
-    Certificate,
-};
+// TAV provides Certificate via crypto backend; CaChain is represented
+// as ChainVerification enum in tee_attestation_verification_lib::snp::verify.
+pub use tee_attestation_verification_lib::Certificate;
