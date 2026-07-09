@@ -2528,7 +2528,6 @@ version = "0.1.0"
 dependencies = [
  "log",
  "pal",
- "tee-attestation-verification-lib",
 ]
 
 [[package]]
@@ -2828,10 +2827,8 @@ dependencies = [
  "anyhow",
  "cc",
  "cc-measurement",
- "der",
  "lazy_static",
  "r-efi 3.2.0",
- "ring",
  "scroll",
  "td-layout",
  "td-shim-interface",
@@ -2977,34 +2974,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff1bc3d3f05aff0403e8ac0d92ced918ec05b666a43f83297ccef5bea8a3d449"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "test-td-payload"
-version = "0.1.0"
-dependencies = [
- "attestation",
- "bitfield 0.13.2",
- "bitflags 1.3.2",
- "lazy_static",
- "linked_list_allocator",
- "log",
- "migtd",
- "minicov",
- "pci",
- "r-efi 3.2.0",
- "scroll",
- "serde",
- "serde_json",
- "spin 0.9.8",
- "td-layout",
- "td-logger",
- "td-paging",
- "td-payload",
- "td-shim",
- "td-shim-interface",
- "tdx-tdcall",
- "zerocopy 0.7.32",
 ]
 
 [[package]]

@@ -2,7 +2,6 @@
 
 members = [
     "src/pal",
-    "src/snp_emu",
     "src/attestation",
     "src/crypto",
     "src/devices/pci",
@@ -14,7 +13,6 @@ members = [
     "src/policy",
     "src/async/async_io",
     "src/async/async_runtime",
-    "tests/test-td-payload",
     "tools/migtd-hash",
     "tools/migtd-collateral-generator",
     "tools/migtd-policy-generator",
@@ -33,7 +31,9 @@ exclude = [
     "deps/rustls",
     "deps/td-shim-AzCVMEmu",
     "deps/spdm-rs/sys_time",
-    "deps/amd-sev-snp"
+    "deps/amd-sev-snp",
+    "tests/test-td-payload",
+    "src/snp_emu"
     ]
 
 resolver = "2"
