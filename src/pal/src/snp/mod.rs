@@ -2,6 +2,6 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-pub mod report;
 pub mod certs;
 pub mod qvl;
+pub mod report;

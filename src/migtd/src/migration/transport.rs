@@ -17,8 +17,16 @@ pub(super) type TransportType = vsock::stream::VsockStream;
 
 pub(super) async fn setup_transport(
     mig_request_id: u64,
-    #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))] migtd_cid: u64,
-    #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))] mig_channel_port: u32,
+    #[cfg(all(
+        not(feature = "vmcall-raw"),
+        any(feature = "vmcall-vsock", feature = "virtio-vsock")
+    ))]
+    migtd_cid: u64,
+    #[cfg(all(
+        not(feature = "vmcall-raw"),
+        any(feature = "vmcall-vsock", feature = "virtio-vsock")
+    ))]
+    mig_channel_port: u32,
 ) -> Result<TransportType> {
     #[cfg(feature = "vmcall-raw")]
     {

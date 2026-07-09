@@ -145,19 +145,26 @@ fn parse_commandline_args() {
                 });
                 i += 2;
             }
-            "--role" | "-m" if i + 1 < args.len() => {
-                match args[i + 1].to_lowercase().as_str() {
-                    "source" | "src" => { is_source = true; i += 2; }
-                    "destination" | "dst" | "target" => { is_source = false; i += 2; }
-                    _ => { eprintln!("Invalid role: {}", args[i + 1]); process::exit(1); }
+            "--role" | "-m" if i + 1 < args.len() => match args[i + 1].to_lowercase().as_str() {
+                "source" | "src" => {
+                    is_source = true;
+                    i += 2;
                 }
-            }
+                "destination" | "dst" | "target" => {
+                    is_source = false;
+                    i += 2;
+                }
+                _ => {
+                    eprintln!("Invalid role: {}", args[i + 1]);
+                    process::exit(1);
+                }
+            },
             "--uuid" | "-u" if i + 4 < args.len() => {
                 target_td_uuid = [
-                    args[i+1].parse().unwrap_or(1),
-                    args[i+2].parse().unwrap_or(2),
-                    args[i+3].parse().unwrap_or(3),
-                    args[i+4].parse().unwrap_or(4),
+                    args[i + 1].parse().unwrap_or(1),
+                    args[i + 2].parse().unwrap_or(2),
+                    args[i + 3].parse().unwrap_or(3),
+                    args[i + 4].parse().unwrap_or(4),
                 ];
                 i += 5;
             }
@@ -178,18 +185,32 @@ fn parse_commandline_args() {
                 destination_port = Some(args[i + 1].parse().unwrap_or(8001));
                 i += 2;
             }
-            "--help" | "-h" => { print_snpemu_usage(); process::exit(0); }
-            _ => { eprintln!("Unknown argument: {}", args[i]); i += 1; }
+            "--help" | "-h" => {
+                print_snpemu_usage();
+                process::exit(0);
+            }
+            _ => {
+                eprintln!("Unknown argument: {}", args[i]);
+                i += 1;
+            }
         }
     }
 
-    log::info!("SnpEmu Migration: id={}, role={}, uuid={:?}, binding={:#x}\n",
-        mig_request_id, if is_source { "source" } else { "destination" },
-        target_td_uuid, binding_handle);
+    log::info!(
+        "SnpEmu Migration: id={}, role={}, uuid={:?}, binding={:#x}\n",
+        mig_request_id,
+        if is_source { "source" } else { "destination" },
+        target_td_uuid,
+        binding_handle
+    );
 
     let tcp_ip = destination_ip.as_deref().unwrap_or("127.0.0.1");
     let tcp_port = destination_port.unwrap_or(8001);
-    let mode = if is_source { TcpEmulationMode::Client } else { TcpEmulationMode::Server };
+    let mode = if is_source {
+        TcpEmulationMode::Client
+    } else {
+        TcpEmulationMode::Server
+    };
 
     if let Err(e) = init_tcp_emulation_with_mode(tcp_ip, tcp_port, mode) {
         log::error!("Failed to initialize TCP emulation: {}\n", e);
@@ -200,18 +221,26 @@ fn parse_commandline_args() {
         let addr = format!("{}:{}", tcp_ip, tcp_port);
         match start_tcp_server_sync(&addr) {
             Ok(_) => log::info!("TCP server started on: {}\n", addr),
-            Err(e) => { log::error!("Failed to start TCP server: {:?}\n", e); process::exit(1); }
+            Err(e) => {
+                log::error!("Failed to start TCP server: {:?}\n", e);
+                process::exit(1);
+            }
         }
     } else {
         match connect_tcp_client() {
             Ok(_) => log::info!("Connected to destination TCP server\n"),
-            Err(e) => { log::error!("Failed to connect to destination: {:?}\n", e); process::exit(1); }
+            Err(e) => {
+                log::error!("Failed to connect to destination: {:?}\n", e);
+                process::exit(1);
+            }
         }
     }
 
     let td_uuid = [
-        target_td_uuid[0] as u64, target_td_uuid[1] as u64,
-        target_td_uuid[2] as u64, target_td_uuid[3] as u64,
+        target_td_uuid[0] as u64,
+        target_td_uuid[1] as u64,
+        target_td_uuid[2] as u64,
+        target_td_uuid[3] as u64,
     ];
     let rebinding_src = if is_source { 1u8 } else { 0u8 };
     set_emulated_start_migration(mig_request_id, rebinding_src, td_uuid, binding_handle);

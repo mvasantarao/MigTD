@@ -5,7 +5,11 @@
 use crate::types::{AttestationBundle, QvlResult};
 
 #[derive(Debug)]
-pub enum PalError { NotAvailable, InvalidInput, VerificationFailed(String) }
+pub enum PalError {
+    NotAvailable,
+    InvalidInput,
+    VerificationFailed(String),
+}
 
 pub trait AttestationProvider {
     fn get_report(&self, report_data: &[u8; 64]) -> Result<AttestationBundle, PalError>;

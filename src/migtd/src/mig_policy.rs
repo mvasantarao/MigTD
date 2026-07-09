@@ -319,9 +319,7 @@ mod v2 {
         // verification — it cannot be verified without init_servtd_info_hash.
         // Fall back to standard policy evaluation using current tdreport data.
         if servtd_ext_src.is_empty() || init_tdinfo.is_empty() {
-            log::info!(
-                "No SERVTD_EXT/init_tdinfo — skipping init verification in rebind-old\n"
-            );
+            log::info!("No SERVTD_EXT/init_tdinfo — skipping init verification in rebind-old\n");
             let relative_reference = get_local_tcb_evaluation_info()?;
             policy.policy_data.evaluate_policy_common(
                 &evaluation_data_src,

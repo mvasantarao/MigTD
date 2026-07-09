@@ -1115,9 +1115,15 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
 
     let mut transport = setup_transport(
         info.mig_info.mig_request_id,
-        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
+        #[cfg(all(
+            not(feature = "vmcall-raw"),
+            any(feature = "vmcall-vsock", feature = "virtio-vsock")
+        ))]
         info.mig_socket_info.mig_td_cid,
-        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
+        #[cfg(all(
+            not(feature = "vmcall-raw"),
+            any(feature = "vmcall-vsock", feature = "virtio-vsock")
+        ))]
         info.mig_socket_info.mig_channel_port,
     )
     .await?;

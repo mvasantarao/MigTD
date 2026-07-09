@@ -639,7 +639,7 @@ pub fn handle_exchange_mig_attest_info_req(
 
     //event log dst
     #[cfg(feature = "SnpEmu")]
-    let event_log_dst: &[u8] = &[];  // SnpEmu: no TDX CCEL hardware
+    let event_log_dst: &[u8] = &[]; // SnpEmu: no TDX CCEL hardware
     #[cfg(not(feature = "SnpEmu"))]
     let event_log_dst = get_event_log().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
     let event_log_element = VdmMessageElement {
@@ -663,10 +663,13 @@ pub fn handle_exchange_mig_attest_info_req(
     let mig_policy_dst_hash = {
         // SnpEmu: no TDX firmware config volume; use SHA384([]) as placeholder policy hash
         #[cfg(feature = "SnpEmu")]
-        { digest_sha384(&[]).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)? }
+        {
+            digest_sha384(&[]).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        }
         #[cfg(not(feature = "SnpEmu"))]
         {
-            let mig_policy_dst = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
+            let mig_policy_dst =
+                crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
             digest_sha384(mig_policy_dst).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
     };

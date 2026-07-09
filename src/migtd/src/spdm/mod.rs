@@ -141,8 +141,11 @@ pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
         let bundle = snp_emu::provider_fixture::SnpFixtureProvider
             .get_report(&[0u8; 64])
             .map_err(|_| MigrationResult::MutualAttestationError)?;
-        log::debug!("SnpEmu gen_quote_spdm: fixture blob {} bytes
-", bundle.ma_report_blob.len());
+        log::debug!(
+            "SnpEmu gen_quote_spdm: fixture blob {} bytes
+",
+            bundle.ma_report_blob.len()
+        );
         return Ok(bundle.ma_report_blob);
     }
 
@@ -219,8 +222,11 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
     {
         const SNP_ATTESTATION_REPORT_SIZE: usize = 1184;
         let report_bytes = quote[..SNP_ATTESTATION_REPORT_SIZE.min(quote.len())].to_vec();
-        log::debug!("SnpEmu spdm_verify_quote: returning {} bytes
-", report_bytes.len());
+        log::debug!(
+            "SnpEmu spdm_verify_quote: returning {} bytes
+",
+            report_bytes.len()
+        );
         return Ok(report_bytes);
     }
 
@@ -233,30 +239,39 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 
         const SNP_REPORT_SIZE: usize = 1184;
         if quote.len() < SNP_REPORT_SIZE {
-            error!("SnpEmu spdm_verify_quote: quote too short ({} bytes)
-", quote.len());
+            error!(
+                "SnpEmu spdm_verify_quote: quote too short ({} bytes)
+",
+                quote.len()
+            );
             return Err(SPDM_STATUS_INVALID_MSG_FIELD);
         }
         let report_bytes = &quote[..SNP_REPORT_SIZE];
-        let cert_chain = parse_snp_cert_chain(&quote[SNP_REPORT_SIZE..])
-            .ok_or_else(|| {
-                error!("SnpEmu spdm_verify_quote: cert chain parse failed
-");
-                SPDM_STATUS_INVALID_MSG_FIELD
-            })?;
+        let cert_chain = parse_snp_cert_chain(&quote[SNP_REPORT_SIZE..]).ok_or_else(|| {
+            error!(
+                "SnpEmu spdm_verify_quote: cert chain parse failed
+"
+            );
+            SPDM_STATUS_INVALID_MSG_FIELD
+        })?;
 
         // Phase 1: validate() is a stub — expected_report_data not checked here.
         // report_data binding is verified separately by verify_report_data_binding().
         let dummy_expected = [0u8; 48];
         let params = AttestationVerificationParams::phase1(report_bytes, &dummy_expected);
         SnpQvl.verify(&params, &cert_chain).map_err(|e| {
-            error!("SnpEmu QVL verification failed: {:?}
-", e);
+            error!(
+                "SnpEmu QVL verification failed: {:?}
+",
+                e
+            );
             SPDM_STATUS_INVALID_MSG_FIELD
         })?;
 
-        log::info!("SnpEmu spdm_verify_quote: VCEK chain + report sig verified OK
-");
+        log::info!(
+            "SnpEmu spdm_verify_quote: VCEK chain + report sig verified OK
+"
+        );
         return Ok(report_bytes.to_vec());
     }
 
@@ -280,11 +295,16 @@ fn parse_snp_cert_chain(data: &[u8]) -> Option<Vec<Vec<u8>>> {
     let mut certs = Vec::new();
     let mut pos = 0;
     for _ in 0..3 {
-        if pos + 4 > data.len() { return None; }
-        let len = u32::from_le_bytes([data[pos], data[pos+1], data[pos+2], data[pos+3]]) as usize;
+        if pos + 4 > data.len() {
+            return None;
+        }
+        let len =
+            u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
         pos += 4;
-        if pos + len > data.len() { return None; }
-        certs.push(data[pos..pos+len].to_vec());
+        if pos + len > data.len() {
+            return None;
+        }
+        certs.push(data[pos..pos + len].to_vec());
         pos += len;
     }
     Some(certs)

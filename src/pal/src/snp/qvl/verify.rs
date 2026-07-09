@@ -22,9 +22,9 @@ use tee_attestation_verification_lib::{
     },
 };
 
+use crate::snp::qvl::validate::{validate, AttestationVerificationParams};
 use crate::traits::{PalError, QvlLibrary};
 use crate::types::{PlatformType, QvlResult, TcbStatus};
-use crate::snp::qvl::validate::{validate, AttestationVerificationParams};
 
 pub struct SnpQvl;
 
@@ -61,7 +61,10 @@ impl QvlLibrary for SnpQvl {
         verify_attestation(
             &report,
             &vcek,
-            &ChainVerification::WithProvidedArk { ask: &ask, ark: &ark },
+            &ChainVerification::WithProvidedArk {
+                ask: &ask,
+                ark: &ark,
+            },
         )
         .map_err(|e| PalError::VerificationFailed(format!("{}", e)))?;
 

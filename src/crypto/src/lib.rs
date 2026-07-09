@@ -262,7 +262,6 @@ fn verify_signature_with_algorithm(
     }
 }
 
-
 /// Validates a peer's certificate chain against the local certificate chain.
 ///
 /// Performs the following checks:
@@ -274,7 +273,6 @@ fn verify_signature_with_algorithm(
 ///    prevents a peer from presenting `[fake_leaf, legit_leaf, …]` where the
 ///    legit leaf's private key was stolen and used to sign a synthetic
 ///    sub-leaf — the legit leaf is not a CA, so it is not a valid issuer.
-
 
 pub fn validate_peer_cert_chain(local_chain_pem: &[u8], peer_chain_pem: &[u8]) -> Result<()> {
     let local_chain = extract_cert_chain_from_pem(local_chain_pem)?;

@@ -3,10 +3,18 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PlatformType { Tdx, AmdSnp }
+pub enum PlatformType {
+    Tdx,
+    AmdSnp,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TcbStatus { UpToDate, OutOfDate, Revoked, Unknown }
+pub enum TcbStatus {
+    UpToDate,
+    OutOfDate,
+    Revoked,
+    Unknown,
+}
 
 #[derive(Debug, Clone)]
 pub struct QvlResult {
