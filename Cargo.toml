@@ -53,7 +53,6 @@ lto = true
 
 [patch.crates-io]
 ring = { path = "deps/td-shim/library/ring" }
-sev  = { path = "deps/amd-sev-snp/external/virtee/sev" }
 sys_time = { path = "src/std-support/sys_time" }
 
 

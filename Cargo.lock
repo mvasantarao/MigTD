@@ -615,7 +615,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2465,6 +2465,8 @@ dependencies = [
 [[package]]
 name = "sev"
 version = "7.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2ff74d7e7d1cc172f3a45adec74fbeee928d71df095b85aaaf66eb84e1e31e6"
 dependencies = [
  "base64 0.22.1",
  "bitfield 0.19.3",
@@ -2536,7 +2538,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
