@@ -33,7 +33,7 @@ exclude = [
     "deps/spdm-rs/sys_time",
     "deps/amd-sev-snp",
     "tests/test-td-payload",
-    "src/snp_emu"
+    "src/snp_emu",
     ]
 
 resolver = "2"
