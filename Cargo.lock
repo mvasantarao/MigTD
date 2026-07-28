@@ -1786,6 +1786,7 @@ version = "0.1.0"
 dependencies = [
  "log",
  "tee-attestation-verification-lib",
+ "zerocopy 0.8.54",
 ]
 
 [[package]]
