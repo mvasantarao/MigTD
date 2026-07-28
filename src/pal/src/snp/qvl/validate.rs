@@ -9,7 +9,7 @@
 //! Phase 3: populate Option<> fields for forwardPolicy / MIGRATION_DATA / maReportID.
 
 use tee_attestation_verification_lib::snp::report::{
-    AttestationReport, TryFromBytes, TcbVersionMilanGenoa as TcbVersion,
+    AttestationReport, TcbVersionMilanGenoa as TcbVersion, TryFromBytes,
 };
 
 use crate::traits::PalError;
@@ -59,7 +59,7 @@ impl<'a> AttestationVerificationParams<'a> {
 /// Confirmed from tav-1.0.2: PartialOrd is implemented comparing boot_loader, tee,
 /// snp, microcode — reserved bytes are excluded (correct for semantics).
 fn tcb_ge(a: &TcbVersion, b: &TcbVersion) -> bool {
-    a >= b  // uses TcbVersionMilanGenoa::partial_cmp (field-by-field, not byte-level)
+    a >= b // uses TcbVersionMilanGenoa::partial_cmp (field-by-field, not byte-level)
 }
 
 /// Validate an SNP attestation report against the given parameters.
