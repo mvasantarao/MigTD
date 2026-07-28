@@ -258,7 +258,7 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
         // Phase 1: validate() is a stub — expected_report_data not checked here.
         // report_data binding is verified separately by verify_report_data_binding().
         let dummy_expected = [0u8; 48];
-        let params = AttestationVerificationParams::phase1(report_bytes, &dummy_expected);
+        let params = AttestationVerificationParams::crypto_only(report_bytes, &dummy_expected);
         SnpQvl.verify(&params, &cert_chain).map_err(|e| {
             error!(
                 "SnpEmu QVL verification failed: {:?}
@@ -294,7 +294,7 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 fn parse_snp_cert_chain(data: &[u8]) -> Option<Vec<Vec<u8>>> {
     let mut certs = Vec::new();
     let mut pos = 0;
-    for _ in 0..3 {
+    for _ in 0..2 {
         if pos + 4 > data.len() {
             return None;
         }

@@ -7,3 +7,5 @@ pub mod types;
 
 #[cfg(feature = "snp-emu")]
 pub mod snp;
+#[cfg(feature = "tdx")]
+pub mod tdx;

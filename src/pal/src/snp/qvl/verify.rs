@@ -32,49 +32,46 @@ pub struct SnpQvl;
 impl QvlLibrary for SnpQvl {
     /// Verify an SNP attestation report and its certificate chain using TAV.
     ///
-    /// `cert_chain` must contain [vcek_der, ask_der, ark_der] in that order.
+    /// `cert_chain` must contain [vcek_der, ask_der] in that order.
     /// `params.report` must be exactly 1184 bytes (AMD SNP AttestationReport).
     fn verify(
         &self,
         params: &AttestationVerificationParams<'_>,
         cert_chain: &[Vec<u8>],
     ) -> Result<QvlResult, PalError> {
-        if cert_chain.len() < 3 {
+        if cert_chain.len() < 2 {
             return Err(PalError::InvalidInput);
         }
 
-        // 1. Parse DER certificates: cert_chain = [vcek, ask, ark]
+        // 1. Parse DER certificates: cert_chain = [vcek, ask]
         let vcek = certificate_from_der(&cert_chain[0])
             .map_err(|_| PalError::VerificationFailed("VCEK DER parse failed".into()))?;
         let ask = certificate_from_der(&cert_chain[1])
             .map_err(|_| PalError::VerificationFailed("ASK DER parse failed".into()))?;
-        let ark = certificate_from_der(&cert_chain[2])
-            .map_err(|_| PalError::VerificationFailed("ARK DER parse failed".into()))?;
-
         // 2. Parse AttestationReport (zerocopy: 1184 bytes, version=5 Milan)
         let report = AttestationReport::try_read_from_bytes(params.report)
             .map_err(|_| PalError::VerificationFailed("SNP report parse failed".into()))?;
 
-        // 3. Verify ARK->ASK->VCEK chain + report signature using TAV.
-        //    WithProvidedArk: Azure THIM-provided ARK; ark_matches_pinned() verifies
-        //    it equals TAV's pinned Milan ARK (confirmed: same AMD root key).
+        // 3. Verify ASK->VCEK chain + report signature using TAV.
+        //    WithPinnedArk uses TAV's pinned Milan ARK.
         verify_attestation(
             &report,
             &vcek,
-            &ChainVerification::WithProvidedArk {
-                ask: &ask,
-                ark: &ark,
-            },
+            &ChainVerification::WithPinnedArk { ask: &ask },
         )
         .map_err(|e| PalError::VerificationFailed(format!("{}", e)))?;
 
         // 4. Phase 1 validate() stub — no-op. Phase 2 (P2-07): tcb_ge + policy.
         validate(params)?;
 
-        log::info!("SnpQvl: ARK->ASK->VCEK chain + VCEK report sig OK (TAV, Milan)");
+        log::info!("SnpQvl: ASK->VCEK chain + VCEK report sig OK (TAV pinned Milan ARK)");
         Ok(QvlResult {
             platform: PlatformType::AmdSnp,
             tcb_status: TcbStatus::UpToDate,
+            // TODO P2-07: parse VCEK OID 1.3.6.1.4.1.3704.1.x when TAV exposes accessor.
+            // TAV verify_attestation() already verified report.reported_tcb == VCEK OIDs;
+            // P2-07 is additive output only and does NOT block P2-01.
+            platform_tcb: None,
         })
     }
 }

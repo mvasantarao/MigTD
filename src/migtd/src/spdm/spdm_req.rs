@@ -24,6 +24,8 @@ use spdmlib::{
 };
 use spin::Mutex;
 use zeroize::Zeroize;
+#[cfg(feature = "SnpEmu")]
+use zerocopy::{FromZeros, IntoBytes};
 extern crate alloc;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
@@ -413,7 +415,8 @@ pub async fn send_and_receive_sdm_migration_attest_info(
         // SnpEmu: no TDX firmware config volume; use SHA384([]) as placeholder policy hash
         #[cfg(feature = "SnpEmu")]
         {
-            digest_sha384(&[]).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+            use pal::snp::policy::SnpMigPolicy;
+            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes()).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
         #[cfg(not(feature = "SnpEmu"))]
         {

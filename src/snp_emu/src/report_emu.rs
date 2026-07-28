@@ -8,7 +8,7 @@
 //! (northeurope, July 2026). The fixture report carries a valid AMD VCEK
 //! P-384 signature — Phase 1 uses it as-is for chain verification.
 //!
-//! Blob format: report[1184B] || vcek_len[4LE] || vcek || ask_len[4LE] || ask || ark_len[4LE] || ark
+//! Blob format: report[1184B] || vcek_len[4LE] || vcek || ask_len[4LE] || ask
 //!
 //! Note on fixture extraction: the raw HCLA response has a 32-byte header (magic "HCLA",
 //! version, payload_size, report_type, reserved). The 1184-byte SNP report starts at byte
@@ -19,7 +19,6 @@ use pal::traits::PalError;
 static FIXTURE_REPORT: &[u8] = include_bytes!("fixture_data/snp_report.bin"); // 1184 bytes
 static FIXTURE_VCEK:   &[u8] = include_bytes!("fixture_data/vcek.der");
 static FIXTURE_ASK:    &[u8] = include_bytes!("fixture_data/ask.der");
-static FIXTURE_ARK:    &[u8] = include_bytes!("fixture_data/ark.der");
 
 /// Build the attestation blob: SNP report + cert chain DERs.
 ///
@@ -27,7 +26,7 @@ static FIXTURE_ARK:    &[u8] = include_bytes!("fixture_data/ark.der");
 /// Total: ~5850 bytes (1184 + 3*4 + 1351 + 1677 + 1639)
 pub fn build_fixture_blob() -> Result<Vec<u8>, PalError> {
     let mut blob = FIXTURE_REPORT.to_vec();
-    for cert in &[FIXTURE_VCEK, FIXTURE_ASK, FIXTURE_ARK] {
+    for cert in &[FIXTURE_VCEK, FIXTURE_ASK] {
         let len = cert.len() as u32;
         blob.extend_from_slice(&len.to_le_bytes());
         blob.extend_from_slice(cert);
@@ -54,7 +53,6 @@ mod tests {
     #[test]
     fn test_fixture_chain_verification() {
         // Parse certs from DER
-        let ark  = certificate_from_der(FIXTURE_ARK).expect("ARK DER parse");
         let ask  = certificate_from_der(FIXTURE_ASK).expect("ASK DER parse");
         let vcek = certificate_from_der(FIXTURE_VCEK).expect("VCEK DER parse");
 
@@ -66,7 +64,7 @@ mod tests {
         verify_attestation(
             &report,
             &vcek,
-            &ChainVerification::WithProvidedArk { ask: &ask, ark: &ark },
+            &ChainVerification::WithPinnedArk { ask: &ask },
         )
         .expect("TAV verify_attestation");
 
