@@ -22,6 +22,8 @@ use codec::{Codec, Reader, Writer};
 use core::ops::DerefMut;
 use crypto::{ecdsa::EcdsaPk, hash::digest_sha384};
 use log::error;
+#[cfg(feature = "SnpEmu")]
+use zerocopy::{FromZeros, IntoBytes};
 
 #[cfg(not(feature = "policy_v2"))]
 use crate::spdm::spdm_verify_quote;
@@ -664,7 +666,8 @@ pub fn handle_exchange_mig_attest_info_req(
         // SnpEmu: no TDX firmware config volume; use SHA384([]) as placeholder policy hash
         #[cfg(feature = "SnpEmu")]
         {
-            digest_sha384(&[]).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+            use pal::snp::policy::SnpMigPolicy;
+            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes()).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
         #[cfg(not(feature = "SnpEmu"))]
         {
