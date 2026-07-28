@@ -17,6 +17,8 @@ export AS=nasm
 export AR=ar
 export CC=gcc
 export OPENSSL_NO_VENDOR=1
+# Use MigTD SPDM config: max_spdm_msg_size=65536 to fit SNP quote blob (Phase 2: 4220 bytes)
+export SPDM_CONFIG="$(pwd)/config/spdm_config.json"
 
 # Defaults
 DEFAULT_ROLE="source"
