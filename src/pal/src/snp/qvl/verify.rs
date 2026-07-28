@@ -39,7 +39,7 @@ impl QvlLibrary for SnpQvl {
         params: &AttestationVerificationParams<'_>,
         cert_chain: &[Vec<u8>],
     ) -> Result<QvlResult, PalError> {
-        if cert_chain.len() < 3 {
+        if cert_chain.len() < 2 {
             return Err(PalError::InvalidInput);
         }
 
@@ -61,10 +61,7 @@ impl QvlLibrary for SnpQvl {
         verify_attestation(
             &report,
             &vcek,
-            &ChainVerification::WithProvidedArk {
-                ask: &ask,
-                ark: &ark,
-            },
+            &ChainVerification::WithPinnedArk { ask: &ask },
         )
         .map_err(|e| PalError::VerificationFailed(format!("{}", e)))?;
 

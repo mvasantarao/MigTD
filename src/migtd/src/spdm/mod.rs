@@ -294,7 +294,7 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 fn parse_snp_cert_chain(data: &[u8]) -> Option<Vec<Vec<u8>>> {
     let mut certs = Vec::new();
     let mut pos = 0;
-    for _ in 0..3 {
+    for _ in 0..2 {
         if pos + 4 > data.len() {
             return None;
         }
