@@ -5,7 +5,7 @@
 # No TDX hardware, no TPM, no Azure CVM required — runs on any Linux machine.
 #
 # SnpEmu uses real TAV (tee-attestation-verification-lib) certificate chain
-# verification (ARK→ASK→VCEK) with fixture data from src/snp_emu/src/fixture_data/.
+# verification (ASK→VCEK) with fixture data; ARK is TAV's pinned Milan ARK from src/snp_emu/src/fixture_data/.
 # Use --skip-ra to bypass attestation entirely for quick connectivity tests.
 
 set -e
@@ -62,7 +62,7 @@ show_usage() {
     echo "  -h, --help              Show this help message"
     echo
     echo "Attestation modes:"
-    echo "  (default)    Real TAV verification: ARK→ASK→VCEK chain + report signature"
+    echo "  (default)    Real TAV verification: ASK→VCEK chain + report signature (ARK pinned in TAV)"
     echo "               Uses fixture data from src/snp_emu/src/fixture_data/ (Milan/Genoa/Turin)"
     echo "  --skip-ra    Bypass all attestation — SPDM session only, accept-all policy"
     echo
