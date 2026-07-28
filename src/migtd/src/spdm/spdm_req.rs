@@ -23,9 +23,9 @@ use spdmlib::{
     requester::RequesterContext,
 };
 use spin::Mutex;
-use zeroize::Zeroize;
 #[cfg(feature = "SnpEmu")]
 use zerocopy::{FromZeros, IntoBytes};
+use zeroize::Zeroize;
 extern crate alloc;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
@@ -416,7 +416,8 @@ pub async fn send_and_receive_sdm_migration_attest_info(
         #[cfg(feature = "SnpEmu")]
         {
             use pal::snp::policy::SnpMigPolicy;
-            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes()).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes())
+                .map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
         #[cfg(not(feature = "SnpEmu"))]
         {

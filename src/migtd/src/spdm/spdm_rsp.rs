@@ -667,7 +667,8 @@ pub fn handle_exchange_mig_attest_info_req(
         #[cfg(feature = "SnpEmu")]
         {
             use pal::snp::policy::SnpMigPolicy;
-            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes()).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes())
+                .map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
         #[cfg(not(feature = "SnpEmu"))]
         {
