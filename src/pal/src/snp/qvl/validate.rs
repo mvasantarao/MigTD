@@ -14,7 +14,7 @@ use crate::traits::PalError;
 
 /// Parameters governing what validate() checks.
 ///
-/// Phase 1: use phase1() constructor — all Option fields are None.
+/// Phase 2: use crypto_only() constructor — all Option fields are None.
 /// Phase 3: populate source_tcb, migration_data, ma_report_id as needed.
 pub struct AttestationVerificationParams<'a> {
     /// Raw bytes of the SNP attestation report (1184 bytes).
@@ -36,8 +36,10 @@ pub struct AttestationVerificationParams<'a> {
 }
 
 impl<'a> AttestationVerificationParams<'a> {
-    /// Phase 1 constructor: all Optional checks set to None (no-op).
-    pub fn phase1(report: &'a [u8], expected_report_data: &'a [u8; 48]) -> Self {
+    /// Creates params for cryptographic verification only — cert chain (ARK→ASK→VCEK),
+    /// report ECDSA signature, and report_data binding are checked;
+    /// all policy fields (min_tcb, source_tcb, ma_report_id, migration_data) are None.
+    pub fn crypto_only(report: &'a [u8], expected_report_data: &'a [u8; 48]) -> Self {
         Self {
             report,
             expected_report_data,
