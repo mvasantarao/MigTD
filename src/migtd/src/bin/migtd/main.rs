@@ -94,8 +94,8 @@ pub extern "C" fn main() {
     runtime_main()
 }
 
-// AzCVMEmu entry point - standard Rust main function
-#[cfg(feature = "SnpEmu")]
+// SnpEmu entry point - standard Rust main function
+#[cfg(all(feature = "SnpEmu", not(test)))]
 fn main() {
     snpemu::main();
 }
