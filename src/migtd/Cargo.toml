@@ -44,7 +44,9 @@ virtio_serial = { path="../devices/virtio_serial", optional = true }
 vmcall_raw = { path="../devices/vmcall_raw", optional = true }
 x86 = "0.47.0"
 x86_64 = { version = "0.14", default-features = false, features = ["instructions"] }
-zerocopy = { version = "=0.8.27", features = ["derive"] }
+pal = { path = "../pal", optional = true }
+snp_emu = { path = "../snp_emu", optional = true }
+zerocopy = { version = "0.8", features = ["derive"] }
 bitfield-struct = "0.11"
 raw-cpuid = "11.6.0"
 sha2 = { version = "0.10.2", default-features = false, optional = true }
@@ -102,6 +104,23 @@ AzCVMEmu = [
 	"tokio",
 ]
 igvm-attest = ["attestation/igvm-attest"]
+
+SnpEmu = [
+    "main",
+    "spdm_attestation",
+    "vmcall-raw",
+    "attestation/SnpEmu",
+    "vmcall_raw/SnpEmu",
+    "td-shim-interface-emu",
+    "td-shim-emu",
+    "tdx-tdcall-emu",
+    "td-payload-emu",
+    "td-logger-emu",
+    "tokio",
+    "pal",
+    "pal/snp-emu",
+    "snp_emu",
+]
 
 [patch.crates-io]
 sys_time = { path = "src/std-support/sys_time" }

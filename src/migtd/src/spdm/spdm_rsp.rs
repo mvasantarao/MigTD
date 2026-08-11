@@ -43,7 +43,7 @@ use spdmlib::{
     secret::SpdmSecretAsymSign,
 };
 use spin::Mutex;
-use zerocopy::IntoBytes;
+use zerocopy::{FromZeros, IntoBytes};
 use zeroize::Zeroize;
 
 extern crate alloc;
@@ -624,6 +624,9 @@ pub fn handle_exchange_mig_attest_info_req(
         .ok_or(SPDM_STATUS_BUFFER_FULL)?;
 
     //event log dst
+    #[cfg(feature = "SnpEmu")]
+    let event_log_dst: &[u8] = &[]; // SnpEmu: no TDX CCEL hardware
+    #[cfg(not(feature = "SnpEmu"))]
     let event_log_dst = get_event_log().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
     let event_log_element = VdmMessageElement {
         element_type: VdmMessageElementType::EventLogMy,
@@ -644,8 +647,18 @@ pub fn handle_exchange_mig_attest_info_req(
     };
     #[cfg(not(feature = "policy_v2"))]
     let mig_policy_dst_hash = {
-        let mig_policy_dst = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
-        digest_sha384(mig_policy_dst).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        // SnpEmu: no TDX firmware config volume; use SHA384([]) as placeholder policy hash
+        #[cfg(feature = "SnpEmu")]
+        {
+            use pal::snp::policy::SnpMigPolicy;
+            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes())
+                .map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        }
+        #[cfg(not(feature = "SnpEmu"))]
+        {
+            let mig_policy_dst = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
+            digest_sha384(mig_policy_dst).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        }
     };
     let mig_policy_element = VdmMessageElement {
         element_type: VdmMessageElementType::MigPolicyMy,
@@ -687,6 +700,7 @@ fn rsp_verify_peer_attestation_v1(
     // 2. Verify REPORTDATA binding
     #[cfg(not(any(
         feature = "AzCVMEmu",
+        feature = "SnpEmu",
         feature = "test_disable_ra_and_accept_all",
         feature = "test_mock_report",
         feature = "use-mock-quote"
@@ -702,7 +716,7 @@ fn rsp_verify_peer_attestation_v1(
     }
 
     // 3. Authenticate policy
-    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+    #[cfg(not(any(feature = "test_disable_ra_and_accept_all", feature = "SnpEmu")))]
     {
         let policy_check_result = mig_policy::authenticate_policy(
             false,

@@ -1,0 +1,12 @@
+[package]
+name = "snp_emu"
+version = "0.1.0"
+license = "BSD-2-Clause-Patent"
+edition = "2021"
+
+[dependencies]
+pal = { path = "../pal", features = ["snp-emu"] }
+log = "0.4"
+
+[dev-dependencies]
+tee-attestation-verification-lib = { git = "https://github.com/microsoft/TEE-Attestation-Verification", tag = "tav-1.0.2", features = ["crypto_pure_rust"] }

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg_attr(not(feature = "AzCVMEmu"), no_std)]
-#![cfg_attr(not(feature = "AzCVMEmu"), no_main)]
+#![cfg_attr(not(any(feature = "AzCVMEmu", feature = "SnpEmu")), no_std)]
+#![cfg_attr(not(any(feature = "AzCVMEmu", feature = "SnpEmu")), no_main)]
 
 extern crate alloc;
 
@@ -79,7 +79,10 @@ fn dump_td_info_and_hash() {
 
 const MIGTD_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(feature = "SnpEmu")]
+mod snpemu;
+
+#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 #[no_mangle]
 pub extern "C" fn main() {
     #[cfg(feature = "test_stack_size")]
@@ -92,6 +95,11 @@ pub extern "C" fn main() {
 }
 
 // AzCVMEmu entry point - standard Rust main function
+#[cfg(feature = "SnpEmu")]
+fn main() {
+    snpemu::main();
+}
+
 #[cfg(feature = "AzCVMEmu")]
 fn main() {
     cvmemu::main();
@@ -540,6 +548,10 @@ fn handle_pre_mig() {
                                 "ReportStatus for rebinding completed\n"
                             );
                             REQUESTS.lock().remove(&rebinding_info.mig_request_id);
+                        }
+                        #[cfg(feature = "SnpEmu")]
+                        WaitForRequestResponse::GetTdReport(_) => {
+                            // SnpEmu: GetTdReport handled in snpemu::main() WFR loop.
                         }
                         #[cfg(feature = "AzCVMEmu")]
                         WaitForRequestResponse::GetTdReport(wfr_info) => {

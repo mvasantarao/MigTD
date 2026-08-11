@@ -1067,9 +1067,9 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
     #[allow(unused_mut)]
     let mut transport = setup_transport(
         info.mig_info.mig_request_id,
-        #[cfg(any(feature = "vmcall-vsock", feature = "virtio-vsock"))]
+        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
         info.mig_socket_info.mig_td_cid,
-        #[cfg(any(feature = "vmcall-vsock", feature = "virtio-vsock"))]
+        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
         info.mig_socket_info.mig_channel_port,
     )
     .await?;
@@ -1226,6 +1226,14 @@ fn read_msk(mig_info: &MigtdMigrationInformation, msk: &mut MigrationSessionKey)
 }
 
 pub fn write_msk(mig_info: &MigtdMigrationInformation, msk: &MigrationSessionKey) -> Result<()> {
+    // SnpEmu: MSK write is a no-op in Phase 3a (no real SNP hardware).
+    // TODO(3a-11/Phase-3b): Replace with MSG_SET_MIGRATION_INFO via PSP VMGEXIT.
+    #[cfg(feature = "SnpEmu")]
+    {
+        log::info!(migration_request_id = mig_info.mig_request_id;
+            "SnpEmu: write_msk no-op (Phase 3a) -- Phase 3b: MSG_SET_MIGRATION_INFO");
+        return Ok(());
+    }
     for idx in 0..msk.fields.len() {
         tdx::tdcall_servtd_wr(
             mig_info.binding_handle,
