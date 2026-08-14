@@ -6,8 +6,7 @@
 //!
 //! Phase 1: cert chain ARK->ASK->VCEK verified with TAV sync::verify_attestation.
 //!          Report signature over [0..0x2A0] verified by TAV (ECDSA P-384).
-//!          validate() is a Phase 1 stub (returns Ok unconditionally).
-//! Phase 2 (P2-07): validate() extended with tcb_ge() + policy checks.
+//! Phase 2: validate() extended with tcb_ge() + report_data binding check.
 //!
 //! Note: snp_report.bin is extracted from the Azure HCLA response at offset 0x20
 //! (after the 32-byte HCLA wrapper header). cpuid_fam_id=0x19 (Milan, version=5).
@@ -61,16 +60,15 @@ impl QvlLibrary for SnpQvl {
         )
         .map_err(|e| PalError::VerificationFailed(format!("{}", e)))?;
 
-        // 4. Phase 1 validate() stub — no-op. Phase 2 (P2-07): tcb_ge + policy.
+        // 4. validate(): report_data binding check + optional TCB/SVN floor checks.
         validate(params)?;
 
         log::info!("SnpQvl: ASK->VCEK chain + VCEK report sig OK (TAV pinned Milan ARK)");
         Ok(QvlResult {
             platform: PlatformType::AmdSnp,
             tcb_status: TcbStatus::UpToDate,
-            // TODO P2-07: parse VCEK OID 1.3.6.1.4.1.3704.1.x when TAV exposes accessor.
+            // TODO Phase 3: parse VCEK OID 1.3.6.1.4.1.3704.1.x when TAV exposes accessor.
             // TAV verify_attestation() already verified report.reported_tcb == VCEK OIDs;
-            // P2-07 is additive output only and does NOT block P2-01.
             platform_tcb: None,
         })
     }

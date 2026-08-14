@@ -4,8 +4,7 @@
 
 //! SNP attestation report validation parameters.
 //!
-//! Phase 1: struct skeleton only — validate() is a stub returning Ok(()).
-//! Phase 2 (P2-07): implement tcb_ge() + full validate() logic.
+//! Phase 2: tcb_ge() + expected_report_data binding check implemented.
 //! Phase 3: populate Option<> fields for forwardPolicy / MIGRATION_DATA / maReportID.
 
 use tee_attestation_verification_lib::snp::report::{
@@ -64,9 +63,10 @@ fn tcb_ge(a: &TcbVersion, b: &TcbVersion) -> bool {
 
 /// Validate an SNP attestation report against the given parameters.
 ///
-/// Checks (all optional — skipped if None):
-///   1. report.reported_tcb >= params.min_tcb  (field-by-field via PartialOrd)
-///   2. report.guest_svn    >= params.min_guest_svn (u32, report offset 0x004)
+/// Checks performed (in order):
+///   0. report_data binding — MANDATORY: report.report_data[0..48] == SHA384(prefix || TH1)
+///   1. report.reported_tcb >= params.min_tcb  (field-by-field via PartialOrd) — if Some
+///   2. report.guest_svn    >= params.min_guest_svn (u32, report offset 0x004) — if Some
 ///
 /// Note: TAV's verify_attestation() has already confirmed:
 ///   - report.reported_tcb == VCEK OID extensions (verify_tcb_values)
@@ -74,13 +74,17 @@ fn tcb_ge(a: &TcbVersion, b: &TcbVersion) -> bool {
 ///   - report ECDSA P-384 signature is valid
 /// So reported_tcb here is cryptographically trusted.
 pub fn validate(params: &AttestationVerificationParams<'_>) -> Result<(), PalError> {
-    // Short-circuit: skip parse cost for crypto_only() path (all None)
-    if params.min_tcb.is_none() && params.min_guest_svn.is_none() {
-        return Ok(());
-    }
-
     let report = AttestationReport::try_read_from_bytes(params.report)
         .map_err(|_| PalError::VerificationFailed("SNP report parse in validate".into()))?;
+
+    // Check 0: report_data binding — MANDATORY.
+    // report.report_data is [u8; 64] at raw offset 0x050; expected is SHA384(prefix||TH1) = 48 bytes.
+    // Bytes [48..64] are zero padding and are not compared.
+    if report.report_data[..48] != *params.expected_report_data {
+        return Err(PalError::VerificationFailed(
+            "report_data binding mismatch: SHA384(prefix || TH1) does not match".into(),
+        ));
+    }
 
     // Check 1: platform TCB floor (boot_loader, tee, snp, microcode)
     if let Some(ref min_tcb) = params.min_tcb {
@@ -110,10 +114,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validate_no_constraints_passes() {
-        // crypto_only() = all None — short-circuits before parse
+    fn validate_zeroed_report_matches_zeroed_expected() {
+        // All-zero 1184-byte report: report_data[0..48] = [0;48] matches expected [0;48].
         let dummy = vec![0u8; 1184];
         let params = AttestationVerificationParams::crypto_only(&dummy, &[0u8; 48]);
         assert!(validate(&params).is_ok());
+    }
+
+    #[test]
+    fn validate_report_data_mismatch_fails() {
+        // All-zero report: report_data[0..48] = [0;48]. Expected = [1;48] -> mismatch.
+        let dummy = vec![0u8; 1184];
+        let expected = [1u8; 48];
+        let params = AttestationVerificationParams::crypto_only(&dummy, &expected);
+        assert!(validate(&params).is_err());
     }
 }
