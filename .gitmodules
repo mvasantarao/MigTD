@@ -3,7 +3,7 @@
 	url = https://github.com/intel/linux-sgx.git
 [submodule "deps/td-shim"]
 	path = deps/td-shim
-	url = git@github.com:mvasantarao/td-shim.git
+	url = https://github.com/mvasantarao/td-shim.git
 	branch = snp-emu-zerocopy-fix
 [submodule "deps/spdm-rs"]
 	path = deps/spdm-rs
