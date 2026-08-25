@@ -143,3 +143,12 @@ fn init(payload: u64) {
         }
     }
 }
+
+#[cfg(feature = "SnpEmu")]
+pub mod runtime;
+
+#[cfg(feature = "SnpEmu")]
+pub mod transport;
+
+#[cfg(feature = "SnpEmu")]
+pub mod evidence;

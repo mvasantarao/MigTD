@@ -675,3 +675,6 @@ mod test {
         );
     }
 }
+
+#[cfg(feature = "SnpEmu")]
+pub mod host_transport;
