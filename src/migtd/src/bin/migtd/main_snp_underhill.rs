@@ -5,12 +5,25 @@
 //! Mounts proc/sysfs/devtmpfs, initializes logging, then enters WFR service loop.
 //!
 //! Phase 3a: TcpTransport (A2). TODO(Phase-3b): select GhcbVmgexitTransport.
+//!
+//! TCP address selection (Source MA only -- Dest MA always binds 0.0.0.0):
+//!   In production:  IGVMAgent runs on the same node, so 127.0.0.1:8001 is correct.
+//!   In test/2-node: set env var MA_HOST_ADDR=<host_ip>:8001 before launching MA.
+//!
+//! 2-node test topology:
+//!   Node A:  run `host_wfr_test --server 0.0.0.0:8001`   <- Source MA client connects here
+//!            run source MA binary (connects to Node A host_wfr_test)
+//!   Node B:  run dest MA binary (listens on 0.0.0.0:8002)
+//!            run `host_wfr_test --client <NodeB_IP>:8002`  <- host connects to Dest MA
+//!   Both host_wfr_test instances must reach StartMigration roughly simultaneously
+//!   for SPDM peer-to-peer handshake (exchange_msk) to succeed.
 
 use std::fs;
 
-/// Source MA TCP port: MA is client, connects to IGVMAgent (host) server.
-const MA_SOURCE_HOST_ADDR: &str = "127.0.0.1:8001";
-/// Dest MA TCP port: MA is server, IGVMAgent (host) client connects in.
+/// Default: IGVMAgent co-located on the same node (production).
+/// Override with env var MA_HOST_ADDR=<ip>:<port> for 2-node testing.
+const MA_SOURCE_HOST_ADDR_DEFAULT: &str = "127.0.0.1:8001";
+/// Dest MA always binds all interfaces so host can connect from any node.
 const MA_DEST_LISTEN_ADDR: &str = "0.0.0.0:8002";
 
 pub fn ma_pid1_main(is_source: bool) -> i32 {
@@ -42,8 +55,13 @@ pub fn ma_pid1_main(is_source: bool) -> i32 {
         use crate::runtime::snp::snpemu::runtime_main_snp;
 
         let transport = if is_source {
-            TcpTransport::connect(MA_SOURCE_HOST_ADDR).await
+            // Allow override for 2-node testing: MA_HOST_ADDR=<ip>:8001
+            let addr = std::env::var("MA_HOST_ADDR")
+                .unwrap_or_else(|_| MA_SOURCE_HOST_ADDR_DEFAULT.to_string());
+            log::info!("[MA] Source MA: connecting to IGVMAgent/host at {}", addr);
+            TcpTransport::connect(&addr).await
         } else {
+            log::info!("[MA] Dest MA: listening for IGVMAgent/host on {}", MA_DEST_LISTEN_ADDR);
             TcpTransport::accept(MA_DEST_LISTEN_ADDR).await
         };
         match transport {
