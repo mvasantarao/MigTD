@@ -8,6 +8,11 @@ edition = "2021"
 name = "migtd"
 required-features = ["main"]
 
+[[bin]]
+name = "host_wfr_test"
+path = "src/bin/host_wfr_test/main.rs"
+required-features = ["SnpEmu"]
+
 [dev-dependencies]
 attestation = { path = "../attestation", default-features = false, features = ["test"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
