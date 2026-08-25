@@ -658,3 +658,6 @@ fn test_memory() {
         td_payload::println!("max heap usage: {:2x}", value);
     }
 }
+
+#[cfg(feature = "SnpUnderhill")]
+mod main_snp_underhill;

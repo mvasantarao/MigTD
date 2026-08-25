@@ -4,6 +4,7 @@
 
 pub mod data;
 pub mod event;
+#[cfg(feature = "vmcall-raw")]
 pub mod logging;
 #[cfg(feature = "policy_v2")]
 pub mod pre_session_data;

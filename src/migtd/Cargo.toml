@@ -13,6 +13,7 @@ attestation = { path = "../attestation", default-features = false, features = ["
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [dependencies]
+nix = { version = "0.27", features = ["mount", "fs"], optional = true }
 bitfield = "0.13.2"
 anyhow = { version = "1.0.68", default-features = false }
 async_io = { path = "../async/async_io" }
@@ -121,6 +122,13 @@ SnpEmu = [
     "pal/snp-emu",
     "snp_emu",
 ]
+
+SnpUnderhill = [
+    "SnpEmu",
+    "dep:nix",
+
+]
+
 
 [patch.crates-io]
 sys_time = { path = "src/std-support/sys_time" }

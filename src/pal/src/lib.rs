@@ -9,3 +9,6 @@ pub mod types;
 pub mod snp;
 #[cfg(feature = "tdx")]
 pub mod tdx;
+
+#[cfg(feature = "snp-emu")]
+pub mod logging;
