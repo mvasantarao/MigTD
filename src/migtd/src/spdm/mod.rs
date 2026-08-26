@@ -133,16 +133,38 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
 pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
     let hash = digest_sha384(report_data)?;
 
-    // Generate the TD Report that contains the public key hash as nonce
+    // Build 64-byte additional_data: SHA384(report_data) padded to 64 bytes.
+    // This is the nonce embedded in the attestation report, binding it to the
+    // SPDM handshake transcript (TH1).
     let mut additional_data = [0u8; 64];
     additional_data[..hash.len()].copy_from_slice(hash.as_ref());
 
-    let (quote, _report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
-        log::error!("get_quote_with_retry failed: {:?}\n", e);
-        MigrationResult::MutualAttestationError
-    })?;
+    // SnpEmu (Phase 3a): return pre-captured fixture blob.
+    // report_data is accepted but NOT injected -- fixture carries stale nonce.
+    // TODO(Phase-3b/3b-binding): switch to SnpHardwareProvider which injects
+    // additional_data as user_data in the live PSP SNP_GET_REPORT request.
+    #[cfg(feature = "SnpEmu")]
+    {
+        use pal::traits::AttestationProvider;
+        use snp_emu::provider_fixture::SnpFixtureProvider;
+        let bundle = SnpFixtureProvider
+            .get_report(&additional_data)
+            .map_err(|e| {
+                log::error!("SnpFixtureProvider.get_report failed: {:?}\n", e);
+                MigrationResult::MutualAttestationError
+            })?;
+        return Ok(bundle.ma_report_blob);
+    }
 
-    Ok(quote)
+    // TDX / AzCVMEmu path: generate a real TD report and get a quote via QVL.
+    #[cfg(not(feature = "SnpEmu"))]
+    {
+        let (quote, _report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
+            log::error!("get_quote_with_retry failed: {:?}\n", e);
+            MigrationResult::MutualAttestationError
+        })?;
+        Ok(quote)
+    }
 }
 
 /// Verify that the peer's quote contains the expected REPORTDATA.
