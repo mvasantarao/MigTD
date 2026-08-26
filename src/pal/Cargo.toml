@@ -12,4 +12,4 @@ tdx = []
 [dependencies]
 zerocopy = { version = "0.8", features = ["derive"] }
 log = "0.4"
-tee-attestation-verification-lib = { git = "https://github.com/microsoft/TEE-Attestation-Verification", tag = "tav-1.0.2", features = ["crypto_pure_rust"], optional = true }
+tee-attestation-verification-lib = { git = "https://github.com/microsoft/TEE-Attestation-Verification", tag = "tav-1.0.2", features = ["crypto_pure_rust"], default-features = false, optional = true }

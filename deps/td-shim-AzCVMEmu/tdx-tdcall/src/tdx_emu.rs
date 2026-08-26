@@ -230,8 +230,8 @@ fn populate_servtd_fields(binding_handle: u64, target_td_uuid: [u64; 4]) {
     // Get td_info as raw bytes (same as td-shim's as_bytes() implementation)
     let td_info_bytes = unsafe {
         core::slice::from_raw_parts(
-            &report.tdinfo as *const _ as *const u8,
-            core::mem::size_of_val(&report.tdinfo),
+            &report.td_info as *const _ as *const u8,
+            core::mem::size_of_val(&report.td_info),
         )
     };
     let info_hash: [u8; 48] = Sha384::digest(td_info_bytes).into();
@@ -267,9 +267,9 @@ fn populate_servtd_fields(binding_handle: u64, target_td_uuid: [u64; 4]) {
 
     write_field(TDCS_FIELD_SERVTD_INIT_SERVTD_INFO_HASH, &servtd_info_hash, 8);
     write_field(TDCS_FIELD_SERVTD_INIT_ATTR, &servtd_attr.to_le_bytes(), 8);
-    write_field(TDCS_FIELD_INIT_CPUSVN, &report.report_mac.cpusvn, 8);
+    write_field(TDCS_FIELD_INIT_CPUSVN, &report.report_mac.cpu_svn, 8);
     // tee_tcb_svn is at offset 8 in tee_tcb_info (after valid[8])
-    write_field(TDCS_FIELD_INIT_TEE_TCB_SVN, &report.tee_tcb_info[8..24], 8);
+    write_field(TDCS_FIELD_INIT_TEE_TCB_SVN, &report.tee_tcb_info.as_bytes()[8..24], 8);
     write_field(TDCS_FIELD_INIT_TEE_MODEL, &[0u8; 12], 4);
     write_field(TDCS_FIELD_SERVTD_INFO_HASH, &servtd_info_hash, 8);
     write_field(TDCS_FIELD_SERVTD_ATTR, &servtd_attr.to_le_bytes(), 8);

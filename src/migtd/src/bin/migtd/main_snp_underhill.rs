@@ -51,8 +51,8 @@ pub fn ma_pid1_main(is_source: bool) -> i32 {
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     rt.block_on(async move {
-        use crate::transport::host_control::tcp::TcpTransport;
-        use crate::runtime::snp::snpemu::runtime_main_snp;
+        use migtd::transport::host_control::tcp::TcpTransport;
+        use migtd::runtime::snp::snpemu::runtime_main_snp;
 
         let transport = if is_source {
             // Allow override for 2-node testing: MA_HOST_ADDR=<ip>:8001

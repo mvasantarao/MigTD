@@ -105,6 +105,7 @@ AzCVMEmu = [
 	"td-shim-interface-emu",
 	"td-shim-emu",
 	"tdx-tdcall-emu",
+	"tdx-tdcall-emu/vtpm",      # Enable vTPM/IMDS attestation in AzCVMEmu
 	"td-payload-emu",
 	"td-logger-emu",            # Use console-based td-logger shim
 	"tokio",

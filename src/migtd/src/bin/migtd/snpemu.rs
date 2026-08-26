@@ -33,7 +33,7 @@ pub fn main() {
     }
 
     // Init internal heap (only when NOT bypassing attestation)
-    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+    #[cfg(not(any(feature = "test_disable_ra_and_accept_all", feature = "SnpUnderhill")))]
     attestation::attest_init_heap();
 
     // Initialize event log emulation

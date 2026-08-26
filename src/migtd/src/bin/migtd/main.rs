@@ -94,8 +94,17 @@ pub extern "C" fn main() {
     runtime_main()
 }
 
-// SnpEmu entry point - standard Rust main function
-#[cfg(all(feature = "SnpEmu", not(test)))]
+// SnpUnderhill: run as PID 1 in SNP guest initramfs
+#[cfg(all(feature = "SnpUnderhill", not(test)))]
+fn main() {
+    let role = std::env::var("MA_ROLE").unwrap_or_else(|_| "dest".to_string());
+    let is_source = role == "source";
+    let exit_code = main_snp_underhill::ma_pid1_main(is_source);
+    std::process::exit(exit_code);
+}
+
+// SnpEmu entry point - standard Rust main function (pure emulator, no production hardware)
+#[cfg(all(feature = "SnpEmu", not(feature = "SnpUnderhill"), not(test)))]
 fn main() {
     snpemu::main();
 }

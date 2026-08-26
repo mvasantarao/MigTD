@@ -83,6 +83,7 @@ pub mod tdx {
 // Emulated tdreport module for AzCVMEmu compatibility
 pub mod tdreport {
     use crate::tdreport_emu::tdcall_report_emulated;
+    #[cfg(feature = "vtpm")]
     use az_tdx_vtpm::tdx::TdReport as AzTdReport;
     use original_tdx_tdcall::TdCallError;
 
@@ -91,41 +92,16 @@ pub mod tdreport {
         TdxReport, TD_REPORT_ADDITIONAL_DATA_SIZE, TD_REPORT_SIZE, TdInfo,
     };
 
-    // The emulated tdcall_report() copies the az-tdx-vtpm TdReport byte-for-byte
-    // into a TD_REPORT_SIZE buffer and transmutes it to TdxReport. Both types are
-    // #[repr(C)] views of the same TDX-module TDREPORT_STRUCT and are 1024 bytes.
-    // transmute already enforces size_of::<TdxReport>() == TD_REPORT_SIZE at compile
-    // time; this guard ensures the *source* layout cannot silently drift (e.g. an
-    // az-tdx-vtpm upgrade) and zero-pad into a malformed report. Build fails instead.
+    // Size guard: ensure az-tdx-vtpm TdReport stays 1024 bytes (only needed with vtpm feature).
+    #[cfg(feature = "vtpm")]
     const _: () = assert!(core::mem::size_of::<AzTdReport>() == TD_REPORT_SIZE);
 
-    /// Emulated tdcall_report function for AzCVMEmu mode
-    /// Now returns the exact same error type as the original for perfect compatibility
+    /// Emulated tdcall_report function.
+    /// With vtpm: fetches from hardware vTPM → TdxReport.
+    /// Without vtpm (SnpEmu/mock): returns mock TdxReport directly.
     pub fn tdcall_report(additional_data: &[u8; 64]) -> Result<TdxReport, TdCallError> {
-        let az_td_report = tdcall_report_emulated(additional_data)?;
-
-        // Create a full 1024-byte TdxReport from the az-tdx-vtpm TdReport
-        // We need to copy the az-tdx-vtpm data into a properly sized buffer
-        let mut tdx_report_bytes = [0u8; TD_REPORT_SIZE];
-
-        // Convert az_td_report to bytes using pointer cast
-        let az_report_bytes = unsafe {
-            core::slice::from_raw_parts(
-                &az_td_report as *const AzTdReport as *const u8,
-                core::mem::size_of::<AzTdReport>(),
-            )
-        };
-
-        let copy_size = core::cmp::min(az_report_bytes.len(), TD_REPORT_SIZE);
-        tdx_report_bytes[..copy_size].copy_from_slice(&az_report_bytes[..copy_size]);
-
-        // Convert the full 1024-byte buffer to TdxReport
-        let tdx_report = unsafe {
-            // Safety: We have a properly sized 1024-byte buffer that matches TdxReport layout
-            core::mem::transmute::<[u8; TD_REPORT_SIZE], TdxReport>(tdx_report_bytes)
-        };
-
-        Ok(tdx_report)
+        // tdcall_report_emulated now returns TdxReport directly in all code paths.
+        tdcall_report_emulated(additional_data)
     }
 
     /// Emulated TD Report Verification
