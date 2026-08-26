@@ -34,17 +34,19 @@ pub struct TcpTransport {
 impl TcpTransport {
     /// Source MA: connect outward to the host WFR server.
     pub async fn connect(addr: &str) -> std::io::Result<Self> {
+        eprintln!("[MA] TcpTransport: connecting to {}", addr);
         let stream = TcpStream::connect(addr).await?;
-        log::info!("[MA] TcpTransport: connected to {}", addr);
+        eprintln!("[MA] TcpTransport: connected to {}", addr);
         Ok(Self { stream: Arc::new(Mutex::new(stream)) })
     }
 
     /// Dest MA: listen and wait for the host WFR client to connect.
     pub async fn accept(listen_addr: &str) -> std::io::Result<Self> {
+        eprintln!("[MA] TcpTransport: binding {}", listen_addr);
         let listener = TcpListener::bind(listen_addr).await?;
-        log::info!("[MA] TcpTransport: listening on {}", listen_addr);
+        eprintln!("[MA] TcpTransport: bound, waiting for connection...");
         let (stream, peer) = listener.accept().await?;
-        log::info!("[MA] TcpTransport: host connected from {}", peer);
+        eprintln!("[MA] TcpTransport: host connected from {}", peer);
         Ok(Self { stream: Arc::new(Mutex::new(stream)) })
     }
 }
@@ -67,12 +69,13 @@ impl HostControlTransport for TcpTransport {
             stream.read_exact(&mut data).await.map_err(|_| MigrationResult::NetworkError)?;
         }
 
+        eprintln!("[MA] TcpTransport: recv opcode=0x{:02x} request_id={} data_len={}", operation, request_id, data_len);
         match operation {
             1 => parse_start_migration(request_id, &data),
             3 => parse_get_tdreport(request_id, &data),
             4 => parse_enable_logarea(request_id, &data),
             _ => {
-                log::warn!("[MA] TcpTransport: unknown opcode 0x{:02x}", operation);
+                eprintln!("[MA] WARN: TcpTransport: unknown opcode 0x{:02x}", operation);
                 Err(MigrationResult::UnsupportedOperationError)
             }
         }
@@ -95,6 +98,7 @@ impl HostControlTransport for TcpTransport {
         let mut stream = self.stream.lock().await;
         stream.write_all(&frame).await.map_err(|_| MigrationResult::NetworkError)?;
         stream.flush().await.map_err(|_| MigrationResult::NetworkError)?;
+        eprintln!("[MA] TcpTransport: report_status sent: status={} request_id={} data_len={}", status, request_id, data.len());
         Ok(())
     }
 }

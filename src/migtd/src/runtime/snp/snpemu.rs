@@ -22,12 +22,12 @@ use crate::migration::MigrationResult;
 use pal::traits::AttestationProvider;
 
 pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
-    log::info!("[MA] WFR dispatcher started (Phase 3a SnpEmu)");
+    eprintln!("[MA] WFR dispatcher started (Phase 3a SnpEmu)");
 
     loop {
         let req = match transport.wait_for_request().await {
             Err(e) => {
-                log::error!("[MA] wait_for_request failed: {}", e as u8);
+                eprintln!("[MA] FATAL: wait_for_request failed: opcode_err={}", e as u8);
                 return 1;
             }
             Ok(r) => r,
@@ -35,7 +35,7 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
 
         match req {
             WaitForRequestResponse::EnableLogArea(info) => {
-                log::info!("[MA] opcode 4: EnableLogArea (request_id={})", info.mig_request_id);
+                eprintln!("[MA] opcode 4: EnableLogArea (request_id={})", info.mig_request_id);
                 let mut data = Vec::new();
                 let status = enable_logarea(info.log_max_level, info.mig_request_id, &mut data)
                     .await
@@ -49,13 +49,13 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
                 // IGVMAgent MA health check — must return real 1184-byte ATTESTATION_REPORT.
                 // SnpEmu path: SnpFixtureProvider returns pre-captured fixture blob.
                 // Phase 3b (SnpHardwareProvider): added in 3a-09.
-                log::info!("[MA] opcode 3: GetTDReport (request_id={})", info.mig_request_id);
+                eprintln!("[MA] opcode 3: GetTDReport (request_id={})", info.mig_request_id);
                 let report_result = snp_emu::provider_fixture::SnpFixtureProvider
                     .get_report(&info.reportdata);
                 let (status, data) = match report_result {
                     Ok(bundle) => (MigrationResult::Success, bundle.ma_report_blob),
                     Err(e) => {
-                        log::error!("[MA] GetTDReport: SNP_GET_REPORT failed: {:?}", e);
+                        eprintln!("[MA] ERROR: GetTDReport: SNP_GET_REPORT failed: {:?}", e);
                         (MigrationResult::MutualAttestationError, Vec::new())
                     }
                 };
@@ -64,22 +64,22 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
 
             WaitForRequestResponse::StartMigration(req) => {
                 let request_id = req.mig_info.mig_request_id;
-                log::info!("[MA] opcode 1: StartMigration -> exchange_msk() (request_id={})", request_id);
+                eprintln!("[MA] opcode 1: StartMigration -> exchange_msk() (request_id={})", request_id);
                 let res = exchange_msk(&req).await;
                 let status = res.map(|_| MigrationResult::Success).unwrap_or_else(|e| e);
                 let status_code = status as u8;
                 let _ = transport.report_status(status_code, request_id, &[]).await;
                 if status_code == MigrationResult::Success as u8 {
-                    log::info!("[MA] migration complete (request_id={}) — exiting WFR loop", request_id);
+                    eprintln!("[MA] SUCCESS: migration complete (request_id={}) — exiting WFR loop", request_id);
                     return 0;
                 } else {
-                    log::error!("[MA] migration failed: status={} (request_id={})", status_code, request_id);
+                    eprintln!("[MA] ERROR: migration failed: status={} (request_id={})", status_code, request_id);
                     return status_code as i32;
                 }
             }
 
             _ => {
-                log::warn!("[MA] unhandled WFR opcode — ignoring");
+                eprintln!("[MA] WARN: unhandled WFR opcode — ignoring");
             }
         }
     }

@@ -1052,6 +1052,7 @@ async fn migration_dst_exchange_msk(
 
 #[cfg(feature = "main")]
 pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
+    eprintln!("[MA] exchange_msk: entry (request_id={} is_src={})", info.mig_info.mig_request_id, info.is_src());
     // Per GHCI 1.5: if VMM provided initMigtdData, verify policy binding
     #[cfg(feature = "policy_v2")]
     if let Some(init_td_info) = info.mig_info.init_td_info_if_present() {
@@ -1064,6 +1065,7 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
         })?;
     }
 
+    eprintln!("[MA] exchange_msk: calling setup_transport (peer SPDM channel)");
     #[allow(unused_mut)]
     let mut transport = setup_transport(
         info.mig_info.mig_request_id,

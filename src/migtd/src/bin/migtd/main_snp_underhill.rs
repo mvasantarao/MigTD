@@ -44,11 +44,11 @@ pub fn ma_pid1_main(is_source: bool) -> i32 {
     }
 
     // MA_BOOT_STAGE_1: must appear in AHOS console stream for boot verification (3a-05 AC5)
-    log::info!("[MA] MA_BOOT_STAGE_1: pid1 init started, role={}", if is_source { "source" } else { "dest" });
+    eprintln!("[MA] MA_BOOT_STAGE_1: pid1 init started, role={}", if is_source { "source" } else { "dest" });
 
     // TODO(3a-05): load static policy blobs from initramfs embedded path
 
-    log::info!("[MA] MA_BOOT_STAGE_2: entering WFR service loop");
+    eprintln!("[MA] MA_BOOT_STAGE_2: entering WFR service loop");
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     rt.block_on(async move {
@@ -60,16 +60,16 @@ pub fn ma_pid1_main(is_source: bool) -> i32 {
             let addr = std::env::args().nth(2)
                 .or_else(|| std::env::var("MA_HOST_ADDR").ok())
                 .unwrap_or_else(|| MA_SOURCE_HOST_ADDR_DEFAULT.to_string());
-            log::info!("[MA] Source MA: connecting to IGVMAgent/host at {}", addr);
+            eprintln!("[MA] Source MA: connecting to IGVMAgent/host at {}", addr);
             TcpTransport::connect(&addr).await
         } else {
-            log::info!("[MA] Dest MA: listening for IGVMAgent/host on {}", MA_DEST_LISTEN_ADDR);
+            eprintln!("[MA] Dest MA: binding TCP on {}", MA_DEST_LISTEN_ADDR);
             TcpTransport::accept(MA_DEST_LISTEN_ADDR).await
         };
         match transport {
             Ok(t) => runtime_main_snp(&t).await,
             Err(e) => {
-                log::error!("[MA] TCP transport setup failed: {}", e);
+                eprintln!("[MA] FATAL: TCP transport setup failed: {}", e);
                 1
             }
         }
