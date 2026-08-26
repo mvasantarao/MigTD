@@ -152,6 +152,12 @@ pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
 ///
 /// `supplemental_data` is the output of verify_quote() (774 bytes),
 /// which contains the REPORTDATA at offset 520..568 (48 bytes).
+///
+/// **TDX-ONLY.** This function reads the TDX supplemental_data layout (QvlResult, 774 bytes).
+/// TODO(Phase-3b/3b-binding): SNP reports carry report_data at report[0x50..0x90] (bytes 80..144
+/// of the raw 1184-byte ATTESTATION_REPORT, not in a QvlResult supplemental blob).
+/// Phase 3b must add `verify_snp_report_data_binding()` reading that offset, and remove
+/// the #[cfg(SnpEmu)] bypass in spdm_req.rs / spdm_rsp.rs verify_report_data_binding() calls.
 pub fn verify_peer_report_data(
     supplemental_data: &[u8],
     expected_report_data: &[u8],
