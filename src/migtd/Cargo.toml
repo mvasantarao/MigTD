@@ -63,7 +63,7 @@ td-payload-emu = { path = "../../deps/td-shim-AzCVMEmu/td-payload-emu", optional
 td-shim = { path = "../../deps/td-shim/td-shim", default-features = false }
 td-shim-interface-emu = { path = "../../deps/td-shim-AzCVMEmu/td-shim-interface", optional = true, features = ["std"] }
 td-shim-emu = { path = "../../deps/td-shim-AzCVMEmu/td-shim", optional = true }
-tokio = { version = "1.0", features = ["rt", "rt-multi-thread"], optional = true }
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "sync"], optional = true }
 
 minicov = { version = "0.2", default-features = false, optional = true }
 td-benchmark = { path = "../../deps/td-shim/devtools/td-benchmark", default-features = false,  optional = true }

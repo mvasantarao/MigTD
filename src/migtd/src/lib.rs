@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg_attr(not(any(test, feature = "AzCVMEmu")), no_std)]
-#![cfg_attr(not(any(test, feature = "AzCVMEmu")), no_main)]
+#![cfg_attr(not(any(test, feature = "AzCVMEmu", feature = "SnpEmu")), no_std)]
+#![cfg_attr(not(any(test, feature = "AzCVMEmu", feature = "SnpEmu")), no_main)]
 
 // AzCVMEmu only supports the vmcall-raw transport.
 #[cfg(all(

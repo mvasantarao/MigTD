@@ -19,10 +19,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
-use crate::migration::data::{
-    EnableLogAreaInfo, MigrationInformation, MigtdMigrationInformation, ReportInfo,
-    WaitForRequestResponse,
-};
+use crate::migration::data::{MigrationInformation, WaitForRequestResponse};
+use crate::migration::{EnableLogAreaInfo, MigtdMigrationInformation, ReportInfo};
 use crate::migration::host_transport::HostControlTransport;
 use crate::migration::MigrationResult;
 

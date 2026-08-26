@@ -26,13 +26,13 @@ pub fn u8_to_levelfilter(value: u8) -> LevelFilter {
 
 /// Phase 3a: heap-backed ring buffer LogPlatform impl for SnpEmu (userspace testing).
 /// Phase 3b: replaced by GHCB-backed shared page implementation (RealSnpLogPlatform).
-#[cfg(feature = snp-emu)]
+#[cfg(feature = "snp-emu")]
 pub struct SnpEmuLogPlatform {
     entries: std::sync::Mutex<std::collections::VecDeque<(u32, Vec<u8>)>>,
     capacity: usize,
 }
 
-#[cfg(feature = snp-emu)]
+#[cfg(feature = "snp-emu")]
 impl SnpEmuLogPlatform {
     pub fn new(capacity: usize) -> Self {
         Self {
@@ -42,7 +42,7 @@ impl SnpEmuLogPlatform {
     }
 }
 
-#[cfg(feature = snp-emu)]
+#[cfg(feature = "snp-emu")]
 impl crate::traits::LogPlatform for SnpEmuLogPlatform {
     fn write_entry(&self, event_type: u32, payload: &[u8]) -> Result<(), crate::traits::PalError> {
         let mut q = self.entries.lock().map_err(|_| crate::traits::PalError::NotAvailable)?;
