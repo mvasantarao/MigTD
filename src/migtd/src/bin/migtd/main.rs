@@ -97,7 +97,10 @@ pub extern "C" fn main() {
 // SnpUnderhill: run as PID 1 in SNP guest initramfs
 #[cfg(all(feature = "SnpUnderhill", not(test)))]
 fn main() {
-    let role = std::env::var("MA_ROLE").unwrap_or_else(|_| "dest".to_string());
+    // argv[1] = role when running as PID 1 in initramfs (no env vars); env var fallback for test runs
+    let role = std::env::args().nth(1)
+        .or_else(|| std::env::var("MA_ROLE").ok())
+        .unwrap_or_else(|| "dest".to_string());
     let is_source = role == "source";
     let exit_code = main_snp_underhill::ma_pid1_main(is_source);
     std::process::exit(exit_code);

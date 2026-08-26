@@ -8,7 +8,8 @@
 //!
 //! TCP address selection (Source MA only -- Dest MA always binds 0.0.0.0):
 //!   In production:  IGVMAgent runs on the same node, so 127.0.0.1:8001 is correct.
-//!   In test/2-node: set env var MA_HOST_ADDR=<host_ip>:8001 before launching MA.
+//!   In SNP guest (PID 1): pass as kernel cmdline: init=/init source 10.0.2.2:8001
+//!   In test/2-node: env var MA_HOST_ADDR=<host_ip>:8001 also accepted (fallback).
 //!
 //! 2-node test topology:
 //!   Node A:  run `host_wfr_test --server 0.0.0.0:8001`   <- Source MA client connects here
@@ -55,9 +56,10 @@ pub fn ma_pid1_main(is_source: bool) -> i32 {
         use migtd::runtime::snp::snpemu::runtime_main_snp;
 
         let transport = if is_source {
-            // Allow override for 2-node testing: MA_HOST_ADDR=<ip>:8001
-            let addr = std::env::var("MA_HOST_ADDR")
-                .unwrap_or_else(|_| MA_SOURCE_HOST_ADDR_DEFAULT.to_string());
+            // argv[2] = host addr when running as PID 1; env var fallback; then default (10.0.2.2 = QEMU user-net gateway)
+            let addr = std::env::args().nth(2)
+                .or_else(|| std::env::var("MA_HOST_ADDR").ok())
+                .unwrap_or_else(|| MA_SOURCE_HOST_ADDR_DEFAULT.to_string());
             log::info!("[MA] Source MA: connecting to IGVMAgent/host at {}", addr);
             TcpTransport::connect(&addr).await
         } else {
