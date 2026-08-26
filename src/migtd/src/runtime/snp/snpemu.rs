@@ -161,8 +161,12 @@ mod tests {
     // ── Tests ────────────────────────────────────────────────────────────────
 
     /// EnableLogArea: dispatcher must call report_status with Success (0).
+    /// Acquires TEST_LOCK from logging module — EnableLogArea touches LOGAREAPTR
+    /// (global shared state); without the lock this test races with logging tests
+    /// that clear LOGAREAPTR, causing an index-out-of-bounds panic.
     #[tokio::test]
     async fn test_report_status_enable_logarea_success_code() {
+        let _guard = crate::migration::logging::test::TEST_LOCK.lock().unwrap();
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 3)]);
         // Dispatcher will loop until wait_for_request returns Err (queue empty)
         let _ = super::runtime_main_snp(&transport).await;

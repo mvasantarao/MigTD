@@ -316,6 +316,9 @@ pub async fn enable_logarea(log_max_level: u8, request_id: u64, data: &mut Vec<u
             // Copy provisional log buffers to shared log buffers before freeing
             if provisional_logs_enabled {
                 let provisional_logareavector = PROVISIONAL_LOGAREAPTR.lock();
+                if provisional_logareavector.is_empty() {
+                    return Err(MigrationResult::OutOfResource);
+                }
                 let provisional_buffer = provisional_logareavector[0];
                 let provisional_buffer = unsafe {
                     core::slice::from_raw_parts(provisional_buffer as *const u8, PAGE_SIZE)
@@ -698,13 +701,15 @@ pub fn init_vmm_logger() -> core::result::Result<(), SetLoggerError> {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
 
     /// All logging tests share global state (LOGAREAPTR, LOGGING_INFORMATION, the
     /// installed logger). Serialize them to prevent data races where one test
     /// clears LOGAREAPTR while another test's logger callback reads from it.
-    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// pub(crate) so cross-module tests (e.g. snpemu.rs) that touch LOGAREAPTR
+    /// can also acquire this lock and avoid index-out-of-bounds panics.
+    pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_create_logarea() {
