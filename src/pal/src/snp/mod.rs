@@ -13,3 +13,9 @@ pub mod key_ops;
 pub mod hardware;
 
 pub mod fixture;
+
+// CI guard: snp_fixture_only ensures SnpEmu is active — hardware paths are blocked in CI.
+#[cfg(all(feature = "snp_fixture_only", not(feature = "snp-emu")))]
+compile_error!(
+    "snp_fixture_only requires the snp-emu feature. Hardware paths must not be enabled in CI builds."
+);

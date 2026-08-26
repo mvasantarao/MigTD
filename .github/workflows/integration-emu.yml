@@ -367,3 +367,52 @@ jobs:
               echo "Check the test logs above and uploaded artifacts for debugging details."
               ;;
           esac
+
+  snp-fixture-gate:
+    name: SNP Fixture-Only Build Gate (Milestone E / 3a-28)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-environment
+        with:
+          install-tpm-tools: 'false'
+          install-jq: 'false'
+
+      - name: Check SNP fixture-only build (cargo check)
+        run: |
+          echo "Checking migtd with snp_fixture_only + SnpEmu features..."
+          cargo check -p migtd --features "snp_fixture_only,SnpEmu"
+          echo "cargo check passed"
+
+      - name: Run SNP unit tests (fixture-only)
+        run: |
+          echo "Running migtd unit tests with snp_fixture_only + SnpEmu features..."
+          cargo test -p migtd --features "snp_fixture_only,SnpEmu" -- --test-threads=1
+          echo "cargo test passed"
+
+      - name: Record fixture checksums
+        run: |
+          echo "=== SNP fixture file checksums ==="
+          sha256sum src/snp_emu/src/fixture_data/*.bin \
+                    src/snp_emu/src/fixture_data/*.der \
+                    | tee fixture_checksums.txt
+          echo "Fixture provenance recorded"
+
+      - name: Upload fixture checksums
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snp-fixture-checksums-${{ github.run_id }}
+          path: fixture_checksums.txt
+          retention-days: 90
+          if-no-files-found: error

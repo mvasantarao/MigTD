@@ -134,6 +134,9 @@ SnpUnderhill = [
 
 ]
 
+snp_fixture_only = ["SnpEmu"]   # CI gate: implies SnpEmu; hardware paths must not be enabled in CI
+
 
 [patch.crates-io]
 sys_time = { path = "src/std-support/sys_time" }
+
