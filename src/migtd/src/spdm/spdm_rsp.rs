@@ -149,18 +149,20 @@ pub fn spdm_responder<'a, T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'sta
     Ok((responder_context_ex, device_io_ref))
 }
 
-pub async fn spdm_responder_transfer_msk(
-    spdm_responder_ex: &mut ResponderContextEx<'_>,
-    mig_info: &MigtdMigrationInformation,
+pub async fn spdm_responder_transfer_msk<'a>(
+    spdm_responder_ex: &mut ResponderContextEx<'a>,
+    mig_info: &'a MigtdMigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
 ) -> Result<(), SpdmStatus> {
     #[cfg(not(feature = "policy_v2"))]
     let peer_data = Vec::new();
 
     spdm_responder_ex.peer_data = peer_data;
+    spdm_responder_ex.info = ResponderContextExInfo::MigrationInformation(mig_info);
 
     // Zeroize the responder key buffer on every return path.
     let result = spdm_responder_transfer_msk_inner(spdm_responder_ex, mig_info).await;
+    spdm_responder_ex.info = ResponderContextExInfo::None;
     spdm_responder_ex
         .responder_context
         .common
@@ -656,7 +658,8 @@ pub fn handle_exchange_mig_attest_info_req(
         }
         #[cfg(not(feature = "SnpEmu"))]
         {
-            let mig_policy_dst = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
+            let mig_policy_dst =
+                crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
             digest_sha384(mig_policy_dst).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
     };

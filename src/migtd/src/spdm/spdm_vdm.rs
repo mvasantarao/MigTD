@@ -490,6 +490,10 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         vdm_rsp_payload.rsp_length = vdm_payload_size as u32;
     } else {
         let err = vdm_payload_size.err().unwrap();
+        eprintln!(
+            "[MA] ERROR: VDM responder handler failed: opcode={:?} status={:?}",
+            vdm_request.op_code, err
+        );
         let app_error = if let StatusCode::VDM(vdm) = err.status_code {
             vdm.vdm_error_code as u8
         } else {

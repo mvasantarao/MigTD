@@ -116,17 +116,67 @@ async fn spdm_requester_transfer_msk_inner(
     mig_info: &MigtdMigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
 ) -> Result<(), SpdmStatus> {
-    Box::pin(spdm_requester.send_receive_spdm_version()).await?;
-    Box::pin(spdm_requester.send_receive_spdm_capability()).await?;
-    Box::pin(spdm_requester.send_receive_spdm_algorithm()).await?;
+    eprintln!("[MA] SPDM requester: GET_VERSION");
+    Box::pin(spdm_requester.send_receive_spdm_version())
+        .await
+        .map_err(|e| {
+            eprintln!("[MA] ERROR: SPDM requester GET_VERSION failed: {:?}", e);
+            e
+        })?;
+    eprintln!("[MA] SPDM requester: GET_VERSION complete");
 
-    Box::pin(send_and_receive_pub_key(spdm_requester)).await?;
+    eprintln!("[MA] SPDM requester: GET_CAPABILITIES");
+    Box::pin(spdm_requester.send_receive_spdm_capability())
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "[MA] ERROR: SPDM requester GET_CAPABILITIES failed: {:?}",
+                e
+            );
+            e
+        })?;
+    eprintln!("[MA] SPDM requester: GET_CAPABILITIES complete");
+
+    eprintln!("[MA] SPDM requester: NEGOTIATE_ALGORITHMS");
+    Box::pin(spdm_requester.send_receive_spdm_algorithm())
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "[MA] ERROR: SPDM requester NEGOTIATE_ALGORITHMS failed: {:?}",
+                e
+            );
+            e
+        })?;
+    eprintln!("[MA] SPDM requester: NEGOTIATE_ALGORITHMS complete");
+
+    eprintln!("[MA] SPDM requester: EXCHANGE_PUBLIC_KEY");
+    Box::pin(send_and_receive_pub_key(spdm_requester))
+        .await
+        .map_err(|e| {
+            eprintln!(
+                "[MA] ERROR: SPDM requester EXCHANGE_PUBLIC_KEY failed: {:?}",
+                e
+            );
+            e
+        })?;
+    eprintln!("[MA] SPDM requester: EXCHANGE_PUBLIC_KEY complete");
+
+    eprintln!("[MA] SPDM requester: KEY_EXCHANGE");
     let session_id = Box::pin(spdm_requester.send_receive_spdm_key_exchange(
         0xff,
         SpdmMeasurementSummaryHashType::SpdmMeasurementSummaryHashTypeNone,
     ))
-    .await?;
+    .await
+    .map_err(|e| {
+        eprintln!("[MA] ERROR: SPDM requester KEY_EXCHANGE failed: {:?}", e);
+        e
+    })?;
+    eprintln!(
+        "[MA] SPDM requester: KEY_EXCHANGE complete (session_id={:#010x})",
+        session_id
+    );
 
+    eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO");
     Box::pin(send_and_receive_sdm_migration_attest_info(
         spdm_requester,
         mig_info,
@@ -134,16 +184,49 @@ async fn spdm_requester_transfer_msk_inner(
         #[cfg(feature = "policy_v2")]
         peer_data,
     ))
-    .await?;
+    .await
+    .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: SPDM requester MIGRATION_ATTEST_INFO failed: {:?}",
+            e
+        );
+        e
+    })?;
+    eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO complete");
 
-    Box::pin(spdm_requester.send_receive_spdm_finish(Some(0xff), session_id)).await?;
+    eprintln!("[MA] SPDM requester: FINISH");
+    Box::pin(spdm_requester.send_receive_spdm_finish(Some(0xff), session_id))
+        .await
+        .map_err(|e| {
+            eprintln!("[MA] ERROR: SPDM requester FINISH failed: {:?}", e);
+            e
+        })?;
+    eprintln!("[MA] SPDM requester: FINISH complete");
+
+    eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO");
     Box::pin(send_and_receive_sdm_exchange_migration_info(
         spdm_requester,
         mig_info,
         Some(session_id),
     ))
-    .await?;
-    Box::pin(spdm_requester.send_receive_spdm_end_session(session_id)).await?;
+    .await
+    .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: SPDM requester EXCHANGE_MIGRATION_INFO failed: {:?}",
+            e
+        );
+        e
+    })?;
+    eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO complete");
+
+    eprintln!("[MA] SPDM requester: END_SESSION");
+    Box::pin(spdm_requester.send_receive_spdm_end_session(session_id))
+        .await
+        .map_err(|e| {
+            eprintln!("[MA] ERROR: SPDM requester END_SESSION failed: {:?}", e);
+            e
+        })?;
+    eprintln!("[MA] SPDM requester: END_SESSION complete");
 
     Ok(())
 }
@@ -422,7 +505,8 @@ pub async fn send_and_receive_sdm_migration_attest_info(
         }
         #[cfg(not(feature = "SnpEmu"))]
         {
-            let mig_policy_src = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
+            let mig_policy_src =
+                crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
             digest_sha384(mig_policy_src).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
         }
     };
@@ -468,7 +552,9 @@ pub async fn send_and_receive_sdm_migration_attest_info(
                 .map_err(|_| SPDM_STATUS_INVALID_STATE_LOCAL)?;
             &tdinfo_init_local
         };
-        #[cfg(not(feature = "policy_v2"))]
+        #[cfg(all(not(feature = "policy_v2"), feature = "SnpEmu"))]
+        let tdinfo_init_owned = [0u8; crate::migration::TD_INFO_SIZE];
+        #[cfg(all(not(feature = "policy_v2"), not(feature = "SnpEmu")))]
         let tdinfo_init_owned = {
             let report = tdx_tdcall::tdreport::tdcall_report(&[0u8; 64])
                 .map_err(|_| SPDM_STATUS_INVALID_STATE_LOCAL)?;

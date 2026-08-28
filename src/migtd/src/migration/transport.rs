@@ -31,17 +31,37 @@ pub(super) async fn setup_transport(
     #[cfg(feature = "vmcall-raw")]
     {
         use vmcall_raw::stream::VmcallRaw;
+        eprintln!(
+            "[MA] setup_transport: creating vmcall-raw channel (request_id={})",
+            mig_request_id
+        );
         let mut vmcall_raw_instance = VmcallRaw::new_with_mid(mig_request_id).map_err(|e| {
+            eprintln!(
+                "[MA] ERROR: setup_transport: vmcall-raw create failed: {:?}",
+                e
+            );
             log::error!(migration_request_id = mig_request_id;
                     "exchange_msk: Failed to create vmcall_raw_instance errorcode: {:?}\n", e);
             MigrationResult::InvalidParameter
         })?;
 
+        eprintln!(
+            "[MA] setup_transport: connecting vmcall-raw channel (request_id={})",
+            mig_request_id
+        );
         vmcall_raw_instance.connect().await.map_err(|e| {
+            eprintln!(
+                "[MA] ERROR: setup_transport: vmcall-raw connect failed: {:?}",
+                e
+            );
             log::error!(migration_request_id = mig_request_id;
                     "exchange_msk: Failed to connect vmcall_raw_instance errorcode: {:?}\n", e);
             MigrationResult::InvalidParameter
         })?;
+        eprintln!(
+            "[MA] setup_transport: vmcall-raw channel ready (request_id={})",
+            mig_request_id
+        );
         return Ok(vmcall_raw_instance);
     }
 

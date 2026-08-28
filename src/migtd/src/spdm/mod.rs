@@ -159,10 +159,11 @@ pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
     // TDX / AzCVMEmu path: generate a real TD report and get a quote via QVL.
     #[cfg(not(feature = "SnpEmu"))]
     {
-        let (quote, _report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
-            log::error!("get_quote_with_retry failed: {:?}\n", e);
-            MigrationResult::MutualAttestationError
-        })?;
+        let (quote, _report) =
+            crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
+                log::error!("get_quote_with_retry failed: {:?}\n", e);
+                MigrationResult::MutualAttestationError
+            })?;
         Ok(quote)
     }
 }
@@ -218,12 +219,13 @@ pub fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Ve
 
 /// Verify a quote, returning the supplemental data on success.
 ///
-/// When the `test_disable_ra_and_accept_all` feature is enabled, verification
-/// is bypassed and an empty `Vec` is returned.
+/// SnpEmu uses a pre-captured fixture whose REPORTDATA cannot be rebound to
+/// the live SPDM transcript. Verification is bypassed only for that emulator
+/// feature and for the explicit test bypass.
 pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<Vec<u8>> {
-    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+    #[cfg(not(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all")))]
     let res = attestation::verify_quote(quote);
-    #[cfg(feature = "test_disable_ra_and_accept_all")]
+    #[cfg(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all"))]
     let res: Result<Vec<u8>, ()> = Ok(vec![]);
 
     res.map_err(|_| {
@@ -435,7 +437,9 @@ pub(crate) fn decode_spdm_session_err(e: SpdmStatus) -> MigrationResult {
             && ed.data[2] == spdmlib::message::SpdmErrorCode::SpdmErrorVendorDefined.get_u8()
         {
             if let Ok(decoded) = MigrationResult::try_from(ed.data[3]) {
-                return decoded;
+                if decoded != MigrationResult::Success {
+                    return decoded;
+                }
             }
         }
     }

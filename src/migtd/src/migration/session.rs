@@ -968,13 +968,22 @@ async fn migration_src_exchange_msk(
     use core::ops::DerefMut;
 
     const SPDM_TIMEOUT: Duration = Duration::from_secs(60); // 60 seconds
-    let (mut spdm_requester, device_io_ref) = spdm::spdm_requester(transport).map_err(|_e| {
+    eprintln!(
+        "[MA] exchange_msk: constructing SPDM requester (request_id={})",
+        info.mig_info.mig_request_id
+    );
+    let (mut spdm_requester, device_io_ref) = spdm::spdm_requester(transport).map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM requester construction failed: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk(): Failed in spdm_requester transport. Migration ID: {}\n",
             info.mig_info.mig_request_id
         );
         MigrationResult::SecureSessionError
     })?;
+    eprintln!("[MA] exchange_msk: SPDM requester ready; starting transfer (timeout=60s)");
     with_timeout(
         SPDM_TIMEOUT,
         spdm::spdm_requester_transfer_msk(
@@ -986,6 +995,10 @@ async fn migration_src_exchange_msk(
     )
     .await
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM requester transfer timed out: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk: spdm_requester_transfer_msk timeout error: {:?}\n",
             e
@@ -993,14 +1006,20 @@ async fn migration_src_exchange_msk(
         e
     })?
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM requester transfer failed: {:?}",
+            e
+        );
         log::error!("exchange_msk: spdm_requester_transfer_msk error: {:?}\n", e);
         spdm::decode_spdm_session_err(e)
     })?;
+    eprintln!("[MA] exchange_msk: SPDM requester transfer completed");
     log::info!("MSK exchange completed\n");
 
     let mut transport_lock = device_io_ref.lock();
     let transport = transport_lock.deref_mut();
     shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await?;
+    eprintln!("[MA] exchange_msk: requester transport shutdown completed");
     Ok(())
 }
 
@@ -1013,13 +1032,22 @@ async fn migration_dst_exchange_msk(
     use core::ops::DerefMut;
 
     const SPDM_TIMEOUT: Duration = Duration::from_secs(60); // 60 seconds
-    let (mut spdm_responder, device_io_ref) = spdm::spdm_responder(transport).map_err(|_e| {
+    eprintln!(
+        "[MA] exchange_msk: constructing SPDM responder (request_id={})",
+        info.mig_info.mig_request_id
+    );
+    let (mut spdm_responder, device_io_ref) = spdm::spdm_responder(transport).map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM responder construction failed: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk(): Failed in spdm_responder transport. Migration ID: {}\n",
             info.mig_info.mig_request_id
         );
         MigrationResult::SecureSessionError
     })?;
+    eprintln!("[MA] exchange_msk: SPDM responder ready; waiting for transfer (timeout=60s)");
 
     with_timeout(
         SPDM_TIMEOUT,
@@ -1032,6 +1060,10 @@ async fn migration_dst_exchange_msk(
     )
     .await
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM responder transfer timed out: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk: spdm_responder_transfer_msk timeout error: {:?}\n",
             e
@@ -1039,20 +1071,30 @@ async fn migration_dst_exchange_msk(
         e
     })?
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM responder transfer failed: {:?}",
+            e
+        );
         log::error!("exchange_msk: spdm_responder_transfer_msk error: {:?}\n", e);
         spdm::decode_spdm_session_err(e)
     })?;
+    eprintln!("[MA] exchange_msk: SPDM responder transfer completed");
     log::info!("MSK exchange completed\n");
 
     let mut transport_lock = device_io_ref.lock();
     let transport = transport_lock.deref_mut();
     shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await?;
+    eprintln!("[MA] exchange_msk: responder transport shutdown completed");
     Ok(())
 }
 
 #[cfg(feature = "main")]
 pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
-    eprintln!("[MA] exchange_msk: entry (request_id={} is_src={})", info.mig_info.mig_request_id, info.is_src());
+    eprintln!(
+        "[MA] exchange_msk: entry (request_id={} is_src={})",
+        info.mig_info.mig_request_id,
+        info.is_src()
+    );
     // Per GHCI 1.5: if VMM provided initMigtdData, verify policy binding
     #[cfg(feature = "policy_v2")]
     if let Some(init_td_info) = info.mig_info.init_td_info_if_present() {
@@ -1069,12 +1111,22 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
     #[allow(unused_mut)]
     let mut transport = setup_transport(
         info.mig_info.mig_request_id,
-        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
+        #[cfg(all(
+            not(feature = "vmcall-raw"),
+            any(feature = "vmcall-vsock", feature = "virtio-vsock")
+        ))]
         info.mig_socket_info.mig_td_cid,
-        #[cfg(all(not(feature = "vmcall-raw"), any(feature = "vmcall-vsock", feature = "virtio-vsock")))]
+        #[cfg(all(
+            not(feature = "vmcall-raw"),
+            any(feature = "vmcall-vsock", feature = "virtio-vsock")
+        ))]
         info.mig_socket_info.mig_channel_port,
     )
     .await?;
+    eprintln!(
+        "[MA] exchange_msk: peer transport ready (request_id={})",
+        info.mig_info.mig_request_id
+    );
 
     // Exchange policy and issuer chain before TLS because of the message size limitation of TLS protocol.
     #[cfg(feature = "policy_v2")]

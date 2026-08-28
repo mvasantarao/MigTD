@@ -16,10 +16,18 @@
 
 use crate::migration::host_transport::HostControlTransport;
 use crate::migration::data::WaitForRequestResponse;
-use crate::migration::logging::enable_logarea;
 use crate::migration::session::exchange_msk;
 use crate::migration::MigrationResult;
 use pal::traits::AttestationProvider;
+
+fn configure_log_level(log_max_level: u8) -> MigrationResult {
+    if log_max_level > 5 {
+        return MigrationResult::InvalidParameter;
+    }
+
+    log::set_max_level(pal::logging::u8_to_levelfilter(log_max_level));
+    MigrationResult::Success
+}
 
 pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
     eprintln!("[MA] WFR dispatcher started (Phase 3a SnpEmu)");
@@ -36,13 +44,22 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
         match req {
             WaitForRequestResponse::EnableLogArea(info) => {
                 eprintln!("[MA] opcode 4: EnableLogArea (request_id={})", info.mig_request_id);
-                let mut data = Vec::new();
-                let status = enable_logarea(info.log_max_level, info.mig_request_id, &mut data)
+                // Phase 3a uses serial logging and has no VMM-readable shared log area.
+                // Validate and apply the requested level; Phase 3b will return WABO/GHCB
+                // log-area metadata through the same report_status response.
+                let status = configure_log_level(info.log_max_level);
+                if status == MigrationResult::Success {
+                    eprintln!("[MA] EnableLogArea: level {} accepted (serial logging)", info.log_max_level);
+                } else {
+                    eprintln!("[MA] EnableLogArea: invalid level {}", info.log_max_level);
+                }
+                if let Err(e) = transport
+                    .report_status(status as u8, info.mig_request_id, &[])
                     .await
-                    .map(|_| MigrationResult::Success)
-                    .unwrap_or_else(|e| e);
-                log::set_max_level(pal::logging::u8_to_levelfilter(info.log_max_level));
-                let _ = transport.report_status(status as u8, info.mig_request_id, &data).await;
+                {
+                    eprintln!("[MA] FATAL: EnableLogArea report_status failed: {}", e as u8);
+                    return 1;
+                }
             }
 
             WaitForRequestResponse::GetTdReport(info) => {
@@ -161,12 +178,8 @@ mod tests {
     // ── Tests ────────────────────────────────────────────────────────────────
 
     /// EnableLogArea: dispatcher must call report_status with Success (0).
-    /// Acquires TEST_LOCK from logging module — EnableLogArea touches LOGAREAPTR
-    /// (global shared state); without the lock this test races with logging tests
-    /// that clear LOGAREAPTR, causing an index-out-of-bounds panic.
     #[tokio::test]
     async fn test_report_status_enable_logarea_success_code() {
-        let _guard = crate::migration::logging::test::TEST_LOCK.lock().unwrap();
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 3)]);
         // Dispatcher will loop until wait_for_request returns Err (queue empty)
         let _ = super::runtime_main_snp(&transport).await;
@@ -175,10 +188,26 @@ mod tests {
         assert!(!calls.is_empty(), "report_status not called for EnableLogArea");
         let (status, req_id, _data_len) = calls[0];
         assert_eq!(req_id, 1001, "wrong request_id");
-        // Status must be a valid MigrationResult code
-        assert!(
-            MigrationResult::try_from(status).is_ok(),
-            "EnableLogArea report_status sent invalid status code {}", status
+        assert_eq!(
+            MigrationResult::try_from(status).unwrap(),
+            MigrationResult::Success,
+            "valid Phase 3a log level must be accepted"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_report_status_enable_logarea_rejects_invalid_level() {
+        let transport = MockTransport::new(vec![enable_logarea_req(1001, 6)]);
+        let _ = super::runtime_main_snp(&transport).await;
+        let calls = transport.captured_calls();
+        assert!(!calls.is_empty(), "report_status not called for EnableLogArea");
+        let (status, req_id, data_len) = calls[0];
+        assert_eq!(req_id, 1001, "wrong request_id");
+        assert_eq!(data_len, 0, "Phase 3a does not return shared log-area metadata");
+        assert_eq!(
+            MigrationResult::try_from(status).unwrap(),
+            MigrationResult::InvalidParameter,
+            "invalid Phase 3a log level must be rejected"
         );
     }
 
