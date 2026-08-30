@@ -7,4 +7,4 @@
 	branch = snp-emu-zerocopy-fix
 [submodule "deps/spdm-rs"]
 	path = deps/spdm-rs
-	url = https://github.com/ccc-spdm-tools/spdm-rs
+	url = https://github.com/mvasantarao/spdm-rs.git
