@@ -37,5 +37,7 @@ pub trait LogPlatform: Send + Sync {
     fn alloc_shared_page(&self) -> Result<usize, PalError>;
 
     /// Return the vCPU count (used by RealSnpLogPlatform for GHCB sizing).
-    fn vcpu_count(&self) -> u32 { 1 }
+    fn vcpu_count(&self) -> u32 {
+        1
+    }
 }

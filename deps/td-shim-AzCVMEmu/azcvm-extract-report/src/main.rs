@@ -15,11 +15,10 @@
 //!   azcvm-extract-report --mock-report --output-json mock_report_data.json
 
 use anyhow::{Context, Result};
-use az_tdx_vtpm::tdx;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use tdx_tdcall_emu::tdreport_emu::tdcall_report_emulated;
+use tdx_tdcall_emu::{tdreport::TdxReport, tdreport_emu::tdcall_report_emulated};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -66,10 +65,7 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
         .collect::<String>()
 }
 
-fn get_td_report_from_vtpm(
-    report_data: Option<&[u8; 48]>,
-    use_mock: bool,
-) -> Result<tdx::TdReport> {
+fn get_td_report_from_vtpm(report_data: Option<&[u8; 48]>, use_mock: bool) -> Result<TdxReport> {
     if use_mock {
         // Use the existing create_mock_td_report function from tdx-tdcall-emu
         use tdx_tdcall_emu::tdreport_emu::create_mock_td_report;
@@ -88,23 +84,23 @@ fn get_td_report_from_vtpm(
     }
 }
 
-fn extract_report_data(td_report: &tdx::TdReport) -> Result<ReportData> {
+fn extract_report_data(td_report: &TdxReport) -> Result<ReportData> {
     log::info!("Extracting report data from TD report");
 
-    let td_info = &td_report.tdinfo;
+    let td_info = &td_report.td_info;
 
     // Extract RTMRs from the TD report
     // Note: In Azure CVM Underhill environments, RTMRs will be zeros
     // But in mock/test environments with quote files, they can contain actual measurements
     let data = ReportData {
         mrtd: bytes_to_hex(&td_info.mrtd),
-        rtmr0: bytes_to_hex(&td_info.rtmr[0].register_data),
-        rtmr1: bytes_to_hex(&td_info.rtmr[1].register_data),
-        rtmr2: bytes_to_hex(&td_info.rtmr[2].register_data),
-        rtmr3: bytes_to_hex(&td_info.rtmr[3].register_data),
+        rtmr0: bytes_to_hex(&td_info.rtmr0),
+        rtmr1: bytes_to_hex(&td_info.rtmr1),
+        rtmr2: bytes_to_hex(&td_info.rtmr2),
+        rtmr3: bytes_to_hex(&td_info.rtmr3),
         xfam: bytes_to_hex(&td_info.xfam),
         attributes: bytes_to_hex(&td_info.attributes),
-        mr_config_id: bytes_to_hex(&td_info.mrconfigid),
+        mr_config_id: bytes_to_hex(&td_info.mrconfig_id),
         mr_owner: bytes_to_hex(&td_info.mrowner),
         mr_owner_config: bytes_to_hex(&td_info.mrownerconfig),
         servtd_hash: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".to_string(), // MigTD itself has no ServTD

@@ -30,6 +30,15 @@ compile_error!("`test_disable_ra_and_accept_all` disables remote attestation (ac
 #[cfg_attr(feature = "main", macro_use)]
 extern crate alloc;
 
+// Phase 3a emits direct stderr diagnostics in emulation builds. Bare-metal
+// MigTD is no_std, so retain format checking there without producing output.
+#[cfg(not(any(test, feature = "AzCVMEmu", feature = "SnpEmu")))]
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        let _ = core::format_args!($($arg)*);
+    }};
+}
+
 // Re-export TDX dependencies conditionally to avoid feature gates throughout the code
 #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 extern crate td_payload;

@@ -17,8 +17,8 @@
 use pal::traits::PalError;
 
 static FIXTURE_REPORT: &[u8] = include_bytes!("fixture_data/snp_report.bin"); // 1184 bytes
-static FIXTURE_VCEK:   &[u8] = include_bytes!("fixture_data/vcek.der");
-static FIXTURE_ASK:    &[u8] = include_bytes!("fixture_data/ask.der");
+static FIXTURE_VCEK: &[u8] = include_bytes!("fixture_data/vcek.der");
+static FIXTURE_ASK: &[u8] = include_bytes!("fixture_data/ask.der");
 
 /// Build the attestation blob: SNP report + cert chain DERs.
 ///
@@ -53,12 +53,12 @@ mod tests {
     #[test]
     fn test_fixture_chain_verification() {
         // Parse certs from DER
-        let ask  = certificate_from_der(FIXTURE_ASK).expect("ASK DER parse");
+        let ask = certificate_from_der(FIXTURE_ASK).expect("ASK DER parse");
         let vcek = certificate_from_der(FIXTURE_VCEK).expect("VCEK DER parse");
 
         // Parse SNP report (zerocopy, 1184 bytes, version=5, cpuid_fam_id=0x19 Milan)
-        let report = AttestationReport::try_read_from_bytes(FIXTURE_REPORT)
-            .expect("SNP report parse");
+        let report =
+            AttestationReport::try_read_from_bytes(FIXTURE_REPORT).expect("SNP report parse");
 
         // Verify via TAV: ARK->ASK->VCEK chain + VCEK report sig
         verify_attestation(

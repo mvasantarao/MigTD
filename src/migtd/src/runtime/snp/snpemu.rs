@@ -14,8 +14,8 @@
 //! GetMigrationReadiness opcode: REMOVED (A6).
 //! GetTDReport is required on both SnpEmu and real HW (see ASSUMPTION A5).
 
-use crate::migration::host_transport::HostControlTransport;
 use crate::migration::data::WaitForRequestResponse;
+use crate::migration::host_transport::HostControlTransport;
 use crate::migration::session::exchange_msk;
 use crate::migration::MigrationResult;
 use pal::traits::AttestationProvider;
@@ -35,7 +35,10 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
     loop {
         let req = match transport.wait_for_request().await {
             Err(e) => {
-                eprintln!("[MA] FATAL: wait_for_request failed: opcode_err={}", e as u8);
+                eprintln!(
+                    "[MA] FATAL: wait_for_request failed: opcode_err={}",
+                    e as u8
+                );
                 return 1;
             }
             Ok(r) => r,
@@ -43,13 +46,19 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
 
         match req {
             WaitForRequestResponse::EnableLogArea(info) => {
-                eprintln!("[MA] opcode 4: EnableLogArea (request_id={})", info.mig_request_id);
+                eprintln!(
+                    "[MA] opcode 4: EnableLogArea (request_id={})",
+                    info.mig_request_id
+                );
                 // Phase 3a uses serial logging and has no VMM-readable shared log area.
                 // Validate and apply the requested level; Phase 3b will return WABO/GHCB
                 // log-area metadata through the same report_status response.
                 let status = configure_log_level(info.log_max_level);
                 if status == MigrationResult::Success {
-                    eprintln!("[MA] EnableLogArea: level {} accepted (serial logging)", info.log_max_level);
+                    eprintln!(
+                        "[MA] EnableLogArea: level {} accepted (serial logging)",
+                        info.log_max_level
+                    );
                 } else {
                     eprintln!("[MA] EnableLogArea: invalid level {}", info.log_max_level);
                 }
@@ -57,7 +66,10 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
                     .report_status(status as u8, info.mig_request_id, &[])
                     .await
                 {
-                    eprintln!("[MA] FATAL: EnableLogArea report_status failed: {}", e as u8);
+                    eprintln!(
+                        "[MA] FATAL: EnableLogArea report_status failed: {}",
+                        e as u8
+                    );
                     return 1;
                 }
             }
@@ -66,9 +78,12 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
                 // IGVMAgent MA health check — must return real 1184-byte ATTESTATION_REPORT.
                 // SnpEmu path: SnpFixtureProvider returns pre-captured fixture blob.
                 // Phase 3b (SnpHardwareProvider): added in 3a-09.
-                eprintln!("[MA] opcode 3: GetTDReport (request_id={})", info.mig_request_id);
-                let report_result = snp_emu::provider_fixture::SnpFixtureProvider
-                    .get_report(&info.reportdata);
+                eprintln!(
+                    "[MA] opcode 3: GetTDReport (request_id={})",
+                    info.mig_request_id
+                );
+                let report_result =
+                    snp_emu::provider_fixture::SnpFixtureProvider.get_report(&info.reportdata);
                 let (status, data) = match report_result {
                     Ok(bundle) => (MigrationResult::Success, bundle.ma_report_blob),
                     Err(e) => {
@@ -76,21 +91,32 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
                         (MigrationResult::MutualAttestationError, Vec::new())
                     }
                 };
-                let _ = transport.report_status(status as u8, info.mig_request_id, &data).await;
+                let _ = transport
+                    .report_status(status as u8, info.mig_request_id, &data)
+                    .await;
             }
 
             WaitForRequestResponse::StartMigration(req) => {
                 let request_id = req.mig_info.mig_request_id;
-                eprintln!("[MA] opcode 1: StartMigration -> exchange_msk() (request_id={})", request_id);
+                eprintln!(
+                    "[MA] opcode 1: StartMigration -> exchange_msk() (request_id={})",
+                    request_id
+                );
                 let res = exchange_msk(&req).await;
                 let status = res.map(|_| MigrationResult::Success).unwrap_or_else(|e| e);
                 let status_code = status as u8;
                 let _ = transport.report_status(status_code, request_id, &[]).await;
                 if status_code == MigrationResult::Success as u8 {
-                    eprintln!("[MA] SUCCESS: migration complete (request_id={}) — exiting WFR loop", request_id);
+                    eprintln!(
+                        "[MA] SUCCESS: migration complete (request_id={}) — exiting WFR loop",
+                        request_id
+                    );
                     return 0;
                 } else {
-                    eprintln!("[MA] ERROR: migration failed: status={} (request_id={})", status_code, request_id);
+                    eprintln!(
+                        "[MA] ERROR: migration failed: status={} (request_id={})",
+                        status_code, request_id
+                    );
                     return status_code as i32;
                 }
             }
@@ -102,15 +128,14 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+    use crate::migration::data::WaitForRequestResponse;
+    use crate::migration::host_transport::HostControlTransport;
+    use crate::migration::MigrationResult;
+    use crate::migration::{EnableLogAreaInfo, ReportInfo};
     use async_trait::async_trait;
     use std::sync::{Arc, Mutex};
-    use crate::migration::MigrationResult;
-    use crate::migration::host_transport::HostControlTransport;
-    use crate::migration::data::WaitForRequestResponse;
-    use crate::migration::{EnableLogAreaInfo, ReportInfo};
 
     // ── MockTransport ────────────────────────────────────────────────────────
     // Records every report_status call so tests can assert on status codes.
@@ -153,7 +178,10 @@ mod tests {
             request_id: u64,
             data: &[u8],
         ) -> Result<(), MigrationResult> {
-            self.calls.lock().unwrap().push((status, request_id, data.len()));
+            self.calls
+                .lock()
+                .unwrap()
+                .push((status, request_id, data.len()));
             Ok(())
         }
     }
@@ -185,7 +213,10 @@ mod tests {
         let _ = super::runtime_main_snp(&transport).await;
         let calls = transport.captured_calls();
         // EnableLogArea arm must have fired report_status
-        assert!(!calls.is_empty(), "report_status not called for EnableLogArea");
+        assert!(
+            !calls.is_empty(),
+            "report_status not called for EnableLogArea"
+        );
         let (status, req_id, _data_len) = calls[0];
         assert_eq!(req_id, 1001, "wrong request_id");
         assert_eq!(
@@ -200,10 +231,16 @@ mod tests {
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 6)]);
         let _ = super::runtime_main_snp(&transport).await;
         let calls = transport.captured_calls();
-        assert!(!calls.is_empty(), "report_status not called for EnableLogArea");
+        assert!(
+            !calls.is_empty(),
+            "report_status not called for EnableLogArea"
+        );
         let (status, req_id, data_len) = calls[0];
         assert_eq!(req_id, 1001, "wrong request_id");
-        assert_eq!(data_len, 0, "Phase 3a does not return shared log-area metadata");
+        assert_eq!(
+            data_len, 0,
+            "Phase 3a does not return shared log-area metadata"
+        );
         assert_eq!(
             MigrationResult::try_from(status).unwrap(),
             MigrationResult::InvalidParameter,
@@ -218,7 +255,10 @@ mod tests {
         let transport = MockTransport::new(vec![get_tdreport_req(1002)]);
         let _ = super::runtime_main_snp(&transport).await;
         let calls = transport.captured_calls();
-        assert!(!calls.is_empty(), "report_status not called for GetTDReport");
+        assert!(
+            !calls.is_empty(),
+            "report_status not called for GetTDReport"
+        );
         let (status, req_id, data_len) = calls[0];
         assert_eq!(req_id, 1002, "wrong request_id");
         assert_eq!(
@@ -227,7 +267,10 @@ mod tests {
             "GetTDReport fixture path must return Success"
         );
         // Fixture blob must be non-empty (report + cert chain)
-        assert!(data_len > 0, "GetTDReport response must carry non-empty blob");
+        assert!(
+            data_len > 0,
+            "GetTDReport response must carry non-empty blob"
+        );
     }
 
     /// report_status success code accepted: MigrationResult::Success as u8 == 0.
@@ -250,7 +293,8 @@ mod tests {
         for &code in error_codes {
             assert!(
                 MigrationResult::try_from(code).is_ok(),
-                "error code {} should be accepted by MigrationResult::try_from", code
+                "error code {} should be accepted by MigrationResult::try_from",
+                code
             );
         }
     }
@@ -262,7 +306,8 @@ mod tests {
         for &code in unknown_codes {
             assert!(
                 MigrationResult::try_from(code).is_err(),
-                "unknown code {} should be rejected by MigrationResult::try_from", code
+                "unknown code {} should be rejected by MigrationResult::try_from",
+                code
             );
         }
     }

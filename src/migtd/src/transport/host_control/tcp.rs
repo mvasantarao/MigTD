@@ -20,9 +20,9 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
 use crate::migration::data::{MigrationInformation, WaitForRequestResponse};
-use crate::migration::{EnableLogAreaInfo, MigtdMigrationInformation, ReportInfo};
 use crate::migration::host_transport::HostControlTransport;
 use crate::migration::MigrationResult;
+use crate::migration::{EnableLogAreaInfo, MigtdMigrationInformation, ReportInfo};
 
 /// Byte length of every frame header (request and response share the same layout).
 const FRAME_HDR: usize = 14; // op(1) + reserved/status(1) + request_id(8) + data_len(4)
@@ -37,7 +37,9 @@ impl TcpTransport {
         eprintln!("[MA] TcpTransport: connecting to {}", addr);
         let stream = TcpStream::connect(addr).await?;
         eprintln!("[MA] TcpTransport: connected to {}", addr);
-        Ok(Self { stream: Arc::new(Mutex::new(stream)) })
+        Ok(Self {
+            stream: Arc::new(Mutex::new(stream)),
+        })
     }
 
     /// Dest MA: listen and wait for the host WFR client to connect.
@@ -47,7 +49,9 @@ impl TcpTransport {
         eprintln!("[MA] TcpTransport: bound, waiting for connection...");
         let (stream, peer) = listener.accept().await?;
         eprintln!("[MA] TcpTransport: host connected from {}", peer);
-        Ok(Self { stream: Arc::new(Mutex::new(stream)) })
+        Ok(Self {
+            stream: Arc::new(Mutex::new(stream)),
+        })
     }
 }
 
@@ -57,25 +61,37 @@ impl HostControlTransport for TcpTransport {
         let mut stream = self.stream.lock().await;
 
         let mut hdr = [0u8; FRAME_HDR];
-        stream.read_exact(&mut hdr).await.map_err(|_| MigrationResult::NetworkError)?;
+        stream
+            .read_exact(&mut hdr)
+            .await
+            .map_err(|_| MigrationResult::NetworkError)?;
 
-        let operation  = hdr[0];
+        let operation = hdr[0];
         // hdr[1] = reserved (must be 0; we accept it silently)
         let request_id = u64::from_le_bytes(hdr[2..10].try_into().unwrap());
-        let data_len   = u32::from_le_bytes(hdr[10..14].try_into().unwrap()) as usize;
+        let data_len = u32::from_le_bytes(hdr[10..14].try_into().unwrap()) as usize;
 
         let mut data = vec![0u8; data_len];
         if data_len > 0 {
-            stream.read_exact(&mut data).await.map_err(|_| MigrationResult::NetworkError)?;
+            stream
+                .read_exact(&mut data)
+                .await
+                .map_err(|_| MigrationResult::NetworkError)?;
         }
 
-        eprintln!("[MA] TcpTransport: recv opcode=0x{:02x} request_id={} data_len={}", operation, request_id, data_len);
+        eprintln!(
+            "[MA] TcpTransport: recv opcode=0x{:02x} request_id={} data_len={}",
+            operation, request_id, data_len
+        );
         match operation {
             1 => parse_start_migration(request_id, &data),
             3 => parse_get_tdreport(request_id, &data),
             4 => parse_enable_logarea(request_id, &data),
             _ => {
-                eprintln!("[MA] WARN: TcpTransport: unknown opcode 0x{:02x}", operation);
+                eprintln!(
+                    "[MA] WARN: TcpTransport: unknown opcode 0x{:02x}",
+                    operation
+                );
                 Err(MigrationResult::UnsupportedOperationError)
             }
         }
@@ -96,9 +112,20 @@ impl HostControlTransport for TcpTransport {
         frame.extend_from_slice(data);
 
         let mut stream = self.stream.lock().await;
-        stream.write_all(&frame).await.map_err(|_| MigrationResult::NetworkError)?;
-        stream.flush().await.map_err(|_| MigrationResult::NetworkError)?;
-        eprintln!("[MA] TcpTransport: report_status sent: status={} request_id={} data_len={}", status, request_id, data.len());
+        stream
+            .write_all(&frame)
+            .await
+            .map_err(|_| MigrationResult::NetworkError)?;
+        stream
+            .flush()
+            .await
+            .map_err(|_| MigrationResult::NetworkError)?;
+        eprintln!(
+            "[MA] TcpTransport: report_status sent: status={} request_id={} data_len={}",
+            status,
+            request_id,
+            data.len()
+        );
         Ok(())
     }
 }
@@ -138,7 +165,10 @@ fn parse_get_tdreport(
     }
     let mut reportdata = [0u8; 64];
     reportdata.copy_from_slice(&data[..64]);
-    Ok(WaitForRequestResponse::GetTdReport(ReportInfo { mig_request_id: request_id, reportdata }))
+    Ok(WaitForRequestResponse::GetTdReport(ReportInfo {
+        mig_request_id: request_id,
+        reportdata,
+    }))
 }
 
 fn parse_start_migration(
@@ -156,7 +186,7 @@ fn parse_start_migration(
         return Err(MigrationResult::InvalidParameter);
     }
     let migration_source = data[0];
-    let has_init_data    = data[1];
+    let has_init_data = data[1];
     let mut uuid_bytes = [0u64; 4];
     for i in 0..4 {
         let off = 8 + i * 8;
@@ -167,11 +197,13 @@ fn parse_start_migration(
     // SAFETY: MigtdMigrationInformation has a private `_reserved` field.
     // We zero-initialize and then populate the public fields.
     let mut mig_info: MigtdMigrationInformation = unsafe { std::mem::zeroed() };
-    mig_info.mig_request_id   = request_id;
-    mig_info.migration_source  = migration_source;
-    mig_info.has_init_data     = has_init_data;
-    mig_info.target_td_uuid    = uuid_bytes;
-    mig_info.binding_handle    = binding_handle;
+    mig_info.mig_request_id = request_id;
+    mig_info.migration_source = migration_source;
+    mig_info.has_init_data = has_init_data;
+    mig_info.target_td_uuid = uuid_bytes;
+    mig_info.binding_handle = binding_handle;
 
-    Ok(WaitForRequestResponse::StartMigration(MigrationInformation { mig_info }))
+    Ok(WaitForRequestResponse::StartMigration(
+        MigrationInformation { mig_info },
+    ))
 }

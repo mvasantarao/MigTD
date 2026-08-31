@@ -98,7 +98,8 @@ pub extern "C" fn main() {
 #[cfg(all(feature = "SnpUnderhill", not(test)))]
 fn main() {
     // argv[1] = role when running as PID 1 in initramfs (no env vars); env var fallback for test runs
-    let role = std::env::args().nth(1)
+    let role = std::env::args()
+        .nth(1)
         .or_else(|| std::env::var("MA_ROLE").ok())
         .unwrap_or_else(|| "dest".to_string());
     let is_source = role == "source";

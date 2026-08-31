@@ -4,10 +4,10 @@
 
 pub mod certs;
 pub mod identity;
+pub mod key_ops;
 pub mod policy;
 pub mod qvl;
 pub mod report;
-pub mod key_ops;
 
 #[cfg(not(feature = "snp-emu"))]
 pub mod hardware;

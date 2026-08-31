@@ -10,14 +10,16 @@
 //! Defined in migtd (not pal) to avoid circular dependency:
 //!   migtd -> pal; pal must not import migtd types.
 
-use async_trait::async_trait;
 use super::data::WaitForRequestResponse;
 use super::MigrationResult;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait HostControlTransport: Send + Sync {
     /// Block until the host delivers a WFR request (integer opcode + payload, per A1).
-    async fn wait_for_request(&self) -> core::result::Result<WaitForRequestResponse, MigrationResult>;
+    async fn wait_for_request(
+        &self,
+    ) -> core::result::Result<WaitForRequestResponse, MigrationResult>;
 
     /// Notify the host of completion status for the given request.
     async fn report_status(

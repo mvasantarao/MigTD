@@ -45,7 +45,10 @@ impl SnpEmuLogPlatform {
 #[cfg(feature = "snp-emu")]
 impl crate::traits::LogPlatform for SnpEmuLogPlatform {
     fn write_entry(&self, event_type: u32, payload: &[u8]) -> Result<(), crate::traits::PalError> {
-        let mut q = self.entries.lock().map_err(|_| crate::traits::PalError::NotAvailable)?;
+        let mut q = self
+            .entries
+            .lock()
+            .map_err(|_| crate::traits::PalError::NotAvailable)?;
         if q.len() >= self.capacity {
             q.pop_front();
         }

@@ -110,7 +110,6 @@ name = "azcvm-extract-report"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "az-tdx-vtpm",
  "clap",
  "env_logger",
  "hex",

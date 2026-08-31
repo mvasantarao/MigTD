@@ -57,9 +57,9 @@ const fn iowr_const(io_type: u8, nr: u8, size: usize) -> usize {
 struct SnpGuestRequestIoctl {
     msg_version: u8,
     _pad: [u8; 7],
-    req_data:    u64,
-    resp_data:   u64,
-    exitinfo2:   u64,
+    req_data: u64,
+    resp_data: u64,
+    exitinfo2: u64,
 }
 
 const _: () = assert!(
@@ -76,9 +76,9 @@ struct SnpReportReq {
     /// 64-byte challenge / nonce to embed in the report.
     user_data: [u8; SNP_REPORT_USER_DATA_SIZE],
     /// VMPL level to embed in the ATTESTATION_REPORT.  Must be >= caller VMPL.
-    vmpl:      u32,
+    vmpl: u32,
     /// Must be zero.
-    rsvd:      [u8; 28],
+    rsvd: [u8; 28],
 }
 
 /// snp_report_resp: response buffer for SNP_GET_REPORT.
@@ -117,25 +117,31 @@ impl AttestationProvider for SnpHardwareProvider {
             .write(true)
             .open(SEV_GUEST_DEVICE)
             .map_err(|e| {
-                log::error!("[MA] SnpHardwareProvider: failed to open {}: {}", SEV_GUEST_DEVICE, e);
+                log::error!(
+                    "[MA] SnpHardwareProvider: failed to open {}: {}",
+                    SEV_GUEST_DEVICE,
+                    e
+                );
                 PalError::NotAvailable
             })?;
 
         // Step 2: Fill request — user_data = challenge, vmpl = 1, rsvd = 0
         let mut req = SnpReportReq {
             user_data: *report_data,
-            vmpl:      MA_VMPL,
-            rsvd:      [0u8; 28],
+            vmpl: MA_VMPL,
+            rsvd: [0u8; 28],
         };
 
         // Step 3: Issue ioctl
-        let mut resp = SnpReportResp { data: [0u8; SNP_REPORT_RESP_DATA_SIZE] };
+        let mut resp = SnpReportResp {
+            data: [0u8; SNP_REPORT_RESP_DATA_SIZE],
+        };
         let mut arg = SnpGuestRequestIoctl {
             msg_version: SNP_GUEST_MSG_VERSION_1,
-            _pad:        [0u8; 7],
-            req_data:    (&mut req as *mut SnpReportReq) as u64,
-            resp_data:   (&mut resp as *mut SnpReportResp) as u64,
-            exitinfo2:   0,
+            _pad: [0u8; 7],
+            req_data: (&mut req as *mut SnpReportReq) as u64,
+            resp_data: (&mut resp as *mut SnpReportResp) as u64,
+            exitinfo2: 0,
         };
 
         let ret = unsafe { ioctl(sev_fd.as_raw_fd(), SNP_GET_REPORT, &mut arg) };
@@ -143,7 +149,8 @@ impl AttestationProvider for SnpHardwareProvider {
             let errno = std::io::Error::last_os_error();
             log::error!(
                 "[MA] SnpHardwareProvider: SNP_GET_REPORT ioctl failed: {} (exitinfo2={:#018x})",
-                errno, arg.exitinfo2
+                errno,
+                arg.exitinfo2
             );
             return Err(PalError::NotAvailable);
         }
@@ -153,18 +160,21 @@ impl AttestationProvider for SnpHardwareProvider {
         if fw_err != 0 {
             log::error!(
                 "[MA] SnpHardwareProvider: PSP firmware error: fw_err={:#010x} exitinfo2={:#018x}",
-                fw_err, arg.exitinfo2
+                fw_err,
+                arg.exitinfo2
             );
-            return Err(PalError::VerificationFailed(
-                format!("PSP fw_error={:#010x}", fw_err)
-            ));
+            return Err(PalError::VerificationFailed(format!(
+                "PSP fw_error={:#010x}",
+                fw_err
+            )));
         }
 
         // Step 4: Extract 1184-byte ATTESTATION_REPORT from response
         let ma_report_blob = resp.data[..SNP_ATTESTATION_REPORT_SIZE].to_vec();
         log::info!(
             "[MA] SnpHardwareProvider: SNP_GET_REPORT OK — {} bytes, vmpl={}",
-            ma_report_blob.len(), MA_VMPL
+            ma_report_blob.len(),
+            MA_VMPL
         );
 
         Ok(AttestationBundle {

@@ -136,7 +136,6 @@ src/
 deps/
   td-shim/          # Bare-metal TDX shim; patched ring lives here
   td-shim-AzCVMEmu/ # Emulator shim — tdx-tdcall-emu, az-tdx-vtpm
-  amd-sev-snp/      # AMD SEV-SNP crates (includes patched virtee/sev v7.1.0)
   spdm-rs/          # SPDM protocol library (pre-built by preparation.sh)
 ```
 
@@ -205,23 +204,18 @@ Three distinct build targets:
 
 ### Cargo Patch Overrides
 
-Three crates are redirected via `[patch.crates-io]` in the workspace root `Cargo.toml`:
+Two crates are redirected via `[patch.crates-io]` in the workspace root `Cargo.toml`:
 
 | Crate | Redirected to |
 |-------|--------------|
 | `ring` | `deps/td-shim/library/ring` (no_std-compatible patch) |
-| `sev` | `deps/amd-sev-snp/external/virtee/sev` (local AMD SEV-SNP) |
 | `sys_time` | `src/std-support/sys_time` |
 
-**Never use upstream crates.io versions** — the patched `ring` is mandatory for bare-metal builds.
+**Do not replace the `ring` override with the upstream crates.io version** — the local patch is mandatory for bare-metal builds.
 
-### `sev` Crate Feature Conflict (CRITICAL)
+### SNP Attestation Verification
 
-`pal` uses `sev` with `crypto_nossl`. The emulator chain `tdx-tdcall-emu` → `az-tdx-vtpm` → `az-cvm-vtpm` pulls `sev` with `openssl`. Cargo resolver v2 unifies both → `compile_error!` in `sev/src/lib.rs:89`.
-
-**Rule: `pal` must NOT be included in `AzCVMEmu` or `SnpEmu` feature groups.**
-
-Phase 2 resolution (preferred): implement `SnpQvl::verify()` using `ring` + `der` crate (already present in the TDX build via `src/crypto/src/x509.rs`) — no new crate dependencies needed.
+The SNP PAL uses Microsoft TEE Attestation Verification (TAV), pinned to tag `tav-1.0.2` with the `crypto_pure_rust` feature. The obsolete local `virtee/sev` gitlink and Cargo patch were removed; do not restore them.
 
 ### Commit Message Format
 
