@@ -11,11 +11,13 @@
 #[cfg(any(feature = "test_mock_report", feature = "mock_report_tools"))]
 use tdx_mock_data::QUOTE;
 use alloc::vec::Vec;
+#[cfg(feature = "vtpm")]
 use az_tdx_vtpm::tdx;
-#[cfg(not(feature = "test_mock_report"))]
+#[cfg(all(feature = "vtpm", not(feature = "test_mock_report")))]
 use az_tdx_vtpm::{hcl, imds, vtpm};
 use log::{debug, error, info};
 use original_tdx_tdcall::TdCallError;
+use original_tdx_tdcall::tdreport::TdxReport;
 
 /// Simple error type for internal emulation errors that are not TdCallError
 /// Used only for get_quote_emulated which doesn't need TdCallError compatibility
@@ -35,14 +37,14 @@ pub fn tdcall_verify_report(report_mac: &[u8]) -> Result<(), TdCallError> {
 
 /// Emulated TD report generation using mock report
 #[cfg(feature = "test_mock_report")]
-pub fn tdcall_report_emulated(_additional_data: &[u8; 64]) -> Result<tdx::TdReport, TdCallError> {
+pub fn tdcall_report_emulated(_additional_data: &[u8; 64]) -> Result<TdxReport, TdCallError> {
     info!("Using mock TD report for test_mock_report feature");
     Ok(create_mock_td_report())
 }
 
 /// Emulated TD report generation using vTPM interface
-#[cfg(not(feature = "test_mock_report"))]
-pub fn tdcall_report_emulated(additional_data: &[u8; 64]) -> Result<tdx::TdReport, TdCallError> {
+#[cfg(all(feature = "vtpm", not(feature = "test_mock_report")))]
+pub fn tdcall_report_emulated(additional_data: &[u8; 64]) -> Result<TdxReport, TdCallError> {
     info!("Using AzCVMEmu vTPM interface for report generation");
 
     // Get the vTPM report with our additional data as user data
@@ -99,14 +101,15 @@ pub fn tdcall_report_emulated(additional_data: &[u8; 64]) -> Result<tdx::TdRepor
     // Convert the HCL report to a TD report
     debug!("Converting HCL report to TD report");
     match tdx::TdReport::try_from(hcl_report) {
-        Ok(report) => {
+        Ok(az_report) => {
             debug!("TD report conversion successful");
 
-            // Log report as byte array format for direct code copying into create_mock_td_report
+            // transmute az_tdx_vtpm::tdx::TdReport -> TdxReport (both 1024-byte repr(C))
+            let report: TdxReport = unsafe { core::mem::transmute(az_report) };
             let report_bytes = unsafe {
                 core::slice::from_raw_parts(
                     &report as *const _ as *const u8,
-                    core::mem::size_of::<tdx::TdReport>()
+                    core::mem::size_of::<TdxReport>()
                 )
             };
             debug!("REPORT_BYTES=[");
@@ -168,7 +171,7 @@ pub fn get_quote_emulated(td_report_data: &[u8]) -> Result<Vec<u8>, QuoteError> 
 }
 
 /// Emulated quote generation using IMDS interface
-#[cfg(not(feature = "test_mock_report"))]
+#[cfg(all(feature = "vtpm", not(feature = "test_mock_report")))]
 pub fn get_quote_emulated(td_report_data: &[u8]) -> Result<Vec<u8>, QuoteError> {
 
     debug!(
@@ -177,9 +180,9 @@ pub fn get_quote_emulated(td_report_data: &[u8]) -> Result<Vec<u8>, QuoteError> 
     );
 
     // Check if we have a full TD report or just report data
-    let td_report_struct = if td_report_data.len() >= core::mem::size_of::<tdx::TdReport>() {
+    let td_report_struct = if td_report_data.len() >= core::mem::size_of::<TdxReport>() {
         // We have a full TD report - use it directly
-        unsafe { *(td_report_data.as_ptr() as *const tdx::TdReport) }
+        unsafe { core::ptr::read_unaligned(td_report_data.as_ptr() as *const TdxReport) }
     } else {
         // We only have report data (48 bytes) - need to generate a full TD report first
         debug!("Generating TD report from report data");
@@ -199,7 +202,8 @@ pub fn get_quote_emulated(td_report_data: &[u8]) -> Result<Vec<u8>, QuoteError> 
         }
     };
 
-    match imds::get_td_quote(&td_report_struct) {
+    let az_td_report: az_tdx_vtpm::tdx::TdReport = unsafe { core::mem::transmute(td_report_struct) };
+    match imds::get_td_quote(&az_td_report) {
         Ok(quote) => {
             info!("Successfully got TD quote from IMDS");
 
@@ -231,21 +235,19 @@ pub fn get_quote_emulated(td_report_data: &[u8]) -> Result<Vec<u8>, QuoteError> 
 
 /// Create a mock TD report for testing purposes
 #[cfg(any(feature = "test_mock_report", feature = "mock_report_tools"))]
-pub fn create_mock_td_report() -> tdx::TdReport {
+pub fn create_mock_td_report() -> TdxReport {
     // Check if a custom quote file is specified
     if let Ok(quote_file_path) = std::env::var("MOCK_QUOTE_FILE") {
         return create_td_report_from_file(quote_file_path);
     }
     // No custom quote file - use hardcoded quote data
     debug!("Creating mock TD report with hardcoded data");
-    let td_report = tdx_mock_data::create_mock_td_report(QUOTE.as_ref());
-
-    // Convert to az-tdx-vtpm TdReport for compatibility
-    unsafe { core::mem::transmute(td_report) }
+    // tdx_mock_data::create_mock_td_report returns TdxReport directly - no conversion needed
+    tdx_mock_data::create_mock_td_report(QUOTE.as_ref())
 }
 
 #[cfg(any(feature = "test_mock_report", feature = "mock_report_tools"))]
-fn create_td_report_from_file(quote_file_path: String) -> tdx::TdReport {
+fn create_td_report_from_file(quote_file_path: String) -> TdxReport {
     debug!(
         "Creating mock TD report from custom quote file: {}",
         quote_file_path
@@ -269,10 +271,8 @@ fn create_td_report_from_file(quote_file_path: String) -> tdx::TdReport {
         }
     };
 
-    let td_report = tdx_mock_data::create_mock_td_report(&quote_data);
-
-    // Convert to az-tdx-vtpm TdReport for compatibility
-    unsafe { core::mem::transmute(td_report) }
+    // tdx_mock_data::create_mock_td_report returns TdxReport directly
+    tdx_mock_data::create_mock_td_report(&quote_data)
 }
 
 #[cfg(any(feature = "test_mock_report", feature = "mock_report_tools"))]
@@ -315,4 +315,17 @@ fn create_td_quote_from_file(quote_file_path: String) -> Vec<u8> {
             Vec::new()
         }
     }
+}
+
+// Stub implementations for builds where neither vtpm nor test_mock_report is enabled
+// (e.g., SnpEmu without mock). These paths are unreachable at runtime because SnpEmu
+// uses the SNP hardware report path, not the TDX vTPM path.
+#[cfg(not(any(feature = "vtpm", feature = "test_mock_report", feature = "mock_report_tools")))]
+pub fn tdcall_report_emulated(_additional_data: &[u8; 64]) -> Result<TdxReport, TdCallError> {
+    panic!("tdcall_report_emulated: unreachable in SnpEmu — SNP report path must be used instead")
+}
+
+#[cfg(not(any(feature = "vtpm", feature = "test_mock_report")))]
+pub fn get_quote_emulated(_td_report_data: &[u8]) -> Result<Vec<u8>, QuoteError> {
+    panic!("get_quote_emulated: unreachable in SnpEmu — SNP attestation path must be used instead")
 }

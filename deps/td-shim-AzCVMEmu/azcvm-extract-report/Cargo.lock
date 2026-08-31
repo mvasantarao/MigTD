@@ -76,7 +76,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 [[package]]
 name = "az-cvm-vtpm"
 version = "0.8.0"
-source = "git+https://github.com/kinvolk/azure-cvm-tooling#7766b0b85c254abae0544b68733989d257f7b821"
+source = "git+https://github.com/kinvolk/azure-cvm-tooling?tag=v0.8.0#7766b0b85c254abae0544b68733989d257f7b821"
 dependencies = [
  "jsonwebkey",
  "memoffset",
@@ -94,7 +94,7 @@ dependencies = [
 [[package]]
 name = "az-tdx-vtpm"
 version = "0.8.0"
-source = "git+https://github.com/kinvolk/azure-cvm-tooling#7766b0b85c254abae0544b68733989d257f7b821"
+source = "git+https://github.com/kinvolk/azure-cvm-tooling?tag=v0.8.0#7766b0b85c254abae0544b68733989d257f7b821"
 dependencies = [
  "az-cvm-vtpm",
  "base64-url",
@@ -110,7 +110,6 @@ name = "azcvm-extract-report"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "az-tdx-vtpm",
  "clap",
  "env_logger",
  "hex",
