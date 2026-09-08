@@ -16,6 +16,8 @@
 
 use std::env;
 use std::io;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -25,13 +27,34 @@ const HDR: usize = 14; // op(1)+status/reserved(1)+request_id(8)+data_len(4)
 async fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: host_wfr_test --server <addr>|--client <addr>");
+        eprintln!(
+            "Usage: host_wfr_test --server <addr>|--client <addr> \
+             [--ready-file <path>] [--start-gate <path>]"
+        );
         eprintln!("  --server  listen for Source MA (client role) on <addr>");
         eprintln!("  --client  connect to Dest MA (server role) at <addr>");
         std::process::exit(1);
     }
     let mode = args[1].as_str();
     let addr = args[2].as_str();
+    let mut ready_file = None;
+    let mut start_gate = None;
+    let mut index = 3;
+    while index < args.len() {
+        let Some(value) = args.get(index + 1) else {
+            eprintln!("Missing value for {}", args[index]);
+            std::process::exit(2);
+        };
+        match args[index].as_str() {
+            "--ready-file" => ready_file = Some(PathBuf::from(value)),
+            "--start-gate" => start_gate = Some(PathBuf::from(value)),
+            option => {
+                eprintln!("Unknown option: {option}");
+                std::process::exit(2);
+            }
+        }
+        index += 2;
+    }
 
     let stream = match mode {
         "--server" => {
@@ -57,13 +80,25 @@ async fn main() {
     };
 
     let is_source = mode == "--server"; // source MA initiates TCP connection to host
-    if let Err(e) = run_wfr_sequence(stream, is_source).await {
+    if let Err(e) = run_wfr_sequence(
+        stream,
+        is_source,
+        ready_file.as_deref(),
+        start_gate.as_deref(),
+    )
+    .await
+    {
         eprintln!("[HOST] WFR sequence failed: {}", e);
         std::process::exit(1);
     }
 }
 
-async fn run_wfr_sequence(mut stream: TcpStream, is_source: bool) -> io::Result<()> {
+async fn run_wfr_sequence(
+    mut stream: TcpStream,
+    is_source: bool,
+    ready_file: Option<&Path>,
+    start_gate: Option<&Path>,
+) -> io::Result<()> {
     println!(
         "[HOST] Starting WFR sequence (MA role: {})...",
         if is_source { "Source" } else { "Dest" }
@@ -77,11 +112,39 @@ async fn run_wfr_sequence(mut stream: TcpStream, is_source: bool) -> io::Result<
     send_get_tdreport(&mut stream, 1002).await?;
     recv_response(&mut stream, 1002, "GetTDReport").await?;
 
+    if let Some(path) = ready_file {
+        std::fs::write(path, b"ready\n")?;
+        println!("[HOST] WFR pre-migration sequence ready.");
+    }
+    if let Some(path) = start_gate {
+        println!("[HOST] Waiting for StartMigration gate: {}", path.display());
+        wait_for_gate(path)?;
+    }
+
     // Step 3: StartMigration
     send_start_migration(&mut stream, 1003, is_source).await?;
     recv_response(&mut stream, 1003, "StartMigration").await?;
 
     println!("[HOST] WFR sequence complete.");
+    Ok(())
+}
+
+fn wait_for_gate(path: &Path) -> io::Result<()> {
+    let timeout_seconds = env::var("MIGTD_WFR_GATE_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(60);
+    let started = Instant::now();
+    while !path.exists() {
+        if started.elapsed() >= Duration::from_secs(timeout_seconds) {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                format!("StartMigration gate timed out: {}", path.display()),
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    println!("[HOST] StartMigration gate opened.");
     Ok(())
 }
 
