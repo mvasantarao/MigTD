@@ -225,13 +225,78 @@ pub fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Ve
 pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<Vec<u8>> {
     #[cfg(not(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all")))]
     let res = attestation::verify_quote(quote);
-    #[cfg(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all"))]
+    #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
+    let res = verify_snp_fixture_quote(quote);
+    #[cfg(feature = "test_disable_ra_and_accept_all")]
     let res: Result<Vec<u8>, ()> = Ok(vec![]);
 
     res.map_err(|_| {
         error!("Quote verification failed!\n");
         SPDM_STATUS_INVALID_MSG_FIELD
     })
+}
+
+#[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
+fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
+    use pal::snp::fixture::platform_services::{
+        trace_tav_verification, MockPlatformReportVerifier,
+    };
+    use pal::snp::qvl::validate::AttestationVerificationParams;
+    use pal::snp::qvl::verify::SnpQvl;
+    use pal::traits::{PlatformReportVerifier, QvlLibrary};
+    use pal::types::{MigrationRole, PlatformOperationContext};
+
+    const SNP_REPORT_SIZE: usize = 1184;
+    const REPORT_DATA_OFFSET: usize = 0x50;
+    const REPORT_DATA_HASH_SIZE: usize = 48;
+
+    if quote.len() < SNP_REPORT_SIZE {
+        return Err(());
+    }
+    let report = &quote[..SNP_REPORT_SIZE];
+    let mut offset = SNP_REPORT_SIZE;
+    let mut cert_chain = Vec::with_capacity(2);
+    for _ in 0..2 {
+        let length_bytes: [u8; 4] = quote
+            .get(offset..offset + 4)
+            .and_then(|bytes| bytes.try_into().ok())
+            .ok_or(())?;
+        offset += 4;
+        let length = u32::from_le_bytes(length_bytes) as usize;
+        let certificate = quote.get(offset..offset + length).ok_or(())?;
+        cert_chain.push(certificate.to_vec());
+        offset += length;
+    }
+
+    let context = PlatformOperationContext {
+        request_id: 0,
+        role: MigrationRole::Unknown,
+        binding_handle: 0,
+        target_uuid: [0; 4],
+    };
+    let mut fixture_report_data = [0u8; REPORT_DATA_HASH_SIZE];
+    fixture_report_data.copy_from_slice(
+        report
+            .get(REPORT_DATA_OFFSET..REPORT_DATA_OFFSET + REPORT_DATA_HASH_SIZE)
+            .ok_or(())?,
+    );
+    let params = AttestationVerificationParams::crypto_only(report, &fixture_report_data);
+
+    trace_tav_verification(&context, "begin", "pending");
+    if SnpQvl.verify(&params, &cert_chain).is_err() {
+        trace_tav_verification(&context, "end", "failure");
+        return Err(());
+    }
+    trace_tav_verification(&context, "end", "success");
+    eprintln!(
+        "[MA] FIXTURE_LIMITATION: TAV verified the captured report signature and \
+         certificate chain; live TH1 report_data binding was not claimed"
+    );
+
+    MockPlatformReportVerifier
+        .verify_report(&context, report)
+        .map_err(|_| ())?;
+    Ok(vec![])
 }
 
 /// Verify that the peer's REPORTDATA is bound to the expected prefix and TH1.
@@ -444,4 +509,24 @@ pub(crate) fn decode_spdm_session_err(e: SpdmStatus) -> MigrationResult {
         }
     }
     MigrationResult::SecureSessionError
+}
+
+#[cfg(all(
+    test,
+    feature = "SnpEmu",
+    not(feature = "test_disable_ra_and_accept_all")
+))]
+mod snp_fixture_tests {
+    use super::verify_snp_fixture_quote;
+    use pal::traits::AttestationProvider;
+    use snp_emu::provider_fixture::SnpFixtureProvider;
+
+    #[test]
+    fn fixture_quote_runs_tav_and_mock_platform_verification() {
+        let quote = SnpFixtureProvider
+            .get_report(&[0u8; 64])
+            .expect("fixture report")
+            .ma_report_blob;
+        assert!(verify_snp_fixture_quote(&quote).is_ok());
+    }
 }

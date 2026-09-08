@@ -38,6 +38,14 @@ use crate::driver::ticks::with_timeout;
 use crate::ratls;
 #[cfg(feature = "spdm_attestation")]
 use crate::spdm;
+#[cfg(feature = "SnpEmu")]
+use pal::snp::fixture::platform_services::{MockMigrationKeyInstaller, MockPlatformKeyProvider};
+#[cfg(feature = "SnpEmu")]
+use pal::traits::{MigrationKeyInstaller, PlatformKeyProvider};
+#[cfg(feature = "SnpEmu")]
+use pal::types::{MigrationRole as PlatformMigrationRole, PlatformOperationContext};
+#[cfg(feature = "SnpEmu")]
+use zeroize::Zeroize;
 
 #[cfg(feature = "vmcall-raw")]
 const PAGE_SIZE: usize = 0x1_000;
@@ -1095,6 +1103,17 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
         info.mig_info.mig_request_id,
         info.is_src()
     );
+    #[cfg(feature = "SnpEmu")]
+    MockPlatformKeyProvider
+        .prepare_key(&platform_operation_context(&info.mig_info))
+        .map_err(|error| {
+            eprintln!(
+                "[MA] ERROR: mock MSG_KEY_REQ failed: {:?} request_id={}",
+                error, info.mig_info.mig_request_id
+            );
+            MigrationResult::SecureSessionError
+        })?;
+
     // Per GHCI 1.5: if VMM provided initMigtdData, verify policy binding
     #[cfg(feature = "policy_v2")]
     if let Some(init_td_info) = info.mig_info.init_td_info_if_present() {
@@ -1280,13 +1299,23 @@ fn read_msk(mig_info: &MigtdMigrationInformation, msk: &mut MigrationSessionKey)
 }
 
 pub fn write_msk(mig_info: &MigtdMigrationInformation, msk: &MigrationSessionKey) -> Result<()> {
-    // SnpEmu: MSK write is a no-op in Phase 3a (no real SNP hardware).
-    // TODO(3a-11/Phase-3b): Replace with MSG_SET_MIGRATION_INFO via PSP VMGEXIT.
     #[cfg(feature = "SnpEmu")]
     {
-        log::info!(migration_request_id = mig_info.mig_request_id;
-            "SnpEmu: write_msk no-op (Phase 3a) -- Phase 3b: MSG_SET_MIGRATION_INFO");
-        return Ok(());
+        let mut key_bytes = [0u8; 32];
+        for (field, bytes) in msk.fields.iter().zip(key_bytes.chunks_exact_mut(8)) {
+            bytes.copy_from_slice(&field.to_le_bytes());
+        }
+        let result = MockMigrationKeyInstaller
+            .set_migration_info(&platform_operation_context(mig_info), &key_bytes)
+            .map_err(|error| {
+                eprintln!(
+                    "[MA] ERROR: mock MSG_SET_MIGRATION_INFO failed: {:?} request_id={}",
+                    error, mig_info.mig_request_id
+                );
+                MigrationResult::SecureSessionError
+            });
+        key_bytes.zeroize();
+        return result;
     }
     for idx in 0..msk.fields.len() {
         tdx::tdcall_servtd_wr(
@@ -1302,6 +1331,20 @@ pub fn write_msk(mig_info: &MigtdMigrationInformation, msk: &MigrationSessionKey
     }
 
     Ok(())
+}
+
+#[cfg(feature = "SnpEmu")]
+fn platform_operation_context(mig_info: &MigtdMigrationInformation) -> PlatformOperationContext {
+    PlatformOperationContext {
+        request_id: mig_info.mig_request_id,
+        role: if mig_info.migration_source == 1 {
+            PlatformMigrationRole::Source
+        } else {
+            PlatformMigrationRole::Destination
+        },
+        binding_handle: mig_info.binding_handle,
+        target_uuid: mig_info.target_td_uuid,
+    }
 }
 
 /// Used to read a TDX Module global-scope metadata field.

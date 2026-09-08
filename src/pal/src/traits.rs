@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-use crate::types::{AttestationBundle, QvlResult};
+use crate::types::{AttestationBundle, PlatformOperationContext, QvlResult};
 
 #[derive(Debug)]
 pub enum PalError {
@@ -13,6 +13,26 @@ pub enum PalError {
 
 pub trait AttestationProvider {
     fn get_report(&self, report_data: &[u8; 64]) -> Result<AttestationBundle, PalError>;
+}
+
+pub trait PlatformReportVerifier {
+    fn verify_report(
+        &self,
+        context: &PlatformOperationContext,
+        report: &[u8],
+    ) -> Result<(), PalError>;
+}
+
+pub trait PlatformKeyProvider {
+    fn prepare_key(&self, context: &PlatformOperationContext) -> Result<(), PalError>;
+}
+
+pub trait MigrationKeyInstaller {
+    fn set_migration_info(
+        &self,
+        context: &PlatformOperationContext,
+        migration_key: &[u8],
+    ) -> Result<(), PalError>;
 }
 
 #[cfg(feature = "snp-emu")]

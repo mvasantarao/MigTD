@@ -37,3 +37,28 @@ pub struct AttestationBundle {
     /// Phase 3: tenant CVM's SNP REPORT fetched via MSG_VERIFY_REPORT.
     pub tenant_report: Option<Vec<u8>>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MigrationRole {
+    Source,
+    Destination,
+    Unknown,
+}
+
+impl MigrationRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Source => "source",
+            Self::Destination => "destination",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlatformOperationContext {
+    pub request_id: u64,
+    pub role: MigrationRole,
+    pub binding_handle: u64,
+    pub target_uuid: [u64; 4],
+}
