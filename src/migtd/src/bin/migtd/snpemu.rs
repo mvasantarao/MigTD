@@ -7,6 +7,7 @@
 #![cfg(feature = "SnpEmu")]
 
 use std::net::SocketAddr;
+use std::path::Path;
 use std::process;
 
 use alloc::vec::Vec;
@@ -105,6 +106,7 @@ fn prepare_process(config: &RuntimeConfig) -> Result<(), String> {
             attestation::attest_init_heap();
 
             td_shim_emu::event_log::init_event_log();
+            initialize_fixture_platform_data()?;
             Ok(())
         }
         ProcessMode::Pid1 => {
@@ -122,6 +124,48 @@ fn prepare_process(config: &RuntimeConfig) -> Result<(), String> {
             }
         }
     }
+}
+
+fn initialize_fixture_platform_data() -> Result<(), String> {
+    let policy_path = std::env::var("MIGTD_POLICY_FILE")
+        .map_err(|_| "MIGTD_POLICY_FILE is required for standalone fixture mode".to_string())?;
+    if !Path::new(&policy_path).is_file() {
+        return Err(format!("policy file not found: {policy_path}"));
+    }
+
+    #[cfg(feature = "policy_v2")]
+    let initialized = {
+        let chain_path = std::env::var("MIGTD_POLICY_ISSUER_CHAIN_FILE").map_err(|_| {
+            "MIGTD_POLICY_ISSUER_CHAIN_FILE is required for policy_v2 fixture mode".to_string()
+        })?;
+        if !Path::new(&chain_path).is_file() {
+            return Err(format!("policy issuer chain file not found: {chain_path}"));
+        }
+        td_shim_interface_emu::init_file_based_emulation_with_policy_chain(
+            &policy_path,
+            &chain_path,
+        )
+    };
+
+    #[cfg(not(feature = "policy_v2"))]
+    let initialized = {
+        let root_ca_path = std::env::var("MIGTD_ROOT_CA_FILE")
+            .map_err(|_| "MIGTD_ROOT_CA_FILE is required for fixture mode".to_string())?;
+        if !Path::new(&root_ca_path).is_file() {
+            return Err(format!("root CA file not found: {root_ca_path}"));
+        }
+        td_shim_interface_emu::init_file_based_emulation_with_real_files(
+            &policy_path,
+            &root_ca_path,
+        )
+    };
+
+    if !initialized {
+        return Err("failed to load fixture platform data".to_string());
+    }
+
+    eprintln!("[MA] FIXTURE_PLATFORM_DATA_READY");
+    Ok(())
 }
 
 fn initialize_peer_channel(role: MigrationRole, peer_address: &str) -> Result<(), String> {
@@ -197,6 +241,10 @@ fn runtime_main_autostart() -> i32 {
                     use migtd::migration::data::WaitForRequestResponse;
                     match response {
                         WaitForRequestResponse::EnableLogArea(wfr_info) => {
+                            eprintln!(
+                                "[MA] AUTOSTART_REQUEST_RECEIVED: operation=EnableLogArea request_id={}",
+                                wfr_info.mig_request_id
+                            );
                             log::info!(migration_request_id = wfr_info.mig_request_id; "Processing EnableLogArea request\n");
                             let mut data = Vec::new();
                             let status = enable_logarea(
@@ -213,6 +261,10 @@ fn runtime_main_autostart() -> i32 {
                                 report_status(status as u8, wfr_info.mig_request_id, &data).await;
                         }
                         WaitForRequestResponse::GetTdReport(report_info) => {
+                            eprintln!(
+                                "[MA] AUTOSTART_REQUEST_RECEIVED: operation=GetTdReport request_id={}",
+                                report_info.mig_request_id
+                            );
                             log::info!(migration_request_id = report_info.mig_request_id; "SnpEmu: GetTdReport is a no-op (SNP report generated in SPDM layer)\n");
                             let _ = report_status(
                                 MigrationResult::Success as u8,
@@ -223,6 +275,10 @@ fn runtime_main_autostart() -> i32 {
                         }
                         WaitForRequestResponse::StartMigration(request) => {
                             let request_id = request.mig_info.mig_request_id;
+                            eprintln!(
+                                "[MA] AUTOSTART_REQUEST_RECEIVED: operation=StartMigration request_id={}",
+                                request_id
+                            );
                             log::info!(migration_request_id = request_id; "Processing StartMigration through shared workflow\n");
                             return execute_start_migration(
                                 &EmulatedHostControlTransport,
@@ -238,6 +294,10 @@ fn runtime_main_autostart() -> i32 {
                     }
                 }
                 Err(error) => {
+                    eprintln!(
+                        "[MA] AUTOSTART_WAIT_ERROR: status={}",
+                        error as u8
+                    );
                     log::error!("wait_for_request failed: {}\n", error as u8 as i32);
                     return error as u8 as i32;
                 }

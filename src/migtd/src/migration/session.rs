@@ -39,7 +39,9 @@ use crate::ratls;
 #[cfg(feature = "spdm_attestation")]
 use crate::spdm;
 #[cfg(feature = "SnpEmu")]
-use pal::snp::fixture::platform_services::{MockMigrationKeyInstaller, MockPlatformKeyProvider};
+use pal::snp::fixture::platform_services::{
+    set_active_operation_context, MockMigrationKeyInstaller, MockPlatformKeyProvider,
+};
 #[cfg(feature = "SnpEmu")]
 use pal::traits::{MigrationKeyInstaller, PlatformKeyProvider};
 #[cfg(feature = "SnpEmu")]
@@ -449,11 +451,11 @@ fn parse_request(
             }
         }
         DataStatusOperation::GetTDReport => {
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             {
                 decode_and_dispatch!(ReportInfo, |info| WaitForRequestResponse::GetTdReport(info))
             }
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             {
                 log_request_error!(
                     request_id,
@@ -1104,6 +1106,8 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
         info.is_src()
     );
     #[cfg(feature = "SnpEmu")]
+    set_active_operation_context(&platform_operation_context(&info.mig_info));
+    #[cfg(feature = "SnpEmu")]
     MockPlatformKeyProvider
         .prepare_key(&platform_operation_context(&info.mig_info))
         .map_err(|error| {
@@ -1649,7 +1653,7 @@ mod test {
             let buf = build_request_buffer(3, &payload);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             {
                 match result {
                     Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
@@ -1660,7 +1664,7 @@ mod test {
                 }
                 cleanup_request(request_id);
             }
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
@@ -1674,7 +1678,7 @@ mod test {
             let buf = build_request_buffer(3, &payload);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             {
                 match result {
                     Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
@@ -1687,7 +1691,7 @@ mod test {
                 }
                 cleanup_request(request_id);
             }
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
@@ -1702,12 +1706,12 @@ mod test {
             let buf = build_request_buffer(3, &[0u8; 16]);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::InvalidParameter))
             ));
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::UnsupportedOperationError))

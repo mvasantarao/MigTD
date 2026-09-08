@@ -458,6 +458,11 @@ pub fn usage() -> &'static str {
     --platform-services <fixture|hardware>
     --peer-transport <tcp-emulation|underhill>
 
+  Standalone fixture inputs:
+    MIGTD_POLICY_FILE=<policy.json>
+    MIGTD_ROOT_CA_FILE=<root-ca.cer>
+    MIGTD_POLICY_ISSUER_CHAIN_FILE=<issuer-chain.pem>  (policy_v2 only)
+
   M1 rejects hardware platform services and the Underhill peer backend
   explicitly because those implementations are not available yet.
 

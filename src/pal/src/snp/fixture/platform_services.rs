@@ -3,14 +3,58 @@
 
 //! Typed fixture implementations of the logical SNP platform services.
 
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 
 use crate::traits::{MigrationKeyInstaller, PalError, PlatformKeyProvider, PlatformReportVerifier};
-use crate::types::PlatformOperationContext;
+use crate::types::{MigrationRole, PlatformOperationContext};
 
 const SNP_REPORT_SIZE: usize = 1184;
 const MIGRATION_KEY_SIZE: usize = 32;
 static TRACE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+static ACTIVE_REQUEST_ID: AtomicU64 = AtomicU64::new(0);
+static ACTIVE_ROLE: AtomicU8 = AtomicU8::new(2);
+static ACTIVE_BINDING_HANDLE: AtomicU64 = AtomicU64::new(0);
+static ACTIVE_TARGET_UUID: [AtomicU64; 4] = [
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+];
+
+pub fn set_active_operation_context(context: &PlatformOperationContext) {
+    ACTIVE_ROLE.store(
+        match context.role {
+            MigrationRole::Source => 0,
+            MigrationRole::Destination => 1,
+            MigrationRole::Unknown => 2,
+        },
+        Ordering::Relaxed,
+    );
+    ACTIVE_BINDING_HANDLE.store(context.binding_handle, Ordering::Relaxed);
+    for (slot, value) in ACTIVE_TARGET_UUID.iter().zip(context.target_uuid) {
+        slot.store(value, Ordering::Relaxed);
+    }
+    ACTIVE_REQUEST_ID.store(context.request_id, Ordering::Release);
+}
+
+pub fn active_operation_context() -> PlatformOperationContext {
+    let request_id = ACTIVE_REQUEST_ID.load(Ordering::Acquire);
+    PlatformOperationContext {
+        request_id,
+        role: match ACTIVE_ROLE.load(Ordering::Relaxed) {
+            0 => MigrationRole::Source,
+            1 => MigrationRole::Destination,
+            _ => MigrationRole::Unknown,
+        },
+        binding_handle: ACTIVE_BINDING_HANDLE.load(Ordering::Relaxed),
+        target_uuid: [
+            ACTIVE_TARGET_UUID[0].load(Ordering::Relaxed),
+            ACTIVE_TARGET_UUID[1].load(Ordering::Relaxed),
+            ACTIVE_TARGET_UUID[2].load(Ordering::Relaxed),
+            ACTIVE_TARGET_UUID[3].load(Ordering::Relaxed),
+        ],
+    }
+}
 
 fn trace(
     context: &PlatformOperationContext,
@@ -212,5 +256,12 @@ mod tests {
             MockMigrationKeyInstaller.set_migration_info(&context(), &[0u8; 31]),
             Err(PalError::InvalidInput)
         ));
+    }
+
+    #[test]
+    fn active_context_round_trips() {
+        let expected = context();
+        set_active_operation_context(&expected);
+        assert_eq!(active_operation_context(), expected);
     }
 }

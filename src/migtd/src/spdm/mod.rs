@@ -239,12 +239,11 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
 fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
     use pal::snp::fixture::platform_services::{
-        trace_tav_verification, MockPlatformReportVerifier,
+        active_operation_context, trace_tav_verification, MockPlatformReportVerifier,
     };
     use pal::snp::qvl::validate::AttestationVerificationParams;
     use pal::snp::qvl::verify::SnpQvl;
     use pal::traits::{PlatformReportVerifier, QvlLibrary};
-    use pal::types::{MigrationRole, PlatformOperationContext};
 
     const SNP_REPORT_SIZE: usize = 1184;
     const REPORT_DATA_OFFSET: usize = 0x50;
@@ -268,12 +267,7 @@ fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
         offset += length;
     }
 
-    let context = PlatformOperationContext {
-        request_id: 0,
-        role: MigrationRole::Unknown,
-        binding_handle: 0,
-        target_uuid: [0; 4],
-    };
+    let context = active_operation_context();
     let mut fixture_report_data = [0u8; REPORT_DATA_HASH_SIZE];
     fixture_report_data.copy_from_slice(
         report
