@@ -74,6 +74,12 @@ pub fn main() {
             runtime_main_wfr(&config)
         }
     };
+    if config.process_mode == ProcessMode::Pid1 && exit_code == 0 {
+        eprintln!("[MA] PID1_SERVICE_COMPLETE: migration finished; remaining resident");
+        loop {
+            std::thread::park();
+        }
+    }
     process::exit(exit_code);
 }
 
