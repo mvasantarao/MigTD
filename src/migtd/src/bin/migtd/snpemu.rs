@@ -15,12 +15,14 @@ use migtd::migration::event;
 use migtd::migration::logging::{
     create_logarea, enable_logarea, init_vmm_logger, u8_to_levelfilter,
 };
-use migtd::migration::session::{exchange_msk, report_status};
+use migtd::migration::session::report_status;
 use migtd::migration::MigrationResult;
 use migtd::runtime::snp::config::{
     usage, HostControlMode, MigrationRole, ParseOutcome, PeerTransportMode, ProcessMode,
     RuntimeConfig, StartMode,
 };
+use migtd::runtime::snp::snpemu::execute_start_migration;
+use migtd::transport::host_control::emulated::EmulatedHostControlTransport;
 use tdx_tdcall_emu::tdx_emu::{connect_tcp_client, set_emulated_start_migration};
 use tdx_tdcall_emu::{init_tcp_emulation_with_mode, start_tcp_server_sync, TcpEmulationMode};
 
@@ -221,28 +223,12 @@ fn runtime_main_autostart() -> i32 {
                         }
                         WaitForRequestResponse::StartMigration(request) => {
                             let request_id = request.mig_info.mig_request_id;
-                            log::info!(migration_request_id = request_id; "Processing StartMigration request\n");
-
-                            let result = exchange_msk(&request).await;
-                            match &result {
-                                Ok(_) => log::info!(migration_request_id = request_id; "exchange_msk() returned Ok\n"),
-                                Err(error) => log::error!(migration_request_id = request_id; "exchange_msk() error {}\n", *error as u8),
-                            }
-                            let status = result
-                                .map(|_| MigrationResult::Success)
-                                .unwrap_or_else(|error| error);
-                            let status_code = status as u8;
-
-                            let _ =
-                                report_status(status_code, request_id, &Vec::new()).await;
-
-                            if status_code == MigrationResult::Success as u8 {
-                                log::info!(migration_request_id = request_id; "SNP migration key exchange successful!\n");
-                                return 0;
-                            }
-
-                            log::error!(migration_request_id = request_id; "SNP migration key exchange failed: {}\n", status_code);
-                            return status_code as i32;
+                            log::info!(migration_request_id = request_id; "Processing StartMigration through shared workflow\n");
+                            return execute_start_migration(
+                                &EmulatedHostControlTransport,
+                                &request,
+                            )
+                            .await;
                         }
                         #[cfg(feature = "policy_v2")]
                         WaitForRequestResponse::StartRebinding(_)

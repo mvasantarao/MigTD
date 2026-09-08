@@ -14,7 +14,7 @@
 //! GetMigrationReadiness opcode: REMOVED (A6).
 //! GetTDReport is required on both SnpEmu and real HW (see ASSUMPTION A5).
 
-use crate::migration::data::WaitForRequestResponse;
+use crate::migration::data::{MigrationInformation, WaitForRequestResponse};
 use crate::migration::host_transport::HostControlTransport;
 use crate::migration::session::exchange_msk;
 use crate::migration::MigrationResult;
@@ -27,6 +27,58 @@ fn configure_log_level(log_max_level: u8) -> MigrationResult {
 
     log::set_max_level(pal::logging::u8_to_levelfilter(log_max_level));
     MigrationResult::Success
+}
+
+pub async fn execute_start_migration<T: HostControlTransport>(
+    transport: &T,
+    request: &MigrationInformation,
+) -> i32 {
+    let request_id = request.mig_info.mig_request_id;
+    eprintln!(
+        "[MA] START_MIGRATION_WORKFLOW_BEGIN: role={} request_id={}",
+        if request.is_src() {
+            "source"
+        } else {
+            "destination"
+        },
+        request_id
+    );
+
+    let result = exchange_msk(request).await;
+    complete_start_migration(transport, request_id, result).await
+}
+
+async fn complete_start_migration<T: HostControlTransport>(
+    transport: &T,
+    request_id: u64,
+    result: Result<(), MigrationResult>,
+) -> i32 {
+    let status = result
+        .map(|_| MigrationResult::Success)
+        .unwrap_or_else(|error| error);
+    let status_code = status as u8;
+
+    if let Err(error) = transport.report_status(status_code, request_id, &[]).await {
+        eprintln!(
+            "[MA] ERROR: StartMigration report_status failed: status={} request_id={}",
+            error as u8, request_id
+        );
+        return error as u8 as i32;
+    }
+
+    if status == MigrationResult::Success {
+        eprintln!(
+            "[MA] START_MIGRATION_WORKFLOW_END: result=success request_id={}",
+            request_id
+        );
+        0
+    } else {
+        eprintln!(
+            "[MA] START_MIGRATION_WORKFLOW_END: result=failure status={} request_id={}",
+            status_code, request_id
+        );
+        status_code as i32
+    }
 }
 
 pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
@@ -99,26 +151,10 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
             WaitForRequestResponse::StartMigration(req) => {
                 let request_id = req.mig_info.mig_request_id;
                 eprintln!(
-                    "[MA] opcode 1: StartMigration -> exchange_msk() (request_id={})",
+                    "[MA] opcode 1: StartMigration -> shared workflow (request_id={})",
                     request_id
                 );
-                let res = exchange_msk(&req).await;
-                let status = res.map(|_| MigrationResult::Success).unwrap_or_else(|e| e);
-                let status_code = status as u8;
-                let _ = transport.report_status(status_code, request_id, &[]).await;
-                if status_code == MigrationResult::Success as u8 {
-                    eprintln!(
-                        "[MA] SUCCESS: migration complete (request_id={}) — exiting WFR loop",
-                        request_id
-                    );
-                    return 0;
-                } else {
-                    eprintln!(
-                        "[MA] ERROR: migration failed: status={} (request_id={})",
-                        status_code, request_id
-                    );
-                    return status_code as i32;
-                }
+                return execute_start_migration(transport, &req).await;
             }
 
             _ => {
@@ -270,6 +306,36 @@ mod tests {
         assert!(
             data_len > 0,
             "GetTDReport response must carry non-empty blob"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_shared_start_migration_success_reports_success() {
+        let transport = MockTransport::default();
+        let exit_code = super::complete_start_migration(&transport, 2001, Ok(())).await;
+        assert_eq!(exit_code, 0);
+        assert_eq!(
+            transport.captured_calls(),
+            vec![(MigrationResult::Success as u8, 2001, 0)]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_shared_start_migration_failure_reports_same_status() {
+        let transport = MockTransport::default();
+        let exit_code = super::complete_start_migration(
+            &transport,
+            2002,
+            Err(MigrationResult::MutualAttestationError),
+        )
+        .await;
+        assert_eq!(
+            exit_code,
+            MigrationResult::MutualAttestationError as u8 as i32
+        );
+        assert_eq!(
+            transport.captured_calls(),
+            vec![(MigrationResult::MutualAttestationError as u8, 2002, 0)]
         );
     }
 
