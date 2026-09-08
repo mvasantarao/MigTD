@@ -388,10 +388,6 @@ fn parse_legacy_pid1(args: &[String]) -> Result<RuntimeConfig, String> {
         ),
     };
 
-    if args.len() > if role == MigrationRole::Source { 4 } else { 3 } {
-        return Err("unexpected argument in legacy PID1 invocation".to_string());
-    }
-
     Ok(RuntimeConfig {
         role,
         start_mode: StartMode::Wfr,
@@ -550,6 +546,20 @@ mod tests {
             Some(PID1_DEST_HOST_ADDR_DEFAULT)
         );
         assert_eq!(config.peer_address, "0.0.0.0:9001");
+    }
+
+    #[test]
+    fn legacy_pid1_ignores_additional_kernel_init_arguments() {
+        let config = parse(&[
+            "migtd",
+            "source",
+            "10.0.2.2:8001",
+            "10.0.2.2:9001",
+            "additional-init-argument",
+        ]);
+        assert_eq!(config.process_mode, ProcessMode::Pid1);
+        assert_eq!(config.role, MigrationRole::Source);
+        assert_eq!(config.peer_address, "10.0.2.2:9001");
     }
 
     #[test]
