@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-//! SnpEmu-specific code for running MigTD SNP emulator in a standard Rust environment.
-//! Simplified version of cvmemu.rs: no policy files, no igvm-attest, migration only.
+//! Unified SNP Migration Agent entry point for standalone and PID1 execution.
 
 #![cfg(feature = "SnpEmu")]
 
-use std::env;
+use std::net::SocketAddr;
 use std::process;
 
 use alloc::vec::Vec;
@@ -18,45 +17,178 @@ use migtd::migration::logging::{
 };
 use migtd::migration::session::{exchange_msk, report_status};
 use migtd::migration::MigrationResult;
-
+use migtd::runtime::snp::config::{
+    usage, HostControlMode, MigrationRole, ParseOutcome, PeerTransportMode, ProcessMode,
+    RuntimeConfig, StartMode,
+};
 use tdx_tdcall_emu::tdx_emu::{connect_tcp_client, set_emulated_start_migration};
 use tdx_tdcall_emu::{init_tcp_emulation_with_mode, start_tcp_server_sync, TcpEmulationMode};
 
-/// SnpEmu entry point
 pub fn main() {
-    let result = init_vmm_logger();
-    if result.is_err() {
-        panic_with_guest_crash_reg_report(
-            MigrationResult::InitializationError as u64,
-            b"Failed to initialize VMM logger",
-        );
+    let config = match RuntimeConfig::parse(std::env::args()) {
+        Ok(ParseOutcome::Run(config)) => config,
+        Ok(ParseOutcome::Help) => {
+            println!("{}", usage());
+            return;
+        }
+        Err(error) => {
+            eprintln!("[MA] invalid runtime configuration: {error}");
+            eprintln!("{}", usage());
+            process::exit(2);
+        }
+    };
+
+    if let Err(error) = prepare_process(&config) {
+        eprintln!("[MA] FATAL: {error}");
+        process::exit(2);
     }
 
-    // Init internal heap (only when NOT bypassing attestation)
-    #[cfg(not(any(feature = "test_disable_ra_and_accept_all", feature = "SnpUnderhill")))]
-    attestation::attest_init_heap();
+    eprintln!(
+        "[MA] RUNTIME_PROFILE: process={} start={} role={} host_control={} \
+         peer_transport={} platform_services={}",
+        config.process_mode,
+        config.start_mode,
+        config.role,
+        config.host_control,
+        config.peer_transport,
+        config.platform_services
+    );
 
-    // Initialize event log emulation
-    td_shim_emu::event_log::init_event_log();
+    if let Err(error) = initialize_peer_channel(config.role, &config.peer_address) {
+        eprintln!("[MA] FATAL: {error}");
+        process::exit(1);
+    }
 
-    // Parse CLI args and set up TCP
-    parse_commandline_args();
-
-    let exit_code = runtime_main_snp();
+    let exit_code = match config.start_mode {
+        StartMode::Autostart => {
+            queue_autostart_request(&config);
+            runtime_main_autostart()
+        }
+        StartMode::Wfr => {
+            if config.process_mode == ProcessMode::Pid1 {
+                eprintln!("[MA] MA_BOOT_STAGE_2: entering WFR service loop");
+            }
+            runtime_main_wfr(&config)
+        }
+    };
     process::exit(exit_code);
 }
 
-/// Main event loop for SnpEmu
-fn runtime_main_snp() -> i32 {
+fn prepare_process(config: &RuntimeConfig) -> Result<(), String> {
+    if config.platform_services == migtd::runtime::snp::config::PlatformServicesMode::Hardware {
+        return Err(
+            "hardware platform services are not implemented; refusing fixture fallback".to_string(),
+        );
+    }
+    if config.peer_transport == PeerTransportMode::Underhill {
+        return Err(
+            "the Underhill peer backend is not implemented; refusing TCP fallback".to_string(),
+        );
+    }
+
+    match config.process_mode {
+        ProcessMode::Standalone => {
+            let result = init_vmm_logger();
+            if result.is_err() {
+                panic_with_guest_crash_reg_report(
+                    MigrationResult::InitializationError as u64,
+                    b"Failed to initialize VMM logger",
+                );
+            }
+
+            #[cfg(not(any(
+                feature = "test_disable_ra_and_accept_all",
+                feature = "SnpUnderhill"
+            )))]
+            attestation::attest_init_heap();
+
+            td_shim_emu::event_log::init_event_log();
+            Ok(())
+        }
+        ProcessMode::Pid1 => {
+            #[cfg(feature = "SnpUnderhill")]
+            {
+                super::main_snp_underhill::prepare_pid1(config.role);
+                Ok(())
+            }
+            #[cfg(not(feature = "SnpUnderhill"))]
+            {
+                Err(
+                    "PID1 process mode requires a binary built with the SnpUnderhill feature"
+                        .to_string(),
+                )
+            }
+        }
+    }
+}
+
+fn initialize_peer_channel(role: MigrationRole, peer_address: &str) -> Result<(), String> {
+    let socket_address: SocketAddr = peer_address
+        .parse()
+        .map_err(|error| format!("invalid peer address {peer_address}: {error}"))?;
+    let mode = if role.is_source() {
+        TcpEmulationMode::Client
+    } else {
+        TcpEmulationMode::Server
+    };
+
+    eprintln!(
+        "[MA] PEER_CHANNEL_SETUP: role={} address={}",
+        role, peer_address
+    );
+    init_tcp_emulation_with_mode(
+        &socket_address.ip().to_string(),
+        socket_address.port(),
+        mode,
+    )
+    .map_err(|error| format!("peer TCP emulation initialization failed: {error}"))?;
+
+    if role.is_source() {
+        connect_tcp_client().map_err(|error| format!("peer TCP connect failed: {error:?}"))?;
+    } else {
+        eprintln!("[MA] PEER_CHANNEL_LISTENING: {}", peer_address);
+        start_tcp_server_sync(peer_address)
+            .map_err(|error| format!("peer TCP accept failed: {error:?}"))?;
+    }
+
+    eprintln!(
+        "[MA] PEER_CHANNEL_READY: role={} address={}",
+        role, peer_address
+    );
+    Ok(())
+}
+
+fn queue_autostart_request(config: &RuntimeConfig) {
+    let target_uuid = [
+        config.target_uuid[0] as u64,
+        config.target_uuid[1] as u64,
+        config.target_uuid[2] as u64,
+        config.target_uuid[3] as u64,
+    ];
+    let migration_source = u8::from(config.role.is_source());
+
+    eprintln!(
+        "[MA] AUTOSTART_REQUEST_CREATED: request_id={} role={}",
+        config.request_id, config.role
+    );
+    set_emulated_start_migration(
+        config.request_id,
+        migration_source,
+        target_uuid,
+        config.binding_handle,
+    );
+}
+
+fn runtime_main_autostart() -> i32 {
     match create_logarea() {
         Ok(_) => log::info!("LogArea created successfully\n"),
-        Err(e) => log::error!("Failed to create logarea: {}\n", e as u8),
+        Err(error) => log::error!("Failed to create logarea: {}\n", error as u8),
     }
 
     event::register_callback();
 
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-    rt.block_on(async move {
+    let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+    runtime.block_on(async move {
         loop {
             match migtd::migration::session::wait_for_request().await {
                 Ok(response) => {
@@ -72,14 +204,13 @@ fn runtime_main_snp() -> i32 {
                             )
                             .await
                             .map(|_| MigrationResult::Success)
-                            .unwrap_or_else(|e| e);
+                            .unwrap_or_else(|error| error);
 
                             log::set_max_level(u8_to_levelfilter(wfr_info.log_max_level));
-                            let _ = report_status(status as u8, wfr_info.mig_request_id, &data).await;
+                            let _ =
+                                report_status(status as u8, wfr_info.mig_request_id, &data).await;
                         }
                         WaitForRequestResponse::GetTdReport(report_info) => {
-                            // SnpEmu: SNP report is generated inline during SPDM handshake.
-                            // Return success with empty bytes to satisfy the event loop.
                             log::info!(migration_request_id = report_info.mig_request_id; "SnpEmu: GetTdReport is a no-op (SNP report generated in SPDM layer)\n");
                             let _ = report_status(
                                 MigrationResult::Success as u8,
@@ -88,177 +219,95 @@ fn runtime_main_snp() -> i32 {
                             )
                             .await;
                         }
-                        WaitForRequestResponse::StartMigration(req) => {
-                            log::info!(migration_request_id = req.mig_info.mig_request_id; "Processing StartMigration request\n");
+                        WaitForRequestResponse::StartMigration(request) => {
+                            let request_id = request.mig_info.mig_request_id;
+                            log::info!(migration_request_id = request_id; "Processing StartMigration request\n");
 
-                            let res = exchange_msk(&req).await;
-                            match &res {
-                                Ok(_) => log::info!(migration_request_id = req.mig_info.mig_request_id; "exchange_msk() returned Ok\n"),
-                                Err(e) => log::error!(migration_request_id = req.mig_info.mig_request_id; "exchange_msk() error {}\n", *e as u8),
+                            let result = exchange_msk(&request).await;
+                            match &result {
+                                Ok(_) => log::info!(migration_request_id = request_id; "exchange_msk() returned Ok\n"),
+                                Err(error) => log::error!(migration_request_id = request_id; "exchange_msk() error {}\n", *error as u8),
                             }
-                            let status = res.map(|_| MigrationResult::Success).unwrap_or_else(|e| e);
-                            let status_code_u8 = status as u8;
+                            let status = result
+                                .map(|_| MigrationResult::Success)
+                                .unwrap_or_else(|error| error);
+                            let status_code = status as u8;
 
-                            let _ = report_status(status_code_u8, req.mig_info.mig_request_id, &Vec::new()).await;
+                            let _ =
+                                report_status(status_code, request_id, &Vec::new()).await;
 
-                            if status_code_u8 == MigrationResult::Success as u8 {
-                                log::info!(migration_request_id = req.mig_info.mig_request_id; "SNP migration key exchange successful!\n");
+                            if status_code == MigrationResult::Success as u8 {
+                                log::info!(migration_request_id = request_id; "SNP migration key exchange successful!\n");
                                 return 0;
-                            } else {
-                                log::error!(migration_request_id = req.mig_info.mig_request_id; "SNP migration key exchange failed: {}\n", status_code_u8);
-                                return status_code_u8 as i32;
                             }
+
+                            log::error!(migration_request_id = request_id; "SNP migration key exchange failed: {}\n", status_code);
+                            return status_code as i32;
                         }
-                        // SnpEmu does not support rebinding operations
                         #[cfg(feature = "policy_v2")]
-                        WaitForRequestResponse::StartRebinding(_) |
-                        WaitForRequestResponse::GetMigtdData(_) => {
+                        WaitForRequestResponse::StartRebinding(_)
+                        | WaitForRequestResponse::GetMigtdData(_) => {
                             log::warn!("SnpEmu: unsupported request type (rebinding)\n");
                         }
                     }
                 }
-                Err(e) => {
-                    log::error!("wait_for_request failed: {}\n", e as u8 as i32);
-                    return e as u8 as i32;
+                Err(error) => {
+                    log::error!("wait_for_request failed: {}\n", error as u8 as i32);
+                    return error as u8 as i32;
                 }
             }
         }
     })
 }
 
-fn parse_commandline_args() {
-    let args: Vec<String> = env::args().collect();
-    let mut mig_request_id = 1u64;
-    let mut is_source = true;
-    let mut target_td_uuid = [1u32, 2, 3, 4];
-    let mut binding_handle = 0x1234u64;
-    let mut destination_ip: Option<String> = None;
-    let mut destination_port: Option<u16> = None;
-
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--request-id" | "-r" if i + 1 < args.len() => {
-                mig_request_id = args[i + 1].parse().unwrap_or_else(|_| {
-                    eprintln!("Invalid request ID: {}", args[i + 1]);
-                    process::exit(1);
-                });
-                i += 2;
-            }
-            "--role" | "-m" if i + 1 < args.len() => match args[i + 1].to_lowercase().as_str() {
-                "source" | "src" => {
-                    is_source = true;
-                    i += 2;
-                }
-                "destination" | "dst" | "target" => {
-                    is_source = false;
-                    i += 2;
-                }
-                _ => {
-                    eprintln!("Invalid role: {}", args[i + 1]);
-                    process::exit(1);
-                }
-            },
-            "--uuid" | "-u" if i + 4 < args.len() => {
-                target_td_uuid = [
-                    args[i + 1].parse().unwrap_or(1),
-                    args[i + 2].parse().unwrap_or(2),
-                    args[i + 3].parse().unwrap_or(3),
-                    args[i + 4].parse().unwrap_or(4),
-                ];
-                i += 5;
-            }
-            "--binding" | "-b" if i + 1 < args.len() => {
-                let s = &args[i + 1];
-                binding_handle = if s.starts_with("0x") || s.starts_with("0X") {
-                    u64::from_str_radix(&s[2..], 16).unwrap_or(0x1234)
-                } else {
-                    s.parse().unwrap_or(0x1234)
-                };
-                i += 2;
-            }
-            "--dest-ip" | "-d" if i + 1 < args.len() => {
-                destination_ip = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--dest-port" | "-t" if i + 1 < args.len() => {
-                destination_port = Some(args[i + 1].parse().unwrap_or(8001));
-                i += 2;
-            }
-            "--help" | "-h" => {
-                print_snpemu_usage();
-                process::exit(0);
-            }
-            _ => {
-                eprintln!("Unknown argument: {}", args[i]);
-                i += 1;
-            }
-        }
+fn runtime_main_wfr(config: &RuntimeConfig) -> i32 {
+    if config.host_control != HostControlMode::Tcp {
+        eprintln!(
+            "[MA] FATAL: WFR requires TCP host control, configured={}",
+            config.host_control
+        );
+        return 2;
+    }
+    if config.peer_transport != PeerTransportMode::TcpEmulation {
+        eprintln!(
+            "[MA] FATAL: unsupported M1 peer transport: {}",
+            config.peer_transport
+        );
+        return 2;
     }
 
-    log::info!(
-        "SnpEmu Migration: id={}, role={}, uuid={:?}, binding={:#x}\n",
-        mig_request_id,
-        if is_source { "source" } else { "destination" },
-        target_td_uuid,
-        binding_handle
-    );
+    let host_control_address = config
+        .host_control_address
+        .as_deref()
+        .expect("WFR configuration must include a host-control address")
+        .to_string();
+    let role = config.role;
+    let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
 
-    let tcp_ip = destination_ip.as_deref().unwrap_or("127.0.0.1");
-    let tcp_port = destination_port.unwrap_or(8001);
-    let mode = if is_source {
-        TcpEmulationMode::Client
-    } else {
-        TcpEmulationMode::Server
-    };
+    runtime.block_on(async move {
+        use migtd::runtime::snp::snpemu::runtime_main_snp;
+        use migtd::transport::host_control::tcp::TcpTransport;
 
-    if let Err(e) = init_tcp_emulation_with_mode(tcp_ip, tcp_port, mode) {
-        log::error!("Failed to initialize TCP emulation: {}\n", e);
-        process::exit(1);
-    }
+        let transport = if role.is_source() {
+            eprintln!(
+                "[MA] Source MA: connecting to IGVMAgent/host at {}",
+                host_control_address
+            );
+            TcpTransport::connect(&host_control_address).await
+        } else {
+            eprintln!(
+                "[MA] Destination MA: binding host-control TCP on {}",
+                host_control_address
+            );
+            TcpTransport::accept(&host_control_address).await
+        };
 
-    if !is_source {
-        let addr = format!("{}:{}", tcp_ip, tcp_port);
-        match start_tcp_server_sync(&addr) {
-            Ok(_) => log::info!("TCP server started on: {}\n", addr),
-            Err(e) => {
-                log::error!("Failed to start TCP server: {:?}\n", e);
-                process::exit(1);
+        match transport {
+            Ok(transport) => runtime_main_snp(&transport).await,
+            Err(error) => {
+                eprintln!("[MA] FATAL: TCP host-control setup failed: {error}");
+                1
             }
         }
-    } else {
-        match connect_tcp_client() {
-            Ok(_) => log::info!("Connected to destination TCP server\n"),
-            Err(e) => {
-                log::error!("Failed to connect to destination: {:?}\n", e);
-                process::exit(1);
-            }
-        }
-    }
-
-    let td_uuid = [
-        target_td_uuid[0] as u64,
-        target_td_uuid[1] as u64,
-        target_td_uuid[2] as u64,
-        target_td_uuid[3] as u64,
-    ];
-    let rebinding_src = if is_source { 1u8 } else { 0u8 };
-    set_emulated_start_migration(mig_request_id, rebinding_src, td_uuid, binding_handle);
-}
-
-fn print_snpemu_usage() {
-    println!("MigTD SnpEmu Mode Usage:");
-    println!();
-    println!("  --request-id, -r ID        Migration request ID (default: 1)");
-    println!("  --role, -m ROLE            'source' or 'destination' (default: source)");
-    println!("  --uuid, -u U1 U2 U3 U4     Target TD UUID as four integers");
-    println!("  --binding, -b HANDLE       Binding handle (hex or decimal, default: 0x1234)");
-    println!("  --dest-ip, -d IP           Destination IP (default: 127.0.0.1)");
-    println!("  --dest-port, -t PORT       Destination port (default: 8001)");
-    println!();
-    println!("Examples:");
-    println!("  # Source:");
-    println!("  ./migtd --role source --request-id 1 --dest-ip 127.0.0.1 --dest-port 8001");
-    println!("  # Destination:");
-    println!("  ./migtd --role destination --request-id 1");
+    })
 }

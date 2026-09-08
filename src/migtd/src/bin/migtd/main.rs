@@ -94,21 +94,9 @@ pub extern "C" fn main() {
     runtime_main()
 }
 
-// SnpUnderhill: run as PID 1 in SNP guest initramfs
-#[cfg(all(feature = "SnpUnderhill", not(test)))]
-fn main() {
-    // argv[1] = role when running as PID 1 in initramfs (no env vars); env var fallback for test runs
-    let role = std::env::args()
-        .nth(1)
-        .or_else(|| std::env::var("MA_ROLE").ok())
-        .unwrap_or_else(|| "dest".to_string());
-    let is_source = role == "source";
-    let exit_code = main_snp_underhill::ma_pid1_main(is_source);
-    std::process::exit(exit_code);
-}
-
-// SnpEmu entry point - standard Rust main function (pure emulator, no production hardware)
-#[cfg(all(feature = "SnpEmu", not(feature = "SnpUnderhill"), not(test)))]
+// One SNP entry point. A SnpUnderhill-superset ELF selects standalone/PID1 and
+// Autostart/WFR behavior from runtime configuration.
+#[cfg(all(feature = "SnpEmu", not(test)))]
 fn main() {
     snpemu::main();
 }
