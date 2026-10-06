@@ -5,10 +5,9 @@
 
 use core::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 
-use crate::traits::{MigrationKeyInstaller, PalError, PlatformKeyProvider, PlatformReportVerifier};
+use crate::traits::{MigrationKeyInstaller, PalError, PlatformKeyProvider};
 use crate::types::{MigrationRole, PlatformOperationContext};
 
-const SNP_REPORT_SIZE: usize = 1184;
 const MIGRATION_KEY_SIZE: usize = 32;
 static TRACE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static ACTIVE_REQUEST_ID: AtomicU64 = AtomicU64::new(0);
@@ -85,66 +84,28 @@ fn trace(
     );
 }
 
-pub fn trace_tav_verification(context: &PlatformOperationContext, event: &str, result: &str) {
+pub fn trace_qvl_verification(context: &PlatformOperationContext, event: &str, result: &str) {
+    let operation = if cfg!(feature = "azure-snp-verify") {
+        "AZURE_VERIFY_ATTESTATION"
+    } else {
+        "TAV_VERIFY_ATTESTATION"
+    };
+    let provider = if cfg!(feature = "azure-snp-verify") {
+        "AzureSnpQvl"
+    } else {
+        "SnpQvl"
+    };
     trace(
         context,
         "attestation-verification",
-        "TAV_VERIFY_ATTESTATION",
+        operation,
         "QvlLibrary::verify",
-        "SnpQvl",
+        provider,
         "software",
         false,
         event,
         result,
     );
-}
-
-pub struct MockPlatformReportVerifier;
-
-impl PlatformReportVerifier for MockPlatformReportVerifier {
-    fn verify_report(
-        &self,
-        context: &PlatformOperationContext,
-        report: &[u8],
-    ) -> Result<(), PalError> {
-        trace(
-            context,
-            "platform-report-verification",
-            "MSG_VERIFY_REPORT",
-            "PlatformReportVerifier::verify_report",
-            "MockPlatformReportVerifier",
-            "mock",
-            false,
-            "begin",
-            "pending",
-        );
-        if report.len() != SNP_REPORT_SIZE {
-            trace(
-                context,
-                "platform-report-verification",
-                "MSG_VERIFY_REPORT",
-                "PlatformReportVerifier::verify_report",
-                "MockPlatformReportVerifier",
-                "mock",
-                false,
-                "end",
-                "invalid-input",
-            );
-            return Err(PalError::InvalidInput);
-        }
-        trace(
-            context,
-            "platform-report-verification",
-            "MSG_VERIFY_REPORT",
-            "PlatformReportVerifier::verify_report",
-            "MockPlatformReportVerifier",
-            "mock",
-            false,
-            "end",
-            "success",
-        );
-        Ok(())
-    }
 }
 
 pub struct MockPlatformKeyProvider;
@@ -241,9 +202,6 @@ mod tests {
 
     #[test]
     fn fixture_services_accept_valid_logical_inputs() {
-        MockPlatformReportVerifier
-            .verify_report(&context(), &[0u8; SNP_REPORT_SIZE])
-            .unwrap();
         MockPlatformKeyProvider.prepare_key(&context()).unwrap();
         MockMigrationKeyInstaller
             .set_migration_info(&context(), &[0u8; MIGRATION_KEY_SIZE])

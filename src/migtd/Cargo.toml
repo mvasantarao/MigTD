@@ -135,6 +135,11 @@ SnpUnderhill = [
 
 ]
 
+SnpEmuAzure = [
+    "SnpUnderhill",
+    "pal/azure-snp-verify",
+]
+
 snp_fixture_only = ["SnpEmu"]   # CI gate: implies SnpEmu; hardware paths must not be enabled in CI
 
 

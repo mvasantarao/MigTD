@@ -15,14 +15,6 @@ pub trait AttestationProvider {
     fn get_report(&self, report_data: &[u8; 64]) -> Result<AttestationBundle, PalError>;
 }
 
-pub trait PlatformReportVerifier {
-    fn verify_report(
-        &self,
-        context: &PlatformOperationContext,
-        report: &[u8],
-    ) -> Result<(), PalError>;
-}
-
 pub trait PlatformKeyProvider {
     fn prepare_key(&self, context: &PlatformOperationContext) -> Result<(), PalError>;
 }
@@ -35,7 +27,7 @@ pub trait MigrationKeyInstaller {
     ) -> Result<(), PalError>;
 }
 
-#[cfg(feature = "snp-emu")]
+#[cfg(any(feature = "snp-emu", feature = "azure-snp-verify"))]
 pub trait QvlLibrary {
     fn verify(
         &self,

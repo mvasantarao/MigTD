@@ -179,7 +179,7 @@ impl AttestationProvider for SnpHardwareProvider {
 
         Ok(AttestationBundle {
             ma_report_blob,
-            tenant_report: None, // Phase 3b: populated from MSG_VERIFY_REPORT result
+            tenant_report: None, // Populated by the production tenant-report acquisition path.
         })
     }
 }

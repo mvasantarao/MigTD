@@ -239,11 +239,11 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
 fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
     use pal::snp::fixture::platform_services::{
-        active_operation_context, trace_tav_verification, MockPlatformReportVerifier,
+        active_operation_context, trace_qvl_verification,
     };
     use pal::snp::qvl::validate::AttestationVerificationParams;
     use pal::snp::qvl::verify::SnpQvl;
-    use pal::traits::{PlatformReportVerifier, QvlLibrary};
+    use pal::traits::QvlLibrary;
 
     const SNP_REPORT_SIZE: usize = 1184;
     const REPORT_DATA_OFFSET: usize = 0x50;
@@ -276,20 +276,17 @@ fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
     );
     let params = AttestationVerificationParams::crypto_only(report, &fixture_report_data);
 
-    trace_tav_verification(&context, "begin", "pending");
+    trace_qvl_verification(&context, "begin", "pending");
     if SnpQvl.verify(&params, &cert_chain).is_err() {
-        trace_tav_verification(&context, "end", "failure");
+        trace_qvl_verification(&context, "end", "failure");
         return Err(());
     }
-    trace_tav_verification(&context, "end", "success");
+    trace_qvl_verification(&context, "end", "success");
     eprintln!(
-        "[MA] FIXTURE_LIMITATION: TAV verified the captured report signature and \
+        "[MA] FIXTURE_LIMITATION: the selected QVL verified the captured report signature and \
          certificate chain; live TH1 report_data binding was not claimed"
     );
 
-    MockPlatformReportVerifier
-        .verify_report(&context, report)
-        .map_err(|_| ())?;
     Ok(vec![])
 }
 
@@ -516,7 +513,7 @@ mod snp_fixture_tests {
     use snp_emu::provider_fixture::SnpFixtureProvider;
 
     #[test]
-    fn fixture_quote_runs_tav_and_mock_platform_verification() {
+    fn fixture_quote_runs_qvl_verification() {
         let quote = SnpFixtureProvider
             .get_report(&[0u8; 64])
             .expect("fixture report")

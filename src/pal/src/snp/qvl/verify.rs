@@ -12,7 +12,7 @@
 //! (after the 32-byte HCLA wrapper header). cpuid_fam_id=0x19 (Milan, version=5).
 //! Azure ark.der public key matches TAV's pinned Milan ARK exactly.
 
-#[cfg(feature = "snp-emu")]
+#[cfg(all(feature = "snp-emu", not(feature = "azure-snp-verify")))]
 use tee_attestation_verification_lib::{
     certificate_from_der,
     snp::{
@@ -27,7 +27,7 @@ use crate::types::{PlatformType, QvlResult, TcbStatus};
 
 pub struct SnpQvl;
 
-#[cfg(feature = "snp-emu")]
+#[cfg(all(feature = "snp-emu", not(feature = "azure-snp-verify")))]
 impl QvlLibrary for SnpQvl {
     /// Verify an SNP attestation report and its certificate chain using TAV.
     ///
@@ -70,6 +70,38 @@ impl QvlLibrary for SnpQvl {
             // TODO Phase 3: parse VCEK OID 1.3.6.1.4.1.3704.1.x when TAV exposes accessor.
             // TAV verify_attestation() already verified report.reported_tcb == VCEK OIDs;
             platform_tcb: None,
+        })
+    }
+}
+
+#[cfg(feature = "azure-snp-verify")]
+impl QvlLibrary for SnpQvl {
+    /// Verify an SNP report using the Azure Guest Attestation SDK.
+    fn verify(
+        &self,
+        params: &AttestationVerificationParams<'_>,
+        cert_chain: &[Vec<u8>],
+    ) -> Result<QvlResult, PalError> {
+        if cert_chain.len() < 2 {
+            return Err(PalError::InvalidInput);
+        }
+
+        let chain_pem = super::azure::der_chain_to_pem(cert_chain)?;
+        let result = azure_guest_attestation_sdk::verify::verify_snp_report(
+            params.report,
+            &chain_pem,
+            &Default::default(),
+        )
+        .map_err(|error| {
+            PalError::VerificationFailed(format!("Azure SNP verification failed: {error}"))
+        })?;
+
+        validate(params)?;
+
+        Ok(QvlResult {
+            platform: PlatformType::AmdSnp,
+            tcb_status: TcbStatus::UpToDate,
+            platform_tcb: Some(result.measurements.reported_tcb.to_le_bytes()),
         })
     }
 }

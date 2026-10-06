@@ -107,7 +107,8 @@ fn prepare_process(config: &RuntimeConfig) -> Result<(), String> {
 
             #[cfg(not(any(
                 feature = "test_disable_ra_and_accept_all",
-                feature = "SnpUnderhill"
+                feature = "SnpUnderhill",
+                feature = "SnpEmuAzure"
             )))]
             attestation::attest_init_heap();
 

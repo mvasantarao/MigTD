@@ -34,7 +34,7 @@ pub struct AttestationBundle {
     /// MA's own SNP REPORT (1184 bytes) + cert chain DERs concatenated:
     /// report[1184] || vcek_len[4LE] || vcek || ask_len[4LE] || ask
     pub ma_report_blob: Vec<u8>,
-    /// Phase 3: tenant CVM's SNP REPORT fetched via MSG_VERIFY_REPORT.
+    /// Tenant CVM's SNP report, when supplied by the platform integration.
     pub tenant_report: Option<Vec<u8>>,
 }
 
