@@ -238,9 +238,7 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 
 #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
 fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
-    use pal::snp::fixture::platform_services::{
-        active_operation_context, trace_qvl_verification,
-    };
+    use pal::snp::fixture::platform_services::{active_operation_context, trace_qvl_verification};
     use pal::snp::qvl::validate::AttestationVerificationParams;
     use pal::snp::qvl::verify::SnpQvl;
     use pal::traits::QvlLibrary;
