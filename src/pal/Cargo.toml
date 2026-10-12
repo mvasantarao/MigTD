@@ -14,6 +14,6 @@ tdx = []
 zerocopy = { version = "0.8", features = ["derive"] }
 log = "0.4"
 base64 = { version = "0.22", optional = true }
-azure-guest-attestation-sdk = { git = "https://github.com/Azure/azure-guest-attestation-sdk", rev = "23bf1d1b62d2a3fcbf3eed8f80c5a2bd54e5028b", default-features = false, features = ["verify"], optional = true }
+azure-guest-attestation-sdk = { git = "https://github.com/Azure/azure-guest-attestation-sdk", rev = "046690a1f247f2b524bd02b71eb302745d06cfc6", default-features = false, features = ["verify"], optional = true }
 openssl = { version = "0.10", features = ["vendored"], optional = true }
 tee-attestation-verification-lib = { git = "https://github.com/microsoft/TEE-Attestation-Verification", tag = "tav-1.0.2", features = ["crypto_pure_rust"], default-features = false, optional = true }

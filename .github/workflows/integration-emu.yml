@@ -416,3 +416,39 @@ jobs:
           path: fixture_checksums.txt
           retention-days: 90
           if-no-files-found: error
+
+  snp-emu-azure-build:
+    name: SNP Azure Attestation Build (Rust 1.90)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Setup Rust 1.90 build environment
+        uses: ./.github/actions/setup-build-environment
+        with:
+          rust-toolchain: '1.90.0'
+          install-tpm-tools: 'false'
+          install-jq: 'false'
+
+      - name: Install musl compiler and target
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+
+      - name: Build SNP emulator with Azure attestation QVL
+        run: |
+          AS=nasm AR=llvm-ar CC=x86_64-linux-musl-gcc \
+            RUSTFLAGS='-A dangerous-implicit-autorefs' \
+            cargo build -p migtd --bin migtd --no-default-features \
+              --features SnpEmuAzure \
+              --target x86_64-unknown-linux-musl --release

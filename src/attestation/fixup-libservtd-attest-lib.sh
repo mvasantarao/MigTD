@@ -59,6 +59,23 @@ do
     fi
     ar d ${lib} $(ar t ${tlibc_lib} | grep -v spinlock.o | grep -v memset | grep -v memcpy )
     ar d ${lib} $(ar t ${sgxssl_lib})
+
+    # Keep the SGX helper implementations, but let host libc provide its own
+    # exit-registration functions in the AzCVMEmu application archive.
+    archive_path=$(realpath "${lib}")
+    tmpdir=$(mktemp -d)
+    if ! (
+        cd "${tmpdir}" &&
+        ar x "${archive_path}" servtd_qve_utils.o &&
+        objcopy --localize-symbol=atexit --localize-symbol=__cxa_atexit servtd_qve_utils.o &&
+        ar r "${archive_path}" servtd_qve_utils.o &&
+        ranlib "${archive_path}"
+    ); then
+        rm -rf "${tmpdir}"
+        echo "$0: failed to localize atexit symbols in ${lib}"
+        exit 1
+    fi
+    rm -rf "${tmpdir}"
     echo "Created ${lib}"
 done
 
