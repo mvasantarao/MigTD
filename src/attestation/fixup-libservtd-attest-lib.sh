@@ -60,14 +60,14 @@ do
     ar d ${lib} $(ar t ${tlibc_lib} | grep -v spinlock.o | grep -v memset | grep -v memcpy )
     ar d ${lib} $(ar t ${sgxssl_lib})
 
-    # Keep the SGX helper implementations, but let host libc provide its own
-    # exit-registration functions in the AzCVMEmu application archive.
+    # Keep fallback exit-registration shims, but let host libc's strong symbols
+    # override them where libc provides those functions.
     archive_path=$(realpath "${lib}")
     tmpdir=$(mktemp -d)
     if ! (
         cd "${tmpdir}" &&
         ar x "${archive_path}" servtd_qve_utils.o &&
-        objcopy --localize-symbol=atexit --localize-symbol=__cxa_atexit servtd_qve_utils.o &&
+        objcopy --weaken-symbol=atexit --weaken-symbol=__cxa_atexit servtd_qve_utils.o &&
         ar r "${archive_path}" servtd_qve_utils.o &&
         ranlib "${archive_path}"
     ); then
