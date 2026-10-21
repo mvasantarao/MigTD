@@ -4,6 +4,8 @@
 
 #![cfg(feature = "spdm_attestation")]
 
+#[cfg(feature = "SnpEmu")]
+mod snp_vdm;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
 mod spdm_rebind;
 mod spdm_req;
@@ -30,6 +32,8 @@ use zeroize::ZeroizeOnDrop;
 use async_io::AsyncRead;
 use async_io::AsyncWrite;
 use crypto::hash::digest_sha384;
+#[cfg(feature = "SnpEmu")]
+pub use snp_vdm::*;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
 pub use spdm_rebind::spdm_requester_rebind_old;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]

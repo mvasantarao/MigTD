@@ -54,7 +54,13 @@ enum_builder! {
         ExchangeRebindAttestInfoReq => 0x07,
         ExchangeRebindAttestInfoRsp => 0x08,
         ExchangeRebindInfoReq => 0x09,
-        ExchangeRebindInfoRsp => 0x0A
+        ExchangeRebindInfoRsp => 0x0A,
+        ExchangeSnpMaEvidenceReq => 0x20,
+        ExchangeSnpMaEvidenceRsp => 0x21,
+        ExchangeSnpCollateralReq => 0x22,
+        ExchangeSnpCollateralRsp => 0x23,
+        ExchangeSnpTenantEvidenceReq => 0x24,
+        ExchangeSnpAuthorizationResultRsp => 0x25
     }
 }
 
@@ -114,7 +120,11 @@ enum_builder! {
         MigrationImportVersion => 0x82,
         ForwardMigrationSessionKey => 0x83,
         BackwardMigrationSessionKey => 0x84,
-        RebindSessionToken => 0x85
+        RebindSessionToken => 0x85,
+        SnpMaEvidenceV1 => 0x0100,
+        SnpCollateralSetV1 => 0x0101,
+        SnpTenantEvidenceV1 => 0x0102,
+        SnpAuthorizationResultV1 => 0x0103
     }
 }
 

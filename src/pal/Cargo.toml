@@ -12,6 +12,7 @@ tdx = []
 
 [dependencies]
 zerocopy = { version = "0.8", features = ["derive"] }
+codec = { path = "../../deps/spdm-rs/codec" }
 log = "0.4"
 base64 = { version = "0.22", optional = true }
 azure-guest-attestation-sdk = { git = "https://github.com/Azure/azure-guest-attestation-sdk", rev = "046690a1f247f2b524bd02b71eb302745d06cfc6", default-features = false, features = ["verify"], optional = true }
