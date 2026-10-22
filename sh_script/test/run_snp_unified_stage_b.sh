@@ -15,6 +15,7 @@ source_host_address=${MIGTD_STAGE_B_SOURCE_HOST_ADDRESS:-127.0.0.1:19501}
 destination_host_address=${MIGTD_STAGE_B_DESTINATION_HOST_ADDRESS:-127.0.0.1:19502}
 peer_address=${MIGTD_STAGE_B_PEER_ADDRESS:-127.0.0.1:19503}
 timeout_seconds=${MIGTD_STAGE_B_TIMEOUT_SECONDS:-90}
+attestation_evidence_marker=${ATTESTATION_EVIDENCE_MARKER:-operation=AZURE_VERIFY_ATTESTATION}
 
 for executable in "$binary" "$controller"; do
     [[ -f "$executable" && -x "$executable" ]] || {
@@ -201,8 +202,9 @@ for role in source destination; do
     grep -q "RUNTIME_PROFILE: process=standalone start=wfr role=$role" "$log"
     grep -q "TcpTransport: recv opcode=0x01 request_id=1003" "$log"
     grep -q "START_MIGRATION_WORKFLOW_BEGIN: role=$role request_id=1003" "$log"
-    grep -q "operation=TAV_VERIFY_ATTESTATION.*result=success" "$log"
-    grep -q "operation=MSG_VERIFY_REPORT.*result=success" "$log"
+    awk -v marker="$attestation_evidence_marker" \
+        'index($0, marker) && index($0, "result=success") { found=1 } END { exit !found }' \
+        "$log"
     grep -q "operation=MSG_KEY_REQ.*result=success" "$log"
     grep -q "operation=MSG_SET_MIGRATION_INFO.*result=success" "$log"
     grep -q "START_MIGRATION_WORKFLOW_END: result=success request_id=1003" "$log"

@@ -4,8 +4,8 @@
 # Builds and runs MigTD in AMD SNP Emulator mode (SnpEmu feature).
 # No TDX hardware, no TPM, no Azure CVM required — runs on any Linux machine.
 #
-# SnpEmu uses real TAV (tee-attestation-verification-lib) certificate chain
-# verification (ASK→VCEK) with fixture data; ARK is TAV's pinned Milan ARK from src/snp_emu/src/fixture_data/.
+# SnpEmu verifies the ASK→VCEK certificate chain and report signature with
+# fixture data. The selected build features determine the verification backend.
 # Use --skip-ra to bypass attestation entirely for quick connectivity tests.
 
 set -e
@@ -56,7 +56,7 @@ show_usage() {
     echo "  -p, --dest-port PORT    Set destination port (default: 8001)"
     echo "  --debug                 Build in debug mode (default)"
     echo "  --release               Build in release mode"
-    echo "  --skip-ra               Skip remote attestation entirely (no TAV cert chain check)"
+    echo "  --skip-ra               Skip remote attestation entirely (no certificate-chain check)"
     echo "  --features FEATURES     Add extra cargo features (comma-separated)"
     echo "  --log-level LEVEL       Set Rust log level (trace, debug, info, warn, error)"
     echo "                          Default: debug for debug builds, info for release builds"
@@ -64,7 +64,7 @@ show_usage() {
     echo "  -h, --help              Show this help message"
     echo
     echo "Attestation modes:"
-    echo "  (default)    Real TAV verification: ASK→VCEK chain + report signature (ARK pinned in TAV)"
+    echo "  (default)    Full verification: ASK→VCEK chain + report signature"
     echo "               Uses fixture data from src/snp_emu/src/fixture_data/ (Milan/Genoa/Turin)"
     echo "  --skip-ra    Bypass all attestation — SPDM session only, accept-all policy"
     echo
@@ -72,9 +72,9 @@ show_usage() {
     echo "  AS=nasm  AR=ar  CC=gcc  OPENSSL_NO_VENDOR=1"
     echo
     echo "Examples:"
-    echo "  $0 --both                          # Build debug + run source+destination (full TAV)"
+    echo "  $0 --both                          # Build debug + run source+destination (full attestation)"
     echo "  $0 --skip-ra --both                # Build debug + run source+destination (no attestation)"
-    echo "  $0 --role destination              # Run destination only (full TAV)"
+    echo "  $0 --role destination              # Run destination only (full attestation)"
     echo "  $0 --role source --dest-ip 10.0.0.2   # Run source to remote destination"
     echo "  $0 --release --both                # Build release + run both"
     echo "  $0 --skip-ra --debug --log-level trace --both   # Trace logging, no attestation"
@@ -191,7 +191,7 @@ LOG_LEVEL=$(resolve_log_level)
 
 # Print effective config
 echo -e "${BLUE}SnpEmu Configuration:${NC}"
-echo "  Mode:        $([ "$SKIP_RA" == true ] && echo 'skip-ra (no attestation)' || echo 'full TAV verification')"
+echo "  Mode:        $([ "$SKIP_RA" == true ] && echo 'skip-ra (no attestation)' || echo 'full attestation verification')"
 echo "  Build:       $BUILD_MODE"
 echo "  Features:    $CARGO_FEATURES"
 echo "  Log level:   $LOG_LEVEL"

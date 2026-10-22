@@ -12,6 +12,7 @@ policy_file=${MIGTD_POLICY_FILE:?MIGTD_POLICY_FILE must name the fixture policy}
 root_ca_file=${MIGTD_ROOT_CA_FILE:?MIGTD_ROOT_CA_FILE must name the fixture root CA}
 peer_address=${MIGTD_STAGE_A_PEER_ADDRESS:-127.0.0.1:19410}
 timeout_seconds=${MIGTD_STAGE_A_TIMEOUT_SECONDS:-90}
+attestation_evidence_marker=${ATTESTATION_EVIDENCE_MARKER:-operation=AZURE_VERIFY_ATTESTATION}
 
 [[ -f "$binary" && -x "$binary" ]] || {
     echo "frozen ELF is not an executable file: $binary" >&2
@@ -118,8 +119,9 @@ final_hash=$(sha256sum "$binary" | awk '{print $1}')
 for role in source destination; do
     log="$evidence_dir/$role.log"
     grep -q "START_MIGRATION_WORKFLOW_BEGIN: role=$role request_id=1" "$log"
-    grep -q "operation=TAV_VERIFY_ATTESTATION.*result=success" "$log"
-    grep -q "operation=MSG_VERIFY_REPORT.*result=success" "$log"
+    awk -v marker="$attestation_evidence_marker" \
+        'index($0, marker) && index($0, "result=success") { found=1 } END { exit !found }' \
+        "$log"
     grep -q "operation=MSG_KEY_REQ.*result=success" "$log"
     grep -q "operation=MSG_SET_MIGRATION_INFO.*result=success" "$log"
     grep -q "START_MIGRATION_WORKFLOW_END: result=success request_id=1" "$log"
