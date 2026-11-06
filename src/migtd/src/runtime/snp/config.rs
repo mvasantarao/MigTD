@@ -458,10 +458,12 @@ pub fn usage() -> &'static str {
     --platform-services <fixture|hardware>
     --peer-transport <tcp-emulation|underhill>
 
-  Standalone fixture inputs:
-    MIGTD_POLICY_FILE=<policy.json>
-    MIGTD_ROOT_CA_FILE=<root-ca.cer>
-    MIGTD_POLICY_ISSUER_CHAIN_FILE=<issuer-chain.pem>  (policy_v2 only)
+  Legacy compatibility:
+    --uuid is accepted but ignored; --binding is an untrusted guest handle.
+    No TDX policy/root-CA files or emulated TDX calls are used.
+    The fixture signature/chain check remains active; V6/V2 admission does not.
+    TDX features (including policy_v2 and test_disable_ra_and_accept_all)
+    cannot be combined with SnpEmu; their TDX meanings are unchanged.
 
   M1 rejects hardware platform services and the Underhill peer backend
   explicitly because those implementations are not available yet.

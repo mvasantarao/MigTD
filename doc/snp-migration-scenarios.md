@@ -7,20 +7,19 @@ without changing migration behavior, process arguments, protocol or trust.
 
 ## Current captured-fixture compatibility runners
 
-Build the emulator/controller through the existing build flow, then supply
-their frozen executable paths. These runners do not build or change them.
+Build the emulator/controller through the [bundle producer](snp-bundles.md),
+then supply their frozen executable paths. These runners do not build or
+change them. Task 5 removes the obsolete TDX policy/root-CA inputs; neither
+`MIGTD_POLICY_FILE` nor `MIGTD_ROOT_CA_FILE` is required or loaded.
 
 ```bash
-export MIGTD_POLICY_FILE="$PWD/config/policy.json"
-export MIGTD_ROOT_CA_FILE="$PWD/config/Intel_SGX_Provisioning_Certification_RootCA.cer"
-
 bash sh_script/test/run_snp_single_process_migration.sh \
-  target/x86_64-unknown-linux-musl/release/migtd \
+  target/bundles/emulator/bin/migtd \
   target/single-process-migration
 
 bash sh_script/test/run_snp_inter_node_two_process_migration.sh \
-  target/x86_64-unknown-linux-musl/release/migtd \
-  target/x86_64-unknown-linux-musl/release/host_wfr_test \
+  target/bundles/emulator/bin/migtd \
+  target/bundles/emulator/bin/host_wfr_test \
   target/inter-node-two-process-migration
 ```
 

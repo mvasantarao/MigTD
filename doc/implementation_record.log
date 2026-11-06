@@ -5702,3 +5702,116 @@ Qualification:Build-validated/migration-unqualified;no common V6/V2 activation,
   IGVM/ADO implementation,production/PA advancement or Task12 reactivation.
 Task5:NOT STARTED;separate authorization required.
 No push authorized or performed.
+
+Task5 SNP separation - START
+UTC:2026-11-06T19:03:11.103Z.
+Authorization:Implement Task5 following the reviewed nine-step plan and its
+  tightened TDX-preservation boundaries. User confirmed successful legacy
+  compatibility must remain behind explicit SNP-owned adapters,unqualified;
+  stop for user review before committing.
+Baseline:MigTD f5f2a6cd814013cc038d52f18e442cf2ee1b3f4d;
+  harness 4a10dafd9125457616d09589f618cef1d3ff9e68.
+Receipt:target/task5/20261106T190311Z/baseline.json.
+Preserve:earlier uncommitted IGVM/order plan edits,generated submodule build
+  outputs,untracked historical harness diagrams,all prior evidence.
+Scope:SNP-owned requests,WFR/autostart,host handler,compatibility application,
+  key/effect adapters and independent feature wiring;reuse neutral SPDM code.
+Keep:TDX function bodies/wire semantics and existing feature selections;
+  WFR/PID1 lifecycle,explicit unavailable production providers and no fallback.
+Exclude:common V6/V2 activation,later Tasks6-11,IGVM/ADO implementation,
+  hardware/production qualification,Task12 reactivation,new commit or push.
+Validation:baseline/candidate TDX dependency selection,existing build/runtime
+  regressions,SNP tests/isolation,new bundles and actual VM compatibility.
+
+Task5 SNP separation - IMPLEMENTATION/VALIDATION COMPLETE;REVIEW PENDING
+UTC:2026-11-06T20:09:26.295Z.
+Status:IMPLEMENTED AND VALIDATED;explicit user acceptance pending;uncommitted.
+Prerequisites:P2.1/P2.2 accepted and committed;Phase2 closed within scope.
+Authorization:2026-11-06T19:03:11.103Z;stop for user review before committing.
+Baseline/HEAD:MigTD f5f2a6cd814013cc038d52f18e442cf2ee1b3f4d;
+  harness 4a10dafd9125457616d09589f618cef1d3ff9e68;both unchanged.
+Owner:Copilot implementation/validation;user acceptance pending.
+Record:doc/snp/approval-decision-technical-note.md section39;
+  target/task5/20261106T190311Z/validation.json.
+Files:SNP runtime/request/legacy/peer/host-transport modules;neutral status;
+  SNP entry;SPDM application selection/cleanup;MigTD feature wiring;SNP
+  conformance/runners/tests;current instructions/scenario/bundle/plan/readiness
+  documentation. Exact source hashes and dirty inventory are in the receipt
+  and both fresh bundle source manifests.
+Step1 baseline:RECORDED;dependency/source snapshots and inherited dirt preserved.
+Step2 host flow:IMPLEMENTED;SNP-owned exact legacy decoder and typed operation;
+  WFR/autostart share the same handler;role mismatch fails;PID1 stays resident.
+Step3 dispatch/transport:IMPLEMENTED;direct TCP and SNP startup;no TDX fixture loading,
+  synthetic queue,status adapter,event log or emulator-TDCALL path.
+Step4 shared SPDM boundary:IMPLEMENTED;reuse neutral handshake/framing/signing;
+  TDX helper bodies retained;separate SNP application callbacks.
+Step5 evidence/application:IMPLEMENTED;captured-v5 signature/chain verification;
+  inert legacy five/three-element wire values;no common V6/V2 admission.
+Step6 key/effect ownership:IMPLEMENTED;zeroizing legacy directional random32 keys,
+  mock effects only;terminal cleanup;incomplete END_SESSION fails.
+Step7 feature isolation:IMPLEMENTED;SNP normal/build closure excludes TDX;
+  mixed SNP/TDX options fail;existing TDX feature meanings/graphs preserved.
+Step8 regression validation:PASSED;48 SNP tests;77 compile/dependency/API checks;
+  16 runner/inventory controls;9 contract controls;21 real-bundle methods;
+  registered library suites pass(existing ignored test retained).
+  CI format/check/Clippy,advisories/sources/bans pass;32 TDX firmware variants,
+  6 tools and14 AzCVMEmu scenarios pass. Strict workspace lint uses SDK-required
+  Rust1.90;strict SNP package/all-target lint uses --no-deps -- -D warnings.
+Step9 artifact/runtime validation:PASSED;fresh emulator/production bundles;
+  both canonical standalone runners without TDX input environment(six exits0);
+  actual two-VM consumer result with both ACKs/PID1 residency(four cleanup
+  exits0);owned PIDs/listeners absent;concrete SNP ELF/graph isolation checked.
+Artifact identity:emulator ELF
+  bf1b5404d7bcc0d6a06d438c03b19e3b41fd30e740d04141dd260ab47bfbd77f;
+  controller68da383024245d1ebe5adb3b5b583968a31db7d05a25f877ee6f5db10fd8eca8.
+VM result:target/task5/20261106T190311Z/vm-runs/
+  20261106T200546Z-x_7vubxs/result.json;
+  legacy-compatibility-completed;migration-unqualified.
+Failures/disposition:initial wiring/test-layout fixes;TDX-bypass case becomes
+  intentional negative;Cargo stderr comparison corrected;missing cargo-deny
+  installed task-locally;unscoped strict SNP lint hits unchanged dev-only
+  attestation warnings(no TDX cleanup/code-level suppression);strict workspace
+  Rust1.88 hits SDK MSRV and passes on1.90. Some initial raw logs overwritten;
+  no claim of complete raw failure-log retention. Details/paths in section39.
+Preservation:Cargo.lock/non-SNP manifest and four non-SNP graphs unchanged;
+  all eight generated policy inputs restored byte-for-byte;earlier plan edits,
+  submodule build dirt,historical bundles/logs and harness diagrams preserved.
+  Final two lint changes are SNP-only;final SNP tests/lint/bundles include them.
+Contracts:existing legacy controller/VDM encoding only;Task5 replacement matrix
+  retains final typed target,not activation. No new Firmware ABI/P0 contract.
+Feature/provider matrix:SnpEmu/SnpEmuAzure legacy captured-fixture verification
+  and mock effects;SnpHardware unavailable-host fail-closed;TDX/AzCVMEmu
+  preserved;common V6/V2 verifiers remain unavailable.
+Qualification:Build-validated/migration-unqualified;no PA row advances.
+Blocker/owner:formal Task5 acceptance pending user review;no implementation
+  blocker claimed. Unscoped extra strict SNP dependency lint remains limited
+  by pre-existing dev-only attestation warnings,not silently declared passing.
+Commit/freeze:user review pending;no new commit,freeze or push.
+Exclude:Task6/later-task start,common V6/V2/key admission,production effects,
+  IGVM/ADO/hardware/resume qualification,local handoff andTask12 reactivation.
+
+Task5 SNP separation - ACCEPTED;COMMIT AUTHORIZED
+UTC:2026-11-06T20:30:41.102Z.
+User acceptance:"I accept Task 5 changes and authorize committing the same".
+Status:DONE - ACCEPTED AND FROZEN within documented Task5 separation scope.
+Prerequisites:P2.1/P2.2 accepted and committed;Phase2 closed within scope.
+Scope:accepted SNP-owned legacy request/transport/application/key adapters,
+  shared neutral SPDM reuse,TDX/AzCVMEmu preservation and section39 evidence.
+Validation:prior 48 SNP/193 library passes(one existing ignored),77 feature/API,
+  16 runner/inventory,9 contract,21 real-bundle controls;32 TDX builds,6 tools,
+  14 AzCVMEmu scenarios;both renamed canonical runners and actual two-VM
+  compatibility. No runtime tests rerun for acceptance;tested implementation
+  hashes checked before staging. Documented lint/toolchain limitations remain.
+Record:doc/snp/approval-decision-technical-note.md section40;
+  target/task5/20261106T190311Z/acceptance.json and commit.json.
+Commit:this commit persists implementation and acceptance;exact identity in
+  local commit receipt. No harness source change or commit required.
+Preserve:section39/validation.json historical snapshots;earlier IGVM/order
+  plan edits deliberately unstaged;submodule build dirt/unrelated harness
+  diagrams untouched. Committed plan retains canonical sequence with current
+  next-step pointer;working remaining-work view starts at Task6.
+Qualification:Build-validated/migration-unqualified;no PA row advancement.
+Next:Task6 NOT STARTED;separate authorization required;Phase3 remains open.
+Exclude:push,new runtime/provider activation,common V6/V2/final-key admission,
+  production effects,IGVM/ADO/hardware/resume qualification,local handoff,
+  Task12 reactivation or broader phase closure.

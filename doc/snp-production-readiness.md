@@ -200,8 +200,19 @@ Explicit bounded acceptance and Phase2 closure are recorded in
 Remaining relocation changes are committed in the harness as
 `4a10dafd9125457616d09589f618cef1d3ff9e68` and MigTD as
 `af17a246a2ec6117e0872b63e7d750e7dbe71165`. No PA row or production
-qualification advances. Task5 remains NOT STARTED pending separate authorization;
-no push is authorized. Historical validation/commit snapshots remain unchanged.
+qualification advances. Task5 was subsequently authorized at
+`2026-11-06T19:03:11.103Z` and is DONE - ACCEPTED AND FROZEN within its documented
+scope at `2026-11-06T20:30:41.102Z`; the user authorized committing the changes.
+This commit persists implementation and acceptance. SNP-owned legacy adapters preserve
+successful captured-fixture compatibility without TDX platform behavior.
+Fresh bundles, canonical runners and actual two-VM compatibility pass; these
+remain migration-unqualified and do not activate common V6/V2 or production
+effects. See [technical-note section39](snp/approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending)
+and local `target/task5/20261106T190311Z/validation.json`. Explicit acceptance
+is recorded in [technical-note section40](snp/approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization);
+acceptance itself reruns no runtime tests and grants no broader qualification.
+No push or Task6 start is authorized. Historical validation/commit snapshots
+remain unchanged.
 
 Statuses are `DESIGN_REQUIRED`, `EXTERNAL_DEPENDENCY`, `READY`, `IN_PROGRESS`,
 `IMPLEMENTED`, `QUALIFIED`, or `BLOCKED`. Implementation/model tests are not

@@ -28,6 +28,8 @@ compile_error!(
 compile_error!("SnpHardware cannot include emulator providers or fixture roots");
 #[cfg(all(feature = "AzCVMEmu", feature = "snp-core"))]
 compile_error!("TDX and SNP compositions are mutually exclusive");
+#[cfg(all(feature = "SnpEmu", feature = "tdx-platform"))]
+compile_error!("SnpEmu cannot include TDX platform features; use its SNP compatibility adapters");
 
 // AzCVMEmu only supports the vmcall-raw transport.
 #[cfg(all(
@@ -51,7 +53,7 @@ compile_error!("`use-mock-quote` bypasses RA-TLS channel binding and is test-onl
 #[cfg(all(feature = "test_disable_ra_and_accept_all", not(debug_assertions)))]
 compile_error!("`test_disable_ra_and_accept_all` disables remote attestation (accept-all RA-TLS), violating Design Guide §4 mutual authentication; it is test-only and must not be enabled in a release build. Build the test image with the dev profile (`cargo image --debug`).");
 
-#[cfg_attr(feature = "main", macro_use)]
+#[cfg_attr(any(feature = "main", feature = "SnpEmu"), macro_use)]
 extern crate alloc;
 
 // Phase 3a emits direct stderr diagnostics in emulation builds. Bare-metal
@@ -80,11 +82,11 @@ extern crate td_shim_interface;
 ))]
 extern crate tdx_tdcall;
 
-#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
+#[cfg(feature = "AzCVMEmu")]
 extern crate td_payload_emu as td_payload;
-#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
+#[cfg(feature = "AzCVMEmu")]
 extern crate td_shim_interface_emu as td_shim_interface;
-#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
+#[cfg(feature = "AzCVMEmu")]
 extern crate tdx_tdcall_emu as tdx_tdcall;
 
 #[cfg(feature = "tdx-platform")]
@@ -101,8 +103,10 @@ pub mod migration;
 pub mod quote;
 #[cfg(feature = "tdx-platform")]
 pub mod ratls;
-#[cfg(feature = "tdx-platform")]
+#[cfg(any(feature = "tdx-platform", feature = "SnpEmu"))]
 pub mod spdm;
+#[cfg(any(feature = "tdx-platform", feature = "SnpEmu"))]
+pub mod status;
 
 #[cfg(any(feature = "SnpHardware", feature = "SnpEmu"))]
 pub mod snp_composition;

@@ -41,16 +41,12 @@ class MigrationRunnerNames(unittest.TestCase):
             executable = cwd / "failing-process"
             executable.write_text(f"#!{sys.executable}\n" + FAILING_PROCESS)
             executable.chmod(0o755)
-            policy = cwd / "policy"
-            policy.touch()
-            ca = cwd / "root-ca"
-            ca.touch()
             env = {
                 key: value for key, value in os.environ.items()
-                if not key.startswith(("MIGTD_STAGE_", "MIGTD_SINGLE_PROCESS_MIGRATION_",
+                if key not in {"MIGTD_POLICY_FILE", "MIGTD_ROOT_CA_FILE", "MIGTD_POLICY_ISSUER_CHAIN_FILE"}
+                and not key.startswith(("MIGTD_STAGE_", "MIGTD_SINGLE_PROCESS_MIGRATION_",
                                        "MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_"))
             }
-            env.update(MIGTD_POLICY_FILE=str(policy), MIGTD_ROOT_CA_FILE=str(ca))
             env.update(extra_env or {})
             path = (f"run_snp_unified_stage_{old.lower()}.sh" if alias
                     else f"run_snp_{slug}.sh")
@@ -84,6 +80,15 @@ class MigrationRunnerNames(unittest.TestCase):
                 self.assert_failure_record(result, values, scenario[1])
                 self.assertEqual(values["peer_address"],
                                  "127.0.0.1:19503" if scenario[3] else "127.0.0.1:19410")
+
+    def test_tdx_fixture_environment_is_ignored(self):
+        for scenario in SCENARIOS:
+            with self.subTest(scenario=scenario[1]):
+                result, values = self.invoke(scenario, {
+                    "MIGTD_POLICY_FILE": "/nonexistent/tdx-policy",
+                    "MIGTD_ROOT_CA_FILE": "/nonexistent/tdx-root",
+                })
+                self.assert_failure_record(result, values, scenario[1])
 
     def test_compatibility_entry_points_forward_explicit_arguments(self):
         for scenario in SCENARIOS:

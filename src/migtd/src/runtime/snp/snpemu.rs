@@ -9,16 +9,19 @@
 //!   EnableLogArea  (4) -> enable_logarea() + set_max_level() + report_status()
 //!   GetTDReport    (3) -> selected MA evidence plus legacy certificate-blob ACK
 //!                         (IGVMAgent MA health check — NOT peer-to-peer SPDM attestation)
-//!   StartMigration (1) -> exchange_msk() + report_status(); exit loop
+//!   StartMigration (1) -> SNP legacy workflow + report_status(); exit loop
 //!
 //! GetMigrationReadiness opcode: REMOVED (A6).
 //! GetTDReport is required on both SnpEmu and real HW (see ASSUMPTION A5).
 
-use crate::migration::data::{MigrationInformation, WaitForRequestResponse};
-use crate::migration::host_transport::HostControlTransport;
-use crate::migration::session::exchange_msk;
-use crate::migration::MigrationResult;
+use super::legacy::exchange_legacy;
+use super::requests::{
+    HostRequest as WaitForRequestResponse, LegacyOperation as MigrationInformation,
+};
 use crate::snp_composition::SnpRuntimeProviders;
+use crate::status::MigrationResult;
+use crate::transport::{host_control::HostControlTransport, peer::TcpPeerStream};
+use pal::types::MigrationRole;
 
 fn configure_log_level(log_max_level: u8) -> MigrationResult {
     if log_max_level > 5 {
@@ -33,8 +36,10 @@ pub async fn execute_start_migration<T: HostControlTransport>(
     transport: &T,
     request: &MigrationInformation,
     providers: &SnpRuntimeProviders,
+    peer: &TcpPeerStream,
+    role: MigrationRole,
 ) -> i32 {
-    let request_id = request.mig_info.mig_request_id;
+    let request_id = request.mig_request_id;
     eprintln!(
         "[MA] START_MIGRATION_WORKFLOW_BEGIN: role={} request_id={}",
         if request.is_src() {
@@ -45,7 +50,12 @@ pub async fn execute_start_migration<T: HostControlTransport>(
         request_id
     );
 
-    let result = exchange_msk(request, providers).await;
+    let result = if request.operation.role != role {
+        eprintln!("[MA] host request role does not match the configured SNP peer role");
+        Err(MigrationResult::InvalidParameter)
+    } else {
+        exchange_legacy(request, providers, peer).await
+    };
     complete_start_migration(transport, request_id, result).await
 }
 
@@ -85,6 +95,8 @@ async fn complete_start_migration<T: HostControlTransport>(
 pub async fn runtime_main_snp<T: HostControlTransport>(
     transport: &T,
     providers: &SnpRuntimeProviders,
+    peer: &TcpPeerStream,
+    role: MigrationRole,
 ) -> i32 {
     eprintln!("[MA] WFR dispatcher started (Phase 3a SnpEmu)");
 
@@ -95,7 +107,7 @@ pub async fn runtime_main_snp<T: HostControlTransport>(
                     "[MA] FATAL: wait_for_request failed: opcode_err={}",
                     e as u8
                 );
-                return 1;
+                return e as u8 as i32;
             }
             Ok(r) => r,
         };
@@ -157,16 +169,12 @@ pub async fn runtime_main_snp<T: HostControlTransport>(
             }
 
             WaitForRequestResponse::StartMigration(req) => {
-                let request_id = req.mig_info.mig_request_id;
+                let request_id = req.mig_request_id;
                 eprintln!(
-                    "[MA] opcode 1: StartMigration -> shared workflow (request_id={})",
+                    "[MA] opcode 1: StartMigration -> SNP legacy workflow (request_id={})",
                     request_id
                 );
-                return execute_start_migration(transport, &req, providers).await;
-            }
-
-            _ => {
-                eprintln!("[MA] WARN: unhandled WFR opcode — ignoring");
+                return execute_start_migration(transport, &req, providers, peer, role).await;
             }
         }
     }
@@ -174,10 +182,10 @@ pub async fn runtime_main_snp<T: HostControlTransport>(
 
 #[cfg(test)]
 mod tests {
-    use crate::migration::data::WaitForRequestResponse;
-    use crate::migration::host_transport::HostControlTransport;
-    use crate::migration::MigrationResult;
-    use crate::migration::{EnableLogAreaInfo, ReportInfo};
+    use super::*;
+    use crate::runtime::snp::requests::{
+        HealthRequest as ReportInfo, LogRequest as EnableLogAreaInfo,
+    };
     use async_trait::async_trait;
     use std::sync::{Arc, Mutex};
 
@@ -234,6 +242,16 @@ mod tests {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    async fn run(transport: &MockTransport, providers: &SnpRuntimeProviders) -> i32 {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let stream = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let _server = listener.accept().await.unwrap();
+        let peer = TcpPeerStream::new(stream);
+        super::runtime_main_snp(transport, providers, &peer, MigrationRole::Source).await
+    }
+
     fn enable_logarea_req(req_id: u64, level: u8) -> WaitForRequestResponse {
         WaitForRequestResponse::EnableLogArea(EnableLogAreaInfo {
             mig_request_id: req_id,
@@ -257,7 +275,7 @@ mod tests {
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 3)]);
         // Dispatcher will loop until wait_for_request returns Err (queue empty)
         let providers = crate::snp_composition::selected_runtime_provider_set();
-        let _ = super::runtime_main_snp(&transport, &providers).await;
+        let _ = run(&transport, &providers).await;
         let calls = transport.captured_calls();
         // EnableLogArea arm must have fired report_status
         assert!(
@@ -277,7 +295,7 @@ mod tests {
     async fn test_report_status_enable_logarea_rejects_invalid_level() {
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 6)]);
         let providers = crate::snp_composition::selected_runtime_provider_set();
-        let _ = super::runtime_main_snp(&transport, &providers).await;
+        let _ = run(&transport, &providers).await;
         let calls = transport.captured_calls();
         assert!(
             !calls.is_empty(),
@@ -302,7 +320,7 @@ mod tests {
     async fn test_report_status_get_tdreport_returns_report_blob() {
         let transport = MockTransport::new(vec![get_tdreport_req(1002)]);
         let providers = crate::snp_composition::selected_runtime_provider_set();
-        let _ = super::runtime_main_snp(&transport, &providers).await;
+        let _ = run(&transport, &providers).await;
         let calls = transport.captured_calls();
         assert!(
             !calls.is_empty(),
@@ -331,7 +349,7 @@ mod tests {
             ..MockTransport::new(vec![get_tdreport_req(1002), enable_logarea_req(1003, 3)])
         };
         let providers = crate::snp_composition::selected_runtime_provider_set();
-        let exit = super::runtime_main_snp(&transport, &providers).await;
+        let exit = run(&transport, &providers).await;
         assert_eq!(exit, MigrationResult::NetworkError as u8 as i32);
         let calls = transport.captured_calls();
         assert_eq!(calls.len(), 1);
@@ -372,6 +390,34 @@ mod tests {
             transport.captured_calls(),
             vec![(MigrationResult::MutualAttestationError as u8, 2002, 0)]
         );
+    }
+
+    #[tokio::test]
+    async fn mismatched_role_fails_before_peer_exchange() {
+        let request = MigrationInformation::new(2003, MigrationRole::Destination, 9);
+        let transport = MockTransport::new(vec![WaitForRequestResponse::StartMigration(request)]);
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        assert_eq!(
+            run(&transport, &providers).await,
+            MigrationResult::InvalidParameter as u8 as i32
+        );
+        assert_eq!(
+            transport.captured_calls(),
+            vec![(MigrationResult::InvalidParameter as u8, 2003, 0)]
+        );
+    }
+
+    #[tokio::test]
+    async fn start_migration_report_failure_is_terminal() {
+        let transport = MockTransport {
+            report_error: Some(MigrationResult::NetworkError),
+            ..MockTransport::default()
+        };
+        assert_eq!(
+            super::complete_start_migration(&transport, 2004, Ok(())).await,
+            MigrationResult::NetworkError as u8 as i32
+        );
+        assert_eq!(transport.captured_calls().len(), 1);
     }
 
     /// report_status success code accepted: MigrationResult::Success as u8 == 0.

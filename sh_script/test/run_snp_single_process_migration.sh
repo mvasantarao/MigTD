@@ -8,22 +8,12 @@ fi
 
 binary=$(readlink -f "$1")
 evidence_dir=${2:-"$(pwd)/snp-single-process-migration-evidence"}
-policy_file=${MIGTD_POLICY_FILE:?MIGTD_POLICY_FILE must name the fixture policy}
-root_ca_file=${MIGTD_ROOT_CA_FILE:?MIGTD_ROOT_CA_FILE must name the fixture root CA}
 peer_address=${MIGTD_SINGLE_PROCESS_MIGRATION_PEER_ADDRESS:-${MIGTD_STAGE_A_PEER_ADDRESS:-127.0.0.1:19410}}
 timeout_seconds=${MIGTD_SINGLE_PROCESS_MIGRATION_TIMEOUT_SECONDS:-${MIGTD_STAGE_A_TIMEOUT_SECONDS:-90}}
 attestation_evidence_marker=${ATTESTATION_EVIDENCE_MARKER:-operation=AZURE_VERIFY_ATTESTATION}
 
 [[ -f "$binary" && -x "$binary" ]] || {
     echo "frozen ELF is not an executable file: $binary" >&2
-    exit 2
-}
-[[ -f "$policy_file" ]] || {
-    echo "fixture policy not found: $policy_file" >&2
-    exit 2
-}
-[[ -f "$root_ca_file" ]] || {
-    echo "fixture root CA not found: $root_ca_file" >&2
     exit 2
 }
 
@@ -54,10 +44,7 @@ run_role() {
     local role=$1
     local log=$2
     local pid_variable=$3
-    setsid env \
-        MIGTD_POLICY_FILE="$policy_file" \
-        MIGTD_ROOT_CA_FILE="$root_ca_file" \
-        timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" \
+    setsid timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" \
         "$binary" \
         --process standalone \
         --autostart \

@@ -451,7 +451,12 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         return (Err(SPDM_STATUS_INVALID_MSG_FIELD), Some(&rsp_bytes[..used]));
     }
 
+    #[cfg(not(feature = "SnpEmu"))]
     let mut reader = Reader::init(&req_payload.req_payload[0..req_payload.req_length as usize]);
+    #[cfg(feature = "SnpEmu")]
+    let protected_request = zeroize::Zeroizing::new(req_payload.req_payload);
+    #[cfg(feature = "SnpEmu")]
+    let mut reader = Reader::init(&protected_request[..req_payload.req_length as usize]);
     let vdm_request = if let Some(vdm_request) = VdmMessage::read(&mut reader) {
         vdm_request
     } else {
@@ -465,7 +470,7 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         request_response_code: SpdmRequestResponseCode::SpdmResponseVendorDefinedResponse,
     };
 
-    let mut vdm_rsp_payload = SpdmVdmResponsePayload {
+    let vdm_rsp_payload = SpdmVdmResponsePayload {
         standard_id: RegistryOrStandardsBodyID::IANA,
         vendor_id: VendorIDStruct {
             len: VDM_MESSAGE_VENDOR_ID_LEN as u8,
@@ -474,6 +479,10 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         rsp_length: 0,
         rsp_payload: vec![0u8; MAX_SPDM_VENDOR_DEFINED_PAYLOAD_SIZE],
     };
+    #[cfg(not(feature = "SnpEmu"))]
+    let mut vdm_rsp_payload = vdm_rsp_payload;
+    #[cfg(feature = "SnpEmu")]
+    let mut vdm_rsp_payload = crate::runtime::snp::legacy::LegacyResponsePayload(vdm_rsp_payload);
 
     // Patch the vendor id field
     vdm_rsp_payload.vendor_id.vendor_id[..VDM_MESSAGE_VENDOR_ID_LEN]

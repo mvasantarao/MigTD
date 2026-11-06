@@ -174,12 +174,13 @@ async fn send_start_migration(
     req_id: u64,
     is_source: bool,
 ) -> io::Result<()> {
-    // data (SnpEmu/vmcall-raw, no policy_v2 -- 48 bytes):
+    // Frozen legacy compatibility adapter: not an authenticated SNP Prepare request.
+    // data (48 bytes):
     //   [0]     migration_source: 1=source, 0=dest
     //   [1]     has_init_data: 0
     //   [2..8]  _reserved: zeros
-    //   [8..40] target_td_uuid: zeros (fixture)
-    //   [40..48] binding_handle: fixture sentinel
+    //   [8..40] ignored legacy TD identifier: zeros
+    //   [40..48] untrusted managed-guest handle: fixture sentinel
     let mut data = vec![0u8; 48];
     data[0] = if is_source { 1 } else { 0 };
     // binding_handle = fixture sentinel 0xDEADBEEFCAFEBABE

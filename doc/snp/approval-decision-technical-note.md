@@ -3024,3 +3024,184 @@ hardware migration or resume, advance PA rows, or reactivate Task12.
 Historical evidence and section37 retain their original snapshot status.
 Task5 is next pending, **NOT STARTED**, requiring separate authorization.
 No push is authorized or performed.
+
+## 39. Task5 SNP-TDX separation (review pending)
+
+Status at `2026-11-06T20:09:26.295Z`: **IMPLEMENTED AND VALIDATED - pending
+explicit user review/acceptance; uncommitted**. Authorization:
+`2026-11-06T19:03:11.103Z`, following the reviewed separation/preservation
+discussion. The user required successful migration-unqualified legacy
+compatibility behind explicit SNP-owned adapters and a review stop before
+committing. P2.1/P2.2 are accepted and committed; this is not Task5 acceptance
+or a Phase3 closure.
+
+### Implemented boundary
+
+1. SNP owns `LegacyOperation`, typed `SnpOperationContext`, host requests and the
+   exact 48-byte legacy decoder. TD identifier bytes are ignored, not mapped
+   into SNP identity. Reserved/init-data, malformed, oversized and duplicate
+   frames fail explicitly. Legacy host IDs are untrusted routing, not Prepare
+   authorization.
+2. WFR remains receive/decode, host handler, workflow/providers, terminal status.
+   Autostart queues a testing request into that same handler. Configured/request
+   role mismatch fails; successful PID1 completion still parks resident.
+3. SNP owns direct TCP and startup logging, without TDX policy/root-CA loading,
+   event-log initialization, synthetic TDX queue/status adaptation or emulator
+   TDCALL transport. EOF/zero-progress I/O fails rather than stalling a neutral
+   SPDM read/write loop.
+4. Neutral SPDM handshake, framing, signing and dispatch remain shared. Separate
+   SNP application callbacks live in `runtime/snp/legacy.rs`; existing TDX
+   application helpers remain in place and are not compiled into SNP.
+5. Captured-v5 evidence signature/chain verification uses the selected existing
+   process-owned providers. The preserved five/three-element envelope has empty
+   event log, `SHA384([0; 64])`, inert ServTD/TDINFO zeros and compatibility
+   version `1..1`. These values are legacy wire encoding, not approved policy
+   evidence, fresh V6/TH1 authentication or firmware version negotiation.
+6. Compatibility keys are private, non-Clone, zeroizing random32 values, used
+   only by the legacy directional exchange and selected key-only mock installer.
+   Sensitive plaintext buffers and SPDM application private-key state are wiped
+   on terminal paths. Peer shutdown occurs on success/failure; END_SESSION
+   without the completed key exchange cannot report success.
+7. `SnpEmu` selects neutral SPDM directly, without TDX `main`, `spdm_attestation`,
+   `vmcall-raw`, attestation or emulator shim in its normal/build closure.
+   Existing TDX defaults/feature definitions and Cargo.lock remain unchanged.
+   Mixed SNP/TDX selections now fail, including the TDX-owned
+   `test_disable_ra_and_accept_all` and `test_mock_report` options. No new SNP
+   verification bypass is introduced.
+8. Canonical SNP runners and current instructions no longer request obsolete
+   TDX fixture inputs or incompatible feature combinations. Historical accepted
+   notes, bundles, manifests and inventory receipts are not rewritten.
+
+The replacement matrix in Task5 retains the final typed target. This bounded
+separation does **not** implement approved Prepare/common V6/V2 admission,
+source-owned final `MigrationKeyV2`, protected V2 delivery or production
+installation. Those remain later tasks; legacy success is never relabeled as
+their authorization or completion. Unavailable production/Underhill providers
+still fail explicitly without fixture fallback.
+
+### Preservation and executable validation
+
+Local evidence root:
+[`target/task5/20261106T190311Z/`](../../target/task5/20261106T190311Z/).
+The machine-readable [validation receipt](../../target/task5/20261106T190311Z/validation.json)
+records hashes, source identity, exact validation command references, failures,
+bundle identities, process cleanup and review disposition.
+
+| Validation | Result |
+|---|---|
+| SNP library, `SnpEmuAzure` | 48 passed, including real direct-TCP two-role SPDM/captured-fixture/mock-effect exchange |
+| Feature/dependency/public API conformance | 77 passed; SNP migration/TDX-field/TDREPORT exports unavailable |
+| SNP runner/inventory controls | 16 passed |
+| Frozen bundle-contract controls | Nine passed |
+| Real fresh-bundle controls | 21 methods passed |
+| Registered `RUST_TEST_THREADS=1 cargo xtask lib-test` suites | Passed; existing ignored test retained |
+| CI format/check/Clippy and advisories/sources/bans | Passed |
+| TDX firmware build matrix and utility tools | 32 variants and six tools passed |
+| AzCVMEmu runtime matrix | 14 scenarios passed, including SPDM, policy, rebind, retry and rotation |
+| Strict workspace/all-target Clippy | Passed with SDK-required Rust 1.90 |
+| Strict SNP package/all-target Clippy | Passed with `--no-deps -- -D warnings`; unchanged dependency warnings remain visible |
+| Fresh emulator and production bundles | Both built and validated; frozen v1 contract unchanged |
+| Both canonical standalone runners | Passed on the same immutable ELF; six zero process exits, no TDX input environment |
+| Actual two-VM consumer workflow | Passed: both ACKs, both PID1 resident markers, four zero cleanup exits |
+| Concrete ELF/dependency/cleanup checks | No TDX helper symbols/packages in the checked SNP closure; owned listeners/PIDs absent |
+
+TDX default, TDX SPDM/raw/policy-v2, AzCVMEmu and SnpHardware dependency graphs
+match the baseline; the SNP emulator graph intentionally changes.
+`dependency-preservation.json` confirms these comparisons and that the MigTD
+manifest outside `SnpEmu` is unchanged. Generated policy inputs were restored
+byte for byte. The full TDX matrix preceded two SNP-only lint corrections
+(collapsing a condition and moving the test module); neither changes source
+selected by TDX. Final SNP tests/lint and both bundles include those corrections.
+
+Fresh local outputs, never replacements for accepted P2.2 artifacts:
+
+- Emulator: `bundles/emulator/`, ELF SHA-256
+  `bf1b5404d7bcc0d6a06d438c03b19e3b41fd30e740d04141dd260ab47bfbd77f`.
+- Controller SHA-256:
+  `68da383024245d1ebe5adb3b5b583968a31db7d05a25f877ee6f5db10fd8eca8`.
+- Production: `bundles/production/`; explicit unavailable-host startup remains
+  recorded, not successful installation.
+- Actual VM result:
+  `vm-runs/20261106T200546Z-x_7vubxs/result.json`, outcome
+  `legacy-compatibility-completed; migration-unqualified`.
+
+All paths above are relative to the local evidence root unless linked otherwise.
+The approved relocated QEMU/OVMF/kernel hashes were reverified; their identities
+remain explicitly not requalified. Bundle source inventories identify the dirty,
+uncommitted implementation rather than pretending HEAD contains Task5.
+Both compositions remain **Build-validated/migration-unqualified**. The unchanged
+external harness is at `4a10dafd9125457616d09589f618cef1d3ff9e68`; its unrelated
+untracked diagrams and prior evidence remain untouched.
+
+### Failed attempts and lint scope
+
+Initial wiring compile failures and three envelope-test assumptions were fixed;
+the TLV discriminator is `u16`, so headers are six bytes, request/response sizes
+are 2050/1254 and the legacy key frame is 52 bytes. The formerly positive
+SNP-plus-TDX-bypass case is now an intentional compile-failure test.
+Cargo-tree stderr lock notices were initially mistaken for dependency changes;
+the comparison was corrected to use graph records, not stderr.
+The missing `cargo-deny` checker was installed into the local Task5 evidence
+tools directory only after the validation failure.
+
+Unscoped strict SNP all-target Clippy encounters existing unused-import/
+`QveCollateral` warnings in the dev-only TDX attestation dependency. That
+dependency is absent from the actual SNP image closure and is not edited for
+this task. Strict primary-package lint uses the standard `--no-deps` scope,
+checking all SNP package targets without applying the lint gate to unrelated
+dependencies; their warnings remain visible. Non-strict all-target SNP Clippy
+also passes. No code-level lint suppression is added. Strict workspace Clippy
+checks the TDX dependency in its in-scope feature composition.
+
+The strict workspace attempt on Rust 1.88 fails the existing SDK Rust-1.90 MSRV;
+it was rerun successfully on 1.90 without changing dependencies. The actual
+TDX CI matrix remains on 1.88. Initial raw compile/test logs were overwritten
+by successful reruns in some paths: this note records those attempts, but does
+not claim complete raw failure-log retention. The retained strict-lint/MSRV
+failure logs and successful reruns are listed in the receipt.
+
+### Review stop and exclusions
+
+MigTD HEAD remains `f5f2a6cd814013cc038d52f18e442cf2ee1b3f4d`.
+All Task5 implementation/documentation changes remain uncommitted for review.
+Earlier authorized IGVM/order edits, inherited submodule build dirt and accepted
+historical records are preserved. No user acceptance, freeze, commit, push,
+readiness-row advancement, Task6 start, common V6/V2 activation, IGVM/ADO
+qualification, production/hardware migration or resume qualification, local
+handoff activation or Task12 reactivation is claimed.
+
+## 40. Task5 bounded acceptance and commit authorization
+
+Status: **DONE - ACCEPTED AND FROZEN within the documented Task5 separation
+scope** at `2026-11-06T20:30:41.102Z`. The user explicitly stated:
+
+> I accept Task 5 changes and authorize committing the same
+
+This acceptance covers the implemented SNP-owned legacy request, transport,
+application and key/effect boundaries, preserved neutral SPDM reuse,
+TDX/AzCVMEmu regressions, fresh bundles and actual compatibility workflows
+documented in section39. It includes the documented lint/toolchain limitations
+and qualification exclusions; no broader production claim is inferred.
+
+This commit persists the accepted implementation and acceptance record.
+The commit identity and final staged-source checks are retained locally in
+`target/task5/20261106T190311Z/commit.json`; acceptance provenance is in
+`target/task5/20261106T190311Z/acceptance.json`.
+Section39 and `validation.json` retain their exact pre-acceptance snapshot
+status and tested source identities. Acceptance recording itself reruns no
+runtime tests. Staged implementation hashes are checked against that tested
+snapshot; only current acceptance documentation changes afterward.
+
+Earlier authorized IGVM requirements and the remaining-work execution-order
+cleanup remain deliberately outside this commit. The committed plan retains
+its historical canonical sequence with an updated next-step pointer; the
+working plan's remaining-work view now starts at Task6. Inherited submodule
+build dirt, accepted historical artifacts and unrelated harness diagrams are
+not staged. No harness implementation changes are required.
+
+Classification remains **Build-validated/migration-unqualified**. Acceptance
+does not activate common V6/V2, qualify final key admission or production
+effects, advance PA rows, qualify IGVM/ADO/hardware/resume, activate local
+handoff or reactivate Task12. Phase3 remains open. Task6 is next pending,
+**NOT STARTED**, and requires separate authorization. No push is authorized
+or performed.

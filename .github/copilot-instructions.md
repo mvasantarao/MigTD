@@ -37,9 +37,9 @@ cargo build --no-default-features --features AzCVMEmu,igvm-attest
 # AzCVMEmu — skip remote attestation (development/testing, any Linux machine)
 cargo build --no-default-features --features AzCVMEmu,test_disable_ra_and_accept_all
 
-# SnpEmu — AMD SNP emulator (in development; skips attestation)
-cargo check --no-default-features --features SnpEmu,test_disable_ra_and_accept_all
-cargo build  --no-default-features --features SnpEmu,test_disable_ra_and_accept_all
+# SNP emulator (captured-fixture compatibility; migration-unqualified)
+cargo check -p migtd --no-default-features --features SnpEmuAzure
+cargo build -p migtd --no-default-features --features SnpEmuAzure
 ```
 
 > **Note:** `AzCVMEmu` implicitly enables `main` and `vmcall-raw`; you do not need to add them explicitly.
@@ -170,7 +170,9 @@ Destination `spdm_rsp.rs` parses REQ, sends RSP.
 | REQ (Src → Dst) | `QuoteMy` \| `EventLogMy` \| `MigPolicyMy` \| `SerVtdExt` \| `TdReportInit` |
 | RSP (Dst → Src) | `QuoteMy` \| `EventLogMy` \| `MigPolicyMy` |
 
-`spdm/mod.rs` gates `gen_quote_spdm()`, `spdm_verify_quote()`, `verify_peer_report_data()` via `#![cfg(feature = "spdm_attestation")]` at the file level.
+`spdm/mod.rs` is included for `spdm_attestation` or `SnpEmu`. Neutral handshake,
+framing and signing are shared; TDX and SNP application functions are selected
+separately. SNP compatibility lives in `runtime/snp/legacy.rs`.
 
 ### TDX Attestation Layers
 
@@ -198,9 +200,15 @@ Three distinct build targets:
 
 **`no_std`/`no_main` guards in `main.rs`** — both `cfg_attr` lines gate on `not(any(feature = "AzCVMEmu", feature = "SnpEmu"))`. Any new emulator mode must be added to **both** guards and to the bare-metal `fn main()` guard, or the build will fail with duplicate `main` symbol errors.
 
-**`spdm/mod.rs` file-level gate** — `#![cfg(feature = "spdm_attestation")]` excludes the entire file. `spdm_attestation` is NOT implied by `main`; it must be listed explicitly in a feature group. The dependency is one-way: `spdm_attestation = ["main"]`.
+**`spdm/mod.rs` file-level gate** is
+`#![cfg(any(feature = "spdm_attestation", feature = "SnpEmu"))]`.
+For TDX, `spdm_attestation` retains its existing `main` dependency.
 
-**`spdm_attestation` + `SnpEmu`** — SnpEmu must include `spdm_attestation` in its feature list (`migtd/Cargo.toml`) or all SPDM functions will be absent and SnpEmu will not function.
+**SNP feature isolation**: `SnpEmu` selects neutral SPDM directly, not TDX
+`main`, `spdm_attestation`, `vmcall-raw` or emulator-shim dependencies.
+`SnpEmuAzure` adds the existing Underhill runtime capability. Mixed SNP/TDX
+platform compositions, including `test_disable_ra_and_accept_all`, are rejected.
+Do not change TDX feature meanings to accommodate SNP.
 
 ### Cargo Patch Overrides
 
@@ -275,42 +283,39 @@ TPM note: when `test_disable_ra_and_accept_all` or `test_mock_report` is used, T
 
 ## Running SnpEmu
 
-No dedicated script yet — use cargo directly:
+For development, build the MA and controller with Rust 1.90:
 ```bash
-# Terminal 1 (destination)
-RUST_LOG=debug ./target/debug/migtd --role destination --request-id 1
-
-# Terminal 2 (source)
-RUST_LOG=debug ./target/debug/migtd --role source --request-id 1 --dest-ip 127.0.0.1 --dest-port 8001
+cargo +1.90.0 build -p migtd --no-default-features --features SnpEmuAzure
+bash sh_script/test/run_snp_single_process_migration.sh target/debug/migtd
+bash sh_script/test/run_snp_inter_node_two_process_migration.sh \
+  target/debug/migtd target/debug/host_wfr_test
 ```
 
-Build beforehand:
-```bash
-cargo build --no-default-features --features SnpEmu,test_disable_ra_and_accept_all
-```
-
-SnpEmu does **not** require `MIGTD_POLICY_FILE` or `MIGTD_ROOT_CA_FILE`.
+Run sequentially against the same frozen executables. For immutable VM inputs,
+use the [bundle producer](../doc/snp-bundles.md); the harness does not build
+MigTD. SNP requires neither `MIGTD_POLICY_FILE` nor `MIGTD_ROOT_CA_FILE`.
+WFR and autostart use the same SNP host-request handler. Autostart is a testing
+trigger, not authorization; successful PID1 completion remains resident.
 
 ---
 
-## SnpEmu-Specific Patterns (in development)
+## SNP legacy compatibility boundary
 
 All SnpEmu-specific code is gated with `#[cfg(feature = "SnpEmu")]`.
 
-**Phase 1 stubs (committed, build passes):**
+SNP owns host request decoding, typed operation context, direct TCP transport,
+legacy evidence/key exchange and zeroizing compatibility key buffers. It must
+not import `migtd::migration` or call TDX ServTD, TDCS-version or key helpers.
+The 48-byte controller frame ignores legacy TD identifier bytes and rejects
+nonzero init-data/reserved fields.
 
-| Element | Stub value |
-|---------|-----------|
-| `QuoteMy` | 1184-byte mock `AttestationReport`; `report_data[0x50..0x98]` = real SHA384 |
-| `EventLogMy` | `&[]` (empty) |
-| `MigPolicyMy` | `SHA384(&[])` |
-| `SerVtdExt` | No stub needed — emulator returns 272 zeros; `EXPECTED_SERVTD_ATTR == 0` passes |
-| `TdReportInit` | `vec![0u8; 512]` |
-| `write_msk()` | Returns `Ok(())` immediately (no TDX tdcall available) |
-
-`report_data` offset: SnpEmu uses `0x50` (80); TDX uses `520` in `verify_quote_integrity()` output.
-
-`test_disable_ra_and_accept_all` bypasses **all** chain/signature verification — **never use in production builds**.
+The five/three-element legacy envelope carries captured-v5 evidence, an empty
+event log, `SHA384([0; 64])` and inert zero placeholders. Captured signature/chain
+verification stays enabled; it is not fresh V6/TH1 authentication. Two
+directional legacy random32 keys and key-only mock effects are not admitted
+`MigrationKeyV2` or production installation. Common V6/V2 activation and later
+Tasks 6-11 remain deferred. Unavailable hardware providers fail explicitly,
+without fixture fallback. See the [Task 5 record](../doc/snp/approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending).
 
 ---
 

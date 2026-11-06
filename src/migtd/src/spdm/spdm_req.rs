@@ -1,20 +1,26 @@
 // Copyright (c) 2025 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
+#[cfg(not(feature = "SnpEmu"))]
 use crate::mig_policy;
-use crate::migration::MigrationResult;
-use crate::{
-    migration::{
-        data::MigrationSessionKey,
-        session::{cal_mig_version, exchange_info, set_mig_version, write_msk},
-        MigtdMigrationInformation,
-    },
-    spdm::{
-        build_report_data, gen_quote_spdm, spdm_rsp::SECRET_ASYM_IMPL_INSTANCE,
-        verify_report_data_binding, verify_tdreport_data_binding, vmcall_msg::VmCallTransportEncap,
-        *,
-    },
+#[cfg(not(feature = "SnpEmu"))]
+use crate::migration::{
+    data::MigrationSessionKey,
+    session::{cal_mig_version, exchange_info, set_mig_version, write_msk},
+    MigtdMigrationInformation,
 };
+#[cfg(feature = "SnpEmu")]
+use crate::runtime::snp::{
+    legacy::{
+        send_and_receive_sdm_exchange_migration_info, send_and_receive_sdm_migration_attest_info,
+    },
+    requests::LegacyOperation as MigtdMigrationInformation,
+};
+#[cfg(not(feature = "SnpEmu"))]
+use crate::spdm::{gen_quote_spdm, verify_report_data_binding, verify_tdreport_data_binding};
+use crate::spdm::{spdm_rsp::SECRET_ASYM_IMPL_INSTANCE, vmcall_msg::VmCallTransportEncap, *};
+#[cfg(not(feature = "SnpEmu"))]
+use crate::status::MigrationResult;
 use async_io::{AsyncRead, AsyncWrite};
 use codec::{Codec, Reader, Writer};
 use crypto::{ecdsa::EcdsaPk, hash::digest_sha384};
@@ -27,19 +33,14 @@ use spdmlib::{
     requester::RequesterContext,
 };
 use spin::Mutex;
-#[cfg(feature = "SnpEmu")]
-use zerocopy::{FromZeros, IntoBytes};
 use zeroize::Zeroize;
 extern crate alloc;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
-#[cfg(feature = "SnpEmu")]
-use crate::migration::session::snp_operation_context;
+#[cfg(not(feature = "SnpEmu"))]
 use crate::{event_log::get_event_log, migration::session::ExchangeInformation};
 use alloc::sync::Arc;
 use log::error;
-#[cfg(feature = "SnpEmu")]
-use pal::types::SnpOperationContext;
 
 pub fn spdm_requester<T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static>(
     stream: T,
@@ -402,6 +403,7 @@ pub async fn send_and_receive_pub_key(spdm_requester: &mut RequesterContext) -> 
     Ok(())
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 pub async fn send_and_receive_sdm_migration_attest_info(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,
@@ -751,6 +753,7 @@ pub async fn send_and_receive_sdm_migration_attest_info(
 }
 
 #[cfg(not(feature = "policy_v2"))]
+#[cfg(not(feature = "SnpEmu"))]
 #[allow(unused_variables)]
 fn verify_peer_attestation_v1(
     verified_report_local: &[u8],
@@ -876,6 +879,7 @@ fn verify_peer_attestation_v2(
     Ok(())
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 async fn send_and_receive_sdm_exchange_migration_info(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,

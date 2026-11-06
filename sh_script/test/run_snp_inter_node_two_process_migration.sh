@@ -9,8 +9,6 @@ fi
 binary=$(readlink -f "$1")
 controller=$(readlink -f "$2")
 evidence_dir=${3:-"$(pwd)/snp-inter-node-two-process-migration-evidence"}
-policy_file=${MIGTD_POLICY_FILE:?MIGTD_POLICY_FILE must name the fixture policy}
-root_ca_file=${MIGTD_ROOT_CA_FILE:?MIGTD_ROOT_CA_FILE must name the fixture root CA}
 source_host_address=${MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_SOURCE_HOST_ADDRESS:-${MIGTD_STAGE_B_SOURCE_HOST_ADDRESS:-127.0.0.1:19501}}
 destination_host_address=${MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_DESTINATION_HOST_ADDRESS:-${MIGTD_STAGE_B_DESTINATION_HOST_ADDRESS:-127.0.0.1:19502}}
 peer_address=${MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_PEER_ADDRESS:-${MIGTD_STAGE_B_PEER_ADDRESS:-127.0.0.1:19503}}
@@ -20,12 +18,6 @@ attestation_evidence_marker=${ATTESTATION_EVIDENCE_MARKER:-operation=AZURE_VERIF
 for executable in "$binary" "$controller"; do
     [[ -f "$executable" && -x "$executable" ]] || {
         echo "required executable not found: $executable" >&2
-        exit 2
-    }
-done
-for fixture in "$policy_file" "$root_ca_file"; do
-    [[ -f "$fixture" ]] || {
-        echo "fixture input not found: $fixture" >&2
         exit 2
     }
 done
@@ -93,10 +85,7 @@ run_ma() {
     local host_address=$2
     local log=$3
     local pid_variable=$4
-    setsid env \
-        MIGTD_POLICY_FILE="$policy_file" \
-        MIGTD_ROOT_CA_FILE="$root_ca_file" \
-        timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" \
+    setsid timeout --signal=TERM --kill-after=5s "${timeout_seconds}s" \
         "$binary" \
         --process standalone \
         --start-mode wfr \

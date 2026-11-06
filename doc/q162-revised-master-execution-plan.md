@@ -5945,8 +5945,9 @@ Status: CLOSED within the documented Phase2 scope. P2.1 was accepted at
 `1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`. P2.2 was explicitly accepted at
 `2026-11-06T15:39:00.609Z`; its core implementation, evidence and remaining
 relocation changes are committed. This documentation commit persists the
-acceptance/closure record. Task5 remains NOT STARTED pending separate
-authorization. No production qualification, PA advancement or push is implied.
+acceptance/closure record. At Phase2 closure, Task5 remained NOT STARTED pending
+separate authorization; its subsequent execution is recorded below. No
+production qualification, PA advancement or push is implied.
 
 ---
 
@@ -5954,7 +5955,21 @@ authorization. No production qualification, PA advancement or push is implied.
 
 ## Task 5 - Remove active inherited TDX behavior from SNP
 
-Status: READY after Phase 2
+Status: DONE - ACCEPTED AND FROZEN within the documented Task5 separation scope
+at `2026-11-06T20:30:41.102Z`. The user accepted the changes and authorized
+committing them. This commit persists implementation and acceptance.
+Authorized `2026-11-06T19:03:11.103Z`; validation recorded
+`2026-11-06T20:09:26.295Z`. Phase 2 prerequisites are accepted and committed.
+
+Execution scope: preserve successful migration-unqualified legacy compatibility
+behind SNP-owned adapters, keep WFR/autostart and PID1 residency, and retain TDX
+algorithms, helper bodies and existing feature meanings. Reuse neutral SPDM
+handshake/framing/signing, not a universal TDX/SNP request or platform helper.
+The final typed contracts below remain the target; this separation must not
+activate common V6/V2 admission or the Tasks 10-11 key/effect workflow. A legacy
+host frame must never be relabeled as an authenticated Prepare/admitted key.
+Central START and preservation baseline:
+`implementation_record.log`, `target/task5/20261106T190311Z/baseline.json`.
 
 Replacement matrix:
 
@@ -5975,6 +5990,36 @@ Acceptance:
 - no shared SNP request contains a TDX field;
 - unsupported hardware operations fail explicitly;
 - TDX and AzCVMEmu behavior remains intact.
+
+### Task 5 implementation and validation evidence
+
+SNP now owns legacy request decoding, WFR/autostart dispatch, direct TCP,
+application-level SPDM handling and zeroizing compatibility keys/effects.
+Shared neutral SPDM handshake/framing/signing remains in place. The normal/build
+SNP emulator dependency closure excludes the TDX platform and emulator shim;
+mixed SNP/TDX feature selections fail explicitly. Existing TDX feature meanings,
+default/SPDM/AzCVMEmu dependency graphs and Cargo.lock are preserved.
+
+Validation passes 48 SNP library tests, 77 compile/dependency/public-API checks,
+16 runner/inventory controls, nine bundle-contract controls, 21 real-bundle
+methods, the registered library suites, 32 TDX firmware builds, six tools and
+14 AzCVMEmu scenarios. Fresh emulator/production bundles validate; both canonical
+standalone runners and the actual two-VM legacy workflow pass on the same fresh
+emulator ELF, with both ACKs, PID1 residency and cleanup verified. Strict SNP
+package lint uses `--all-targets --no-deps`; strict workspace lint uses Rust 1.90
+for the SDK MSRV. Unscoped SNP strict lint still encounters unchanged dev-only
+TDX-attestation warnings; no TDX dependency cleanup or lint waiver is included.
+
+Central record: `implementation_record.log`. Detailed boundaries, failed
+attempts, commands, local evidence and review disposition are in
+[technical-note section39](snp/approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending).
+Local receipt: `target/task5/20261106T190311Z/validation.json`.
+Legacy compatibility remains migration-unqualified: captured-v5 evidence,
+inert wire placeholders and mock effects are not common V6/V2 or final admitted
+key/effect activation. Explicit acceptance and commit authorization are recorded
+in [technical-note section40](snp/approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization).
+Acceptance records no new runtime tests and grants no broader qualification,
+push, PA advancement, Task6 start or Task12 reactivation.
 
 ## Task 6 - Build signed Version 6 evidence fixtures
 
@@ -7754,6 +7799,11 @@ user acceptance
 ```
 
 # Exact Execution Order
+
+**Next pending step:** Task 6, NOT STARTED; separate authorization is required.
+Task5 is accepted within its documented separation scope at
+`2026-11-06T20:30:41.102Z`, with its implementation commit authorized.
+Phase3 remains open. No Task6 execution or push is authorized by this acceptance.
 
 Execute in this order:
 

@@ -142,6 +142,26 @@ Git-independent and outside a source checkout.
 All current bundles are **Build-validated/migration-unqualified**. Both common
 verifiers remain unavailable. Emulator compatibility verifies only captured-v5
 signature/chain data with a separate SDK bridge and key-only mock installer.
+
+Task 5 separates this compatibility application from TDX: SNP owns its host
+requests, local autostart queue, direct TCP stream, SPDM application context,
+legacy evidence envelope and zeroizing mock-key state. The neutral SPDM
+handshake/framing/signing implementation is reused, not duplicated. Neither
+WFR nor autostart establishes tenant authorization. The old 48-byte controller
+frame and five/three-element peer envelope remain explicit legacy adapters;
+TD identifier bytes are ignored, and nonzero init-data/reserved fields fail.
+SNP no longer loads TDX policy/root-CA files or invokes emulated TDCALL,
+ServTD, TDCS version or key operations. Compatibility version `1..1` and
+zero placeholders are inert wire values, never approved SNP policy evidence.
+
+Build `SnpEmu`/`SnpEmuAzure` without default features and without TDX options
+such as `main`, `spdm_attestation`, `policy_v2`, `vmcall-raw` or
+`test_disable_ra_and_accept_all`. Those options retain their existing TDX
+meanings and are now rejected when mixed into SNP. Captured fixture
+signature/chain verification remains enabled without a TDX bypass feature.
+Successful PID1 completion still parks resident, rather than starting another
+session. Common V6 verification, admitted V2 keys and production installation
+remain unavailable; this separation does not activate Tasks 6-11.
 It is not common V6 authentication, live TH1 binding, V2, firmware persistence,
 production/RNG qualification or Task 14. Production MA acquisition is selected
 but startup stops at the unavailable host boundary before an ioctl.

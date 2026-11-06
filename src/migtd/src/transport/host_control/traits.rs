@@ -10,8 +10,8 @@
 //! Defined in migtd (not pal) to avoid circular dependency:
 //!   migtd -> pal; pal must not import migtd types.
 
-use super::data::WaitForRequestResponse;
-use super::MigrationResult;
+use crate::runtime::snp::requests::HostRequest as WaitForRequestResponse;
+use crate::status::MigrationResult;
 use async_trait::async_trait;
 
 #[async_trait]

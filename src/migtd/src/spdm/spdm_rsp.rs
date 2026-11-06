@@ -2,18 +2,25 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
+#[cfg(not(feature = "SnpEmu"))]
 use crate::mig_policy;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
 use crate::migration::rebinding::{write_rebinding_session_token, write_servtd_rebind_attr};
-#[cfg(not(feature = "policy_v2"))]
+#[cfg(all(not(feature = "policy_v2"), not(feature = "SnpEmu")))]
 use crate::migration::servtd_ext::verify_servtd_attr;
 #[cfg(feature = "policy_v2")]
 use crate::migration::servtd_ext::{verify_servtd_attr, write_approved_servtd_ext_hash, ServtdExt};
 #[cfg(feature = "SnpEmu")]
-use crate::migration::session::snp_operation_context;
-use crate::migration::MigrationResult;
+pub use crate::runtime::snp::legacy::{
+    handle_exchange_mig_attest_info_req, handle_exchange_mig_info_req,
+};
+#[cfg(feature = "SnpEmu")]
+use crate::runtime::snp::requests::LegacyOperation as MigtdMigrationInformation;
+#[cfg(not(feature = "SnpEmu"))]
+use crate::status::MigrationResult;
+#[cfg(not(feature = "SnpEmu"))]
 use crate::{
     event_log::get_event_log,
     migration::{
@@ -28,15 +35,14 @@ use alloc::sync::Arc;
 use async_io::{AsyncRead, AsyncWrite};
 use codec::{Codec, Reader, Writer};
 use core::ops::DerefMut;
-use crypto::{ecdsa::EcdsaPk, hash::digest_sha384};
+use crypto::ecdsa::EcdsaPk;
+#[cfg(not(feature = "SnpEmu"))]
+use crypto::hash::digest_sha384;
 use log::error;
-#[cfg(feature = "SnpEmu")]
-use pal::types::SnpOperationContext;
 
-use crate::spdm::{
-    build_report_data, gen_quote_spdm, verify_report_data_binding, verify_tdreport_data_binding,
-    vmcall_msg::VmCallTransportEncap, *,
-};
+#[cfg(not(feature = "SnpEmu"))]
+use crate::spdm::{gen_quote_spdm, verify_report_data_binding, verify_tdreport_data_binding};
+use crate::spdm::{vmcall_msg::VmCallTransportEncap, *};
 use spdmlib::{
     common::{self, *},
     config,
@@ -47,8 +53,6 @@ use spdmlib::{
     secret::SpdmSecretAsymSign,
 };
 use spin::Mutex;
-#[cfg(feature = "SnpEmu")]
-use zerocopy::{FromZeros, IntoBytes};
 use zeroize::Zeroize;
 
 extern crate alloc;
@@ -203,7 +207,12 @@ async fn spdm_responder_transfer_msk_inner(
 pub async fn rsp_handle_message(spdm_responder: &mut ResponderContext) -> Result<(), SpdmStatus> {
     let mut sid = None;
     loop {
+        #[cfg(not(feature = "SnpEmu"))]
         let raw_packet = Arc::new(Mutex::new([0u8; config::RECEIVER_BUFFER_SIZE]));
+        #[cfg(feature = "SnpEmu")]
+        let raw_packet = Arc::new(Mutex::new(zeroize::Zeroizing::new(
+            [0u8; config::RECEIVER_BUFFER_SIZE],
+        )));
         let mut raw_packet = raw_packet.lock();
         let raw_packet = raw_packet.deref_mut();
         raw_packet.zeroize();
@@ -377,6 +386,7 @@ pub fn handle_exchange_pub_key_req(
     Ok(cnt)
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 pub fn handle_exchange_mig_attest_info_req(
     responder_context: &mut ResponderContext,
     session_id: Option<u32>,
@@ -711,6 +721,7 @@ pub fn handle_exchange_mig_attest_info_req(
 }
 
 #[cfg(not(feature = "policy_v2"))]
+#[cfg(not(feature = "SnpEmu"))]
 #[allow(unused_variables)]
 fn rsp_verify_peer_attestation_v1(
     verified_report_local: &[u8],
@@ -868,6 +879,7 @@ fn rsp_verify_peer_attestation_v2(
     Ok(())
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 pub fn handle_exchange_mig_info_req(
     responder_context: &mut ResponderContext,
     session_id: Option<u32>,

@@ -104,7 +104,16 @@ Explicit bounded acceptance and Phase2 closure are recorded in
 Harness/MigTD relocation commits are respectively
 `4a10dafd9125457616d09589f618cef1d3ff9e68` and
 `af17a246a2ec6117e0872b63e7d750e7dbe71165`. No broader qualification is
-granted and Task5 remains NOT STARTED pending separate authorization.
+granted. Task5 was subsequently authorized at `2026-11-06T19:03:11.103Z` and is
+now DONE - ACCEPTED AND FROZEN within its documented scope at
+`2026-11-06T20:30:41.102Z`; the user authorized committing the changes.
+This commit persists implementation and acceptance. Its SNP-owned legacy request/transport/application adapters,
+TDX-preservation regressions, fresh bundles and actual VM compatibility are
+recorded in [technical-note section39](../approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending).
+Explicit acceptance is recorded in
+[technical-note section40](../approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization);
+acceptance itself reruns no runtime tests and grants no broader qualification.
+Common V6/V2 and production qualification remain deferred; Task6 has not started.
 Historical inventory/validation/commit receipts retain their original snapshot status.
 The T4.20 acceptance itself made no new commit; the separately authorized P2.1
 naming commit is recorded below. No push, production qualification or Task12

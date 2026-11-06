@@ -20,10 +20,12 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
-use crate::migration::data::{MigrationInformation, WaitForRequestResponse};
-use crate::migration::host_transport::HostControlTransport;
-use crate::migration::MigrationResult;
-use crate::migration::{EnableLogAreaInfo, MigtdMigrationInformation, ReportInfo};
+use super::HostControlTransport;
+use crate::runtime::snp::requests::{
+    decode_legacy_start, HealthRequest as ReportInfo, HostRequest as WaitForRequestResponse,
+    LogRequest as EnableLogAreaInfo,
+};
+use crate::status::MigrationResult;
 
 /// Byte length of every frame header (request and response share the same layout).
 const FRAME_HDR: usize = 14; // op(1) + reserved/status(1) + request_id(8) + data_len(4)
@@ -73,11 +75,13 @@ impl HostControlTransport for TcpTransport {
 
         let operation = hdr[0];
         if hdr[1] != 0 {
+            eprintln!("[MA] invalid host frame reserved byte");
             return Err(MigrationResult::InvalidParameter);
         }
         let request_id = u64::from_le_bytes(hdr[2..10].try_into().unwrap());
         let data_len = u32::from_le_bytes(hdr[10..14].try_into().unwrap()) as usize;
         if data_len > MAX_REQUEST_DATA_LEN {
+            eprintln!("[MA] host frame exceeds maximum request length");
             return Err(MigrationResult::InvalidParameter);
         }
 
@@ -89,6 +93,7 @@ impl HostControlTransport for TcpTransport {
                 .map_err(|_| MigrationResult::NetworkError)?;
         }
         if !self.request_ids.lock().await.insert(request_id) {
+            eprintln!("[MA] duplicate host request ID: {request_id}");
             return Err(MigrationResult::InvalidParameter);
         }
 
@@ -108,6 +113,9 @@ impl HostControlTransport for TcpTransport {
                 Err(MigrationResult::UnsupportedOperationError)
             }
         }
+        .inspect_err(|error| {
+            eprintln!("[MA] host request decoding failed: opcode={operation} status={error:?}")
+        })
     }
 
     async fn report_status(
@@ -116,7 +124,10 @@ impl HostControlTransport for TcpTransport {
         request_id: u64,
         data: &[u8],
     ) -> Result<(), MigrationResult> {
-        let data_len = data.len() as u32;
+        let data_len = u32::try_from(data.len()).map_err(|_| {
+            eprintln!("[MA] host response exceeds wire length field");
+            MigrationResult::InvalidParameter
+        })?;
         let mut frame = Vec::with_capacity(FRAME_HDR + data.len());
         frame.push(0u8); // op field: host identifies response by request_id
         frame.push(status);
@@ -188,53 +199,7 @@ fn parse_start_migration(
     request_id: u64,
     data: &[u8],
 ) -> Result<WaitForRequestResponse, MigrationResult> {
-    // data payload (SnpEmu / vmcall-raw, no policy_v2):
-    //   migration_source: u8   [0]
-    //   has_init_data:    u8   [1]
-    //   _reserved:        [u8;6] [2..8]
-    //   target_td_uuid:   [u64;4] [8..40]
-    //   binding_handle:   u64  [40..48]
-    //   Total: 48 bytes minimum
-    #[cfg(not(feature = "policy_v2"))]
-    if data.len() != 48 {
-        return Err(MigrationResult::InvalidParameter);
-    }
-    #[cfg(feature = "policy_v2")]
-    if !matches!((data.get(1), data.len()), (Some(0), 48) | (Some(1), 560)) {
-        return Err(MigrationResult::InvalidParameter);
-    }
-    let migration_source = data[0];
-    let has_init_data = data[1];
-    #[cfg(not(feature = "policy_v2"))]
-    if has_init_data != 0 {
-        return Err(MigrationResult::InvalidParameter);
-    }
-    if migration_source > 1 || data[2..8].iter().any(|&byte| byte != 0) {
-        return Err(MigrationResult::InvalidParameter);
-    }
-    let mut uuid_bytes = [0u64; 4];
-    for i in 0..4 {
-        let off = 8 + i * 8;
-        uuid_bytes[i] = u64::from_le_bytes(data[off..off + 8].try_into().unwrap());
-    }
-    let binding_handle = u64::from_le_bytes(data[40..48].try_into().unwrap());
-
-    // SAFETY: MigtdMigrationInformation has a private `_reserved` field.
-    // We zero-initialize and then populate the public fields.
-    let mut mig_info: MigtdMigrationInformation = unsafe { std::mem::zeroed() };
-    mig_info.mig_request_id = request_id;
-    mig_info.migration_source = migration_source;
-    mig_info.has_init_data = has_init_data;
-    mig_info.target_td_uuid = uuid_bytes;
-    mig_info.binding_handle = binding_handle;
-    #[cfg(feature = "policy_v2")]
-    if has_init_data == 1 {
-        mig_info.init_td_info.copy_from_slice(&data[48..560]);
-    }
-
-    Ok(WaitForRequestResponse::StartMigration(
-        MigrationInformation { mig_info },
-    ))
+    decode_legacy_start(request_id, data).map(WaitForRequestResponse::StartMigration)
 }
 
 #[cfg(test)]

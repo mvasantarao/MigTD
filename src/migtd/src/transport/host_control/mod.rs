@@ -3,3 +3,5 @@ pub mod emulated;
 
 #[cfg(feature = "snp-tcp-transport")]
 pub mod tcp;
+pub mod traits;
+pub use traits::HostControlTransport;

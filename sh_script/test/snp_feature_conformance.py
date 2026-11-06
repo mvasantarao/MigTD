@@ -39,7 +39,6 @@ def main():
             ("underhill-runtime", "SnpUnderhillRuntime"),
             ("underhill-alias", "SnpUnderhill"),
             ("linux-hardware", "snp-linux-hardware"),
-            ("emulator", "SnpEmuAzure,test_disable_ra_and_accept_all"),
             ("emulator-without-bypass", "SnpEmuAzure"),
             ("emulator-legacy-alias", "SnpEmu"),
             ("production", "SnpHardware"),
@@ -51,7 +50,7 @@ def main():
 
         for label, features in [
             ("core", "snp-core"), ("runtime", "SnpUnderhillRuntime"),
-            ("production", "SnpHardware"),
+            ("production", "SnpHardware"), ("emulator", "SnpEmuAzure"),
         ]:
             tree = run(f"tree-{label}", [
                 "tree", "-p", "migtd", "--no-default-features", "--features", features,
@@ -61,7 +60,8 @@ def main():
                 package = line.split()[0]
                 forbidden_package = (
                     package.startswith(("td-", "tdx-", "tee-attestation", "tav-"))
-                    or package in {"snp_emu", "vmcall_raw", "vsock", "attestation", "spdmlib"}
+                    or package in {"vmcall_raw", "vsock", "attestation"}
+                    or (label != "emulator" and package in {"snp_emu", "spdmlib"})
                 )
                 if forbidden_package:
                     raise AssertionError(f"{label} includes forbidden provider: {line}")
@@ -69,7 +69,7 @@ def main():
                     active = set(line.split("features=", 1)[1].split(","))
                     if not {"native", "verify"}.issubset(active) or {"rustcrypto", "symcrypt"}.intersection(active):
                         raise AssertionError(f"{label} changed the selected native AAS backend: {line}")
-                if package in {"pal", "migtd"}:
+                if label != "emulator" and package in {"pal", "migtd"}:
                     forbidden_features = {
                         "snp-fixture", "snp-emu", "snp-state-emulator", "snp-tcp-transport",
                         "snp-mock-installation", "snp-mock-rebind", "snp_fixture_only",
@@ -97,6 +97,16 @@ def main():
             "test_mock_report", "use-mock-quote",
             "attestation", "stack-guard", "cet-shstk", "igvm-attest",
         ]
+        for option in ["main", "tdx-platform", "spdm_attestation", "policy_v2",
+                       "vmcall-raw", "virtio-vsock", "virtio-serial", "vmcall-vsock",
+                       "AzCVMEmu", "test_disable_ra_and_accept_all", "test_mock_report",
+                       "use-mock-quote", "stack-guard", "igvm-attest"]:
+            run(f"reject-emulator-{option}", [
+                "check", "-p", "migtd", "--no-default-features",
+                "--features", f"SnpEmuAzure,{option}",
+            ], expected_success=False, diagnostic="compositions are mutually exclusive"
+                if option in {"AzCVMEmu", "test_mock_report"} else
+                "SnpEmu cannot include TDX platform features")
         for option in emulator_options + tdx_options:
             diagnostic = (
                 "SNP hardware cannot include fixture evidence, synthetic roots or TDX providers"
@@ -120,9 +130,9 @@ def main():
             "check", "-p", "migtd", "--no-default-features", "--features", "entry,std",
         ], expected_success=False, diagnostic="std entry requires an explicit")
 
-        def check_public_api(family, features, cases):
+        def check_public_api(family, features, cases, package="pal"):
             artifacts = run(f"build-api-{family}", [
-                "build", "-p", "pal", "--lib", "--no-default-features",
+                "build", "-p", package, "--lib", "--no-default-features",
                 "--features", features, "--message-format", "json",
             ])
             libraries = [
@@ -130,11 +140,11 @@ def main():
                 for line in artifacts.splitlines()
                 for artifact in [json.loads(line)]
                 if artifact.get("reason") == "compiler-artifact"
-                and artifact["target"]["name"] == "pal"
+                and artifact["target"]["name"] == package
                 for filename in artifact["filenames"] if filename.endswith(".rlib")
             ]
             if len(libraries) != 1:
-                raise RuntimeError(f"expected exactly one PAL artifact for {family}: {libraries}")
+                raise RuntimeError(f"expected exactly one {package} artifact for {family}: {libraries}")
             library = libraries[0]
             dependency_dir = library.parent if library.parent.name == "deps" else library.parent / "deps"
             for name, source, expected_success, diagnostic in cases:
@@ -145,7 +155,7 @@ def main():
                     "rustc", "--edition=2021", "--crate-type=lib",
                     "--crate-name", label.replace("-", "_"), "-C", "panic=abort",
                     "--emit", f"metadata={source_path.with_suffix('.rmeta')}",
-                    "-L", f"dependency={dependency_dir}", "--extern", f"pal={library}",
+                    "-L", f"dependency={dependency_dir}", "--extern", f"{package}={library}",
                     str(source_path),
                 ], cwd=ROOT, env=os.environ.copy(), text=True, capture_output=True)
                 text = result.stdout + result.stderr
@@ -187,6 +197,21 @@ def main():
             ("no-linux-hardware", "use pal::snp::hardware::SnpHardwareProvider;",
              False, "could not find `hardware`"),
         ])
+        operation = "migtd::runtime::snp::requests::LegacyOperation"
+        request = "migtd::runtime::snp::requests::HostRequest"
+        check_public_api("snp-host", "SnpEmuAzure", [
+            ("reachable", f"pub fn check(op: {operation}) -> {request} {{ "
+             f"let _ = op.operation.managed_guest.value(); {request}::StartMigration(op) }}",
+             True, None),
+            ("no-tdx-session", "use migtd::migration::session;",
+             False, "could not find `migration`"),
+            ("no-td-uuid", f"pub fn check(op: {operation}) {{ let _ = op.target_td_uuid; }}",
+             False, "no field `target_td_uuid`"),
+            ("no-servtd-binding", f"pub fn check(op: {operation}) {{ let _ = op.binding_handle; }}",
+             False, "no field `binding_handle`"),
+            ("no-tdreport-verifier", "pub fn check() { let _ = migtd::spdm::verify_tdreport_data_binding; }",
+             False, "cannot find value `verify_tdreport_data_binding`"),
+        ], package="migtd")
 
         lockfile = (ROOT / "Cargo.lock").read_text()
         if any(f'name = "{name}"' in lockfile
