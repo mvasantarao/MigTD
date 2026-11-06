@@ -4416,7 +4416,8 @@ an adapter or runtime call is introduced.
 
 Remove `MockPlatformKeyProvider` and the mandatory success-only preparation call
 from the legacy SNP session, preserving its early invalid-role rejection before
-session effects. Stage A/B must reject platform-key operation
+session effects. `SingleProcessMigration` and `InterNodeTwoProcessMigration`
+must reject platform-key operation
 traces instead of requiring modeled `MSG_KEY_REQ` success. Verification,
 installer, role/request binding and secret-log checks remain required.
 Update the provider-set, class and sequence diagrams consistently.

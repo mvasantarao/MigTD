@@ -272,16 +272,14 @@ adapter still produces the inherited `StartMigration` input; a later V2
 activation must map it to authenticated internal `PrepareMigration`, not
 invent the missing proofs, state or installation inputs.
 
-The current historical Stage A/B terminology remains in existing repository
-content until the separately accepted post-Task-4 terminology cleanup:
-
-```text
-Stage A -> Single-Process Model
-Stage B -> Two-Process Model
-```
-
-New architecture text uses descriptive execution-model terms where doing so
-does not require renaming active harness files.
+Current scenario names are `SingleProcessMigration`,
+`InterNodeTwoProcessMigration`, and `LocalMaHandoffTwoProcess`.
+Use the [canonical runners and environment variables](../../snp-migration-scenarios.md).
+The first two retain the existing autostart and WFR/controller behavior;
+the local-handoff name is reserved for the future Phase4 runtime.
+Old script paths/environment names are compatibility aliases only.
+Historical validation summaries, hashes and frozen execution records above
+retain their original terminology and bytes.
 
 ## Deferred behavior
 
