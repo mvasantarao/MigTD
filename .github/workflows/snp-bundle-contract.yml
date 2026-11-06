@@ -1,0 +1,35 @@
+name: SNP bundle contract
+
+on:
+  push:
+    paths:
+      - tools/snp/**
+      - schemas/snp-ma-bundle-manifest-v1.json
+      - tests/snp/**
+      - sh_script/test/snp_task4_inventory.py
+      - sh_script/test/test_snp_task4_inventory.py
+      - .github/workflows/snp-bundle-contract.yml
+  pull_request:
+    paths:
+      - tools/snp/**
+      - schemas/snp-ma-bundle-manifest-v1.json
+      - tests/snp/**
+      - sh_script/test/snp_task4_inventory.py
+      - sh_script/test/test_snp_task4_inventory.py
+      - .github/workflows/snp-bundle-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-vectors:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r tools/snp/requirements.txt
+      - run: python -m unittest discover -s tests/snp/feature-matrix -v
+      - run: python -m unittest discover -s sh_script/test -p test_snp_task4_inventory.py -v

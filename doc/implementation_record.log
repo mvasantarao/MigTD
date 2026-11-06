@@ -5522,3 +5522,43 @@ Evidence:target/p2.1-acceptance/20261106T004734Z/.
     baseline files,unchanged code/scripts/tests,evidence/history/order checks.
 Documentation-only recording:no tests/builds rerun,fresh runtime claim,
   new commit,amendment or push.
+
+P2.2 atomic artifact production - START
+Authorized at:2026-11-06T00:49:32.416Z.
+User request:"Implement P2.2".
+Prerequisites:T4.20 and P2.1 explicitly accepted within their bounded scopes.
+User additionally authorized MigTD tooling plus external consumer conversion
+  and P2.2-only commits;earlier prerequisite changes remain uncommitted.
+Baseline:target/p2.2-artifact-production/20261106T004932Z/baseline.json.
+Verified523 accepted MigTD files and1604 historical evidence files.
+Captured15 active external harness files and413 nested MigTD source files;
+  nested checkout clean at e8f8c5313e9ba38c3db0a041e3db9eb79954156f.
+Existing dirty external orchestrator and untracked demo entry points preserved
+  in baseline copies. No source relocation/removal yet authorized/performed.
+Scope:repository-owned schema/build/package/validation/image checks,declared
+  external inputs,bundle-only consumer,old/new parity and fresh-source builds.
+Qualification remains build-validated/migration-unqualified at most;no common
+  V6 activation,production effects,Task12 reactivation,Task5 start or push.
+
+P2.2 prerequisite persistence and external source retirement - AUTHORIZATION
+The user approved the documented obsolete-assertion change and moving the clean
+  nested source to the session archive,without deleting its contents/history.
+The user separately authorized committing accepted prerequisite implementation
+  before P2.2 tooling,so the fresh-HEAD gate can actually be exercised.
+Prerequisite commit:5d6a4ad302d2c5b17a8a80d11286657559ad126d.
+  Exactly523 pre-P2.2 baseline file hashes verified in the staged tree;
+  173 prerequisite paths committed,no P2.2 source/docs in that commit.
+  Whitespace-only reconstruction of the moved inventory helpers was verified
+  against the original baseline SHA256 before staging.
+Consumer conversion commit:700e22aae1bcf09aff7d591cffc5ea6a39b4169c.
+Nested source moved intact;all413 tracked file hashes preserved;Git objects
+  remain at the original external repository;no source/cache contents deleted.
+Both old/new actual VM harnesses consumed the same newly built emulator bundle,
+  booted both guests,returned both compatibility StartMigration successes and
+  reached both PID1 resident-completion markers.
+Old harness then exited1 solely at obsolete MSG_VERIFY_REPORT prerequisite;
+  new manifest-driven harness exited0 and explicitly reported migration-
+  unqualified legacy compatibility. This deviation was disclosed and approved,
+  not hidden as identical final exit codes or common V6/V2 qualification.
+All four new run processes exited0 after cleanup;no topology listeners remain.
+Final fresh-checkout builds and completion recording remain pending.

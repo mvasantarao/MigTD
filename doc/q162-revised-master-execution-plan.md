@@ -5742,8 +5742,19 @@ production qualification,P2.2 start,new commit or push is implied.
 
 ## P2.2 Make MigTD an atomic artifact producer
 
-Status: READY for separate implementation authorization following bounded P2.1
-acceptance; NOT STARTED. The bounded T4.20 prerequisite remains accepted.
+Status: IMPLEMENTED; final fresh-checkout validation IN PROGRESS. Authorized at
+`2026-11-06T00:49:32.416Z`, following bounded P2.1 acceptance. The user subsequently
+authorized a separate accepted-prerequisite commit
+`5d6a4ad302d2c5b17a8a80d11286657559ad126d` to enable fresh-HEAD validation.
+The separately reviewable external bundle-consumer conversion is committed as
+`700e22aae1bcf09aff7d591cffc5ea6a39b4169c`. After actual old/new VM runs, the user
+approved the documented stale-assertion deviation and moving nested source
+intact to the session archive. No P2.2 acceptance or Phase2 gate closure is
+inferred. The bounded T4.20 prerequisite remains accepted.
+
+Implementation and usage: [SNP bundle contract](snp-bundles.md). Current bundles
+are build-validated/migration-unqualified; common V6/V2 activation and Task14
+qualification remain excluded.
 
 MigTD must build, describe, and validate its own emulator and production
 artifacts without requiring a `vm_enclave` source checkout, nested MigTD tree,

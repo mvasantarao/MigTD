@@ -87,8 +87,14 @@ snapshot. Fresh documentation/provenance checks do not relabel accepted T4.19
 runtime tests as new runs. The Phase1 interface-level gate is satisfied only
 within those bounds; P2.1 was separately authorized at
 `2026-11-06T00:34:35.144Z` and is recorded in the central execution log.
-P2.2 is READY for separate authorization following bounded P2.1 acceptance,
-NOT STARTED. Historical
+P2.2 is separately authorized and IN PROGRESS at `2026-11-06T00:49:32.416Z`;
+the user subsequently authorized the separate accepted-prerequisite commit
+`5d6a4ad302d2c5b17a8a80d11286657559ad126d` for fresh-source validation. The
+[bundle contract](../../snp-bundles.md) is implemented; final fresh-checkout
+validation remains pending. The external consumer conversion is
+`700e22aae1bcf09aff7d591cffc5ea6a39b4169c`; nested source was moved intact after
+actual old/new VM runs and explicit approval of the stale-assertion change.
+No qualification or P2.2 acceptance is inferred. Historical
 inventory/validation/commit receipts retain their original snapshot status.
 The T4.20 acceptance itself made no new commit; the separately authorized P2.1
 naming commit is recorded below. No push, production qualification or Task12

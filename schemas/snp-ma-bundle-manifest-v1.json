@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:migtd:snp-ma-bundle-manifest:1",
+  "title": "MigTD SNP MA bundle manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "composition", "classification", "qualification",
+    "repositories", "build", "providers", "legacy_compatibility",
+    "artifacts", "external_inputs", "root_filesystem", "expected_markers",
+    "creation", "unavailable_providers"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "composition": {"enum": ["SnpEmuAzure", "SnpHardware"]},
+    "classification": {"enum": ["emulator-fixture", "production-shaped"]},
+    "qualification": {"const": "Build-validated/migration-unqualified"},
+    "repositories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migtd", "aas"],
+      "properties": {
+        "migtd": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "commit", "dirty", "source_inventory"],
+          "properties": {
+            "repository": {"type": "string", "minLength": 1},
+            "commit": {"$ref": "#/$defs/commit"},
+            "dirty": {"type": "boolean"},
+            "source_inventory": {"const": "provenance/source.json"}
+          }
+        },
+        "aas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "commit"],
+          "properties": {
+            "repository": {"type": "string", "pattern": "^https://"},
+            "commit": {"$ref": "#/$defs/commit"}
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cargo_features", "default_features", "cargo_lock_sha256", "rustc",
+        "cargo", "target", "linker", "profile", "linking_mode", "environment",
+        "commands", "dependency_inventory", "native_inventory_scope"
+      ],
+      "properties": {
+        "cargo_features": {
+          "type": "array", "minItems": 1, "maxItems": 1,
+          "items": {"enum": ["SnpEmuAzure", "SnpHardware"]}
+        },
+        "default_features": {"const": false},
+        "cargo_lock_sha256": {"$ref": "#/$defs/hash"},
+        "rustc": {"type": "string", "minLength": 1},
+        "cargo": {"type": "string", "minLength": 1},
+        "target": {"const": "x86_64-unknown-linux-musl"},
+        "linker": {
+          "type": "object", "additionalProperties": false,
+          "required": ["path", "sha256", "version"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "sha256": {"$ref": "#/$defs/hash"},
+            "version": {"type": "string", "minLength": 1}
+          }
+        },
+        "profile": {"const": "release"},
+        "linking_mode": {"const": "static"},
+        "environment": {
+          "type": "object", "minProperties": 1,
+          "additionalProperties": {"type": "string"}
+        },
+        "commands": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "array", "minItems": 1,
+            "items": {"type": "string"}
+          }
+        },
+        "dependency_inventory": {"const": "provenance/dependencies.json"},
+        "native_inventory_scope": {
+          "const": "Cargo-declared native link libraries and discovered archives; implicit CRT/runtime is toolchain-scoped, not a hermetic native closure"
+        }
+      }
+    },
+    "providers": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "verifier", "evidence", "collateral", "transport", "peer_clock",
+        "host_control", "host_context", "randomness", "installation", "rebind",
+        "persistence", "firmware_state", "handoff_authority", "handoff_secrets",
+        "platform_keys"
+      ],
+      "properties": {
+        "verifier": {"$ref": "#/$defs/provider"},
+        "evidence": {"$ref": "#/$defs/provider"},
+        "collateral": {"$ref": "#/$defs/provider"},
+        "transport": {"$ref": "#/$defs/provider"},
+        "peer_clock": {"$ref": "#/$defs/provider"},
+        "host_control": {"$ref": "#/$defs/provider"},
+        "host_context": {"$ref": "#/$defs/provider"},
+        "randomness": {"$ref": "#/$defs/provider"},
+        "installation": {"$ref": "#/$defs/provider"},
+        "rebind": {"$ref": "#/$defs/provider"},
+        "persistence": {"$ref": "#/$defs/provider"},
+        "firmware_state": {"$ref": "#/$defs/provider"},
+        "handoff_authority": {"$ref": "#/$defs/provider"},
+        "handoff_secrets": {"$ref": "#/$defs/provider"},
+        "platform_keys": {"$ref": "#/$defs/provider"}
+      }
+    },
+    "legacy_compatibility": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["verifier", "transport", "host_control", "installation", "limitation"],
+          "properties": {
+            "verifier": {"$ref": "#/$defs/provider"},
+            "transport": {"$ref": "#/$defs/provider"},
+            "host_control": {"$ref": "#/$defs/provider"},
+            "installation": {"$ref": "#/$defs/provider"},
+            "limitation": {
+              "const": "Captured v5 signature/chain and key-only mock installation; not common V6 authentication, live TH1 binding or V2 migration"
+            }
+          }
+        }
+      ]
+    },
+    "artifacts": {
+      "type": "object", "minProperties": 10,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+      "additionalProperties": {"$ref": "#/$defs/file"}
+    },
+    "external_inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kernel", "qemu", "ovmf"],
+      "properties": {
+        "kernel": {"$ref": "#/$defs/external"},
+        "qemu": {"$ref": "#/$defs/external"},
+        "ovmf": {"$ref": "#/$defs/external"}
+      }
+    },
+    "root_filesystem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "format", "entries"],
+      "properties": {
+        "identity": {"const": "MigTD minimal PID1 rootfs v1"},
+        "format": {"const": "newc+gzip"},
+        "entries": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["path", "mode", "size", "sha256"],
+            "properties": {
+              "path": {"enum": ["init", "proc", "sys", "dev"]},
+              "mode": {"type": "integer", "minimum": 0, "maximum": 65535},
+              "size": {"type": "integer", "minimum": 0},
+              "sha256": {"$ref": "#/$defs/hash"}
+            }
+          }
+        }
+      }
+    },
+    "expected_markers": {
+      "type": "object", "minProperties": 1,
+      "additionalProperties": {
+        "type": "array", "uniqueItems": true,
+        "items": {"type": "string", "minLength": 1}
+      }
+    },
+    "creation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["timestamp", "command"],
+      "properties": {
+        "timestamp": {"type": "string", "format": "date-time"},
+        "command": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "unavailable_providers": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"composition": {"const": "SnpHardware"}}},
+      "then": {
+        "properties": {
+          "classification": {"const": "production-shaped"},
+          "legacy_compatibility": {"type": "null"},
+          "build": {"properties": {"cargo_features": {"const": ["SnpHardware"]}}}
+        }
+      },
+      "else": {
+        "properties": {
+          "classification": {"const": "emulator-fixture"},
+          "legacy_compatibility": {"type": "object"},
+          "build": {"properties": {"cargo_features": {"const": ["SnpEmuAzure"]}}}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "size", "mode"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]*$"},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "size": {"type": "integer", "minimum": 1},
+        "mode": {"enum": [420, 493]}
+      }
+    },
+    "external": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "identity", "sha256", "size", "qualification"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "identity": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "size": {"type": "integer", "minimum": 1},
+        "qualification": {"const": "Identity/hash recorded; not requalified by P2.2"}
+      }
+    },
+    "provider": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "classification"],
+      "properties": {
+        "identity": {"type": "string", "minLength": 1},
+        "classification": {"enum": ["production", "fixture", "emulated", "unavailable"]}
+      }
+    }
+  }
+}
