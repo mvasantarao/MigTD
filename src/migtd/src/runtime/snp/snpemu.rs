@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
 //! WFR dispatcher for SNP Migration Agent (ring-3 userspace process in OHCL).
-//! All WFR code lives in MigTD repo (not vm_enclave).
+//! All WFR code lives in MigTD repo (not snp-ma-vm-harness).
 //! Generic over HostControlTransport — TCP in Phase 3a, WABO in Phase 3b.
 //!
 //! Opcode handling per DataStatusOperation enum (A1 — integer wire contract):

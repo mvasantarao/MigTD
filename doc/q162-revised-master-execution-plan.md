@@ -5766,7 +5766,7 @@ are build-validated/migration-unqualified; common V6/V2 activation and Task14
 qualification remain excluded.
 
 MigTD must build, describe, and validate its own emulator and production
-artifacts without requiring a `vm_enclave` source checkout, nested MigTD tree,
+artifacts without requiring a `snp-ma-vm-harness` source checkout, nested MigTD tree,
 or source-relative path outside the repository.
 
 ### Ownership boundary
@@ -5855,9 +5855,13 @@ The production builder enforces all T4.15-T4.20 image-isolation rules. The
 emulator builder labels fixtures and emulated providers explicitly and cannot
 produce a production-classified manifest.
 
-### `vm_enclave` transition
+### `snp-ma-vm-harness` ownership and transition
 
-Convert `nested_openvmm/vm_enclave` into a temporary bundle-only consumer:
+Use the independent `mvasantarao/snp-ma-vm-harness` repository as the bundle-only
+VM consumer. Its local checkout is `/home/murthy/repos/snp-ma-vm-harness`;
+platform source/build trees are ignored local dependencies under
+`.local/platform/`, not nested MigTD sources or vendored harness source.
+The former `nested_openvmm/vm_enclave` name remains only in historical evidence.
 
 ```text
 run-emulator-e2e.sh --bundle <bundle-directory>
@@ -5865,8 +5869,8 @@ run-emulator-e2e.sh --bundle <bundle-directory>
 
 Required changes:
 
-1. Remove `vm_enclave/deps/MigTD` and every nested or copied MigTD source tree.
-2. Remove MigTD compilation from `vm_enclave`.
+1. Remove `snp-ma-vm-harness/deps/MigTD` and every nested or copied MigTD source tree.
+2. Remove MigTD compilation from `snp-ma-vm-harness`.
 3. Remove hard-coded TAV/AAS, feature, fixture, evidence-marker, and source-path
    selection.
 4. Read composition, verifier, provider identities, hashes, and expected
@@ -5876,13 +5880,13 @@ Required changes:
 6. Preserve only VM lifecycle, topology, QEMU/OVMF configuration, host
    orchestration, log collection, and result reporting.
 
-`vm_enclave` may be archived after its remaining VM-launch functionality moves
-to the selected CI or platform-test repository. MigTD must not depend on that
-retirement to build or validate a bundle.
+The harness remains the separately versioned VM/platform-test repository.
+MigTD must not depend on its local checkout or source/build layout to build
+or validate a bundle.
 
 ### Migration and parity sequence
 
-1. Inventory every active `vm_enclave` file and assign MigTD-build ownership
+1. Inventory every active `snp-ma-vm-harness` file and assign MigTD-build ownership
    or VM-harness ownership.
 2. Freeze the manifest schema and positive/negative validation vectors.
 3. Move or reimplement MigTD build, bundle, feature, dependency, checksum, and
@@ -5897,15 +5901,15 @@ retirement to build or validate a bundle.
    protocol to succeed or treat matching failures as migration qualification.
 7. Switch CI and active emulator instructions to the manifest-driven harness.
 8. Remove nested MigTD source and stale verifier/backend assumptions from
-   `vm_enclave`.
+   `snp-ma-vm-harness`.
 9. Verify a fresh MigTD checkout can build and validate both bundle types using
    only declared toolchain and external artifact inputs.
 
 Acceptance:
 
 - MigTD has no source, script, or documentation dependency on a
-  `vm_enclave` checkout path;
-- `vm_enclave` has no nested MigTD source or authority over Cargo features,
+  `snp-ma-vm-harness` checkout path;
+- `snp-ma-vm-harness` has no nested MigTD source or authority over Cargo features,
   verifier selection, or provider composition;
 - emulator and production bundles validate against the same versioned schema;
 - corrupted files, hashes, manifests, provider classifications, and schema
@@ -5923,7 +5927,7 @@ bundle construction or harness parity does not grant
 `Migration-emulator-verified` status. Task 14 qualifies the completed protocol
 through the manifest-driven harness and retains the Phase 2 parity record.
 
-Commit the schema/tooling move and the `vm_enclave` consumer conversion as
+Commit the schema/tooling move and the `snp-ma-vm-harness` consumer conversion as
 separately reviewable changes.
 
 ## Phase 2 gate
@@ -6556,7 +6560,7 @@ production replay-state persistence qualified
 The inter-node migration emulator is end-to-end, deterministic, negative-test
 complete, and cleanly separated from production claims. Its qualified bundle
 is produced entirely by MigTD-owned tooling and consumed through the frozen
-manifest contract without a `vm_enclave` source dependency.
+manifest contract without a `snp-ma-vm-harness` source dependency.
 
 The Phase 3 authorization result is explicitly:
 
@@ -7566,7 +7570,7 @@ boot with unavailable production evidence, collateral, installation,
 record the final MA ELF, initramfs, kernel, root filesystem, manifest, SBOM,
     AAS commit, Cargo.lock, and expected measurement hashes
 build and validate the SnpHardware bundle from a fresh MigTD checkout with no
-    vm_enclave checkout or undeclared local source dependency
+    snp-ma-vm-harness checkout or undeclared local source dependency
 validate the production bundle with the same
     snp-ma-bundle-manifest-v1 schema used by the emulator
 prove the production harness consumes only the validated bundle and declared

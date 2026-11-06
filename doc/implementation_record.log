@@ -5602,3 +5602,68 @@ Limits:Build-validated/migration-unqualified only;native inventory is not a
 No common V6/V2 activation,local handoff,production/RNG/effect/page-migration
   qualification,PA advancement,Task12 reactivation,Task5 start or push.
 P2.2 awaits explicit bounded acceptance;Phase2 remains open until then.
+
+SNP VM harness repository/platform relocation - AUTHORIZED AND RUNTIME VALIDATED
+Authorization:2026-11-06T14:44:23.528Z;explicit user request to rename the harness,
+  update MigTD and remove active dependencies on the former parent workspace.
+Confirmed destinations:harness=/home/murthy/repos/snp-ma-vm-harness;
+  four independent platform repositories under its ignored .local/platform/.
+GitHub repository renamed to mvasantarao/snp-ma-vm-harness;PRIVATE visibility and
+  owner preserved;local origin URL updated;no source commit or push performed.
+Moved intact:qemu-9.2,edk2-amdsev,OHCL-Linux-Kernel-phase3a,host-kernel-6.17.
+  Preserved source commits,existing outputs and the uncommitted OVMF grub.sh.
+  Host installation packages/known-good notes remain historical and unmoved.
+  No compatibility symlink restores any of the five old active paths.
+  Third-party trees remain separate Git repositories,not vendored GitHub source.
+Previously validated binaries/script copied with SHA256SUMS under
+  .local/relocation/validated;original bundle manifests/evidence not rewritten.
+Retired nested MigTD Git objects moved with the harness .git directory;
+  archive root Git pointer/worktree configuration updated to the new location;
+  archived tracked files and Git history preserved.
+MigTD active plan/instructions/comment updated;real-bundle tests now propagate
+  explicit same-hash QEMU/OVMF relocations to all validation surfaces.
+Harness gained isolated platform rebuild instructions/tooling and explicit
+  QEMU -L ROM-directory selection,required-ROM checks and runtime hash records.
+  Relative runtime tool paths are resolved before child working directories change.
+Validation:21 real-bundle integration methods,3 standalone harness command tests,
+  shared SNP contract controls,ShellCheck,script syntax and diff checks passed.
+Actual preserved-tool two-VM workflow:both controllers succeed,both guests
+  complete legacy compatibility,all four task-owned processes exit0 and all
+  topology listeners are absent after cleanup.
+Receipt:.local/relocation/vm-runs/20261106T150024Z-zar4h7av/result.json.
+Failed attempts are retained:upstream BaseTools directory/include-root failures,
+  packaged-validator bytecode pollution restored by deleting only newly created
+  cache files,and explicit QEMU ROM-path failure before the successful run.
+  Packaged test validation now uses Python -B rather than altering frozen inputs.
+QEMU and OVMF isolated rebuilds succeeded;final entry-point reruns and guest/host
+  kernel rebuilds remain IN PROGRESS in .local/relocation/logs/.
+Historical note/log prefixes,accepted evidence and prior uncommitted IGVM/order
+  edits remain preserved. Existing MigTD submodule build dirt remains untouched.
+Limits:legacy compatibility remains Build-validated/migration-unqualified.
+  No new platform artifact promotion,host kernel installation/reboot,IGVM build,
+  ADO pipeline,common V6/V2 activation,Task5 start or P2.2 acceptance inferred.
+
+SNP VM harness repository/platform relocation - COMPLETED AND VERIFIED
+The confirmed GitHub/local rename and all four platform source/build-tree moves
+  are complete. GitHub remains PRIVATE;origin points to
+  git@github.com:mvasantarao/snp-ma-vm-harness.git.
+QEMU,OVMF,OHCL guest bzImage and host bzImage rebuilt successfully in separate
+  .local/rebuild outputs without overwriting the preserved validated binaries.
+Corrected QEMU/OVMF platform entry-point reruns passed;both kernel build commands
+  exited0. Generated new build configuration has no former-workspace path.
+Final controls:24 existing SNP contract/inventory/runner tests,21 real-bundle
+  integration tests and3 standalone harness command tests;48 total passed.
+  ShellCheck,bash syntax,Git whitespace checks and preservation checks passed.
+Actual final two-VM run used relative relocated QEMU/OVMF/ROM arguments;commands
+  resolved to new absolute paths before child cwd changes. Both controllers and
+  guests completed legacy compatibility;all four processes exited0 at cleanup.
+  No topology listeners remain. No old active path or compatibility symlink exists.
+Durable receipt:/home/murthy/repos/snp-ma-vm-harness/.local/relocation/receipt.json.
+  Records source commits/worktree status,preserved and rebuilt artifact hashes,
+  original/final kernel config hashes,test counts,log hashes and VM result path.
+Original bundle contents,historical technical note/log prefix,frozen P0.10
+  corpus and archived nested tracked source verified unchanged.
+Newly rebuilt platform artifacts are separate inputs,not boot-qualified,
+  automatically promoted or substituted into historical manifests.
+No host kernel installation/reboot,IGVM/ADO implementation,production or common
+  V6/V2 qualification,P2.2 acceptance,Task5 start,source commit or push.

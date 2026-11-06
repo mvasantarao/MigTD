@@ -96,6 +96,28 @@ replace it merely by recomputing its manifest hashes.
 
 ## Consumers and qualification limits
 
+The independent VM/platform consumer is
+`git@github.com:mvasantarao/snp-ma-vm-harness.git`, locally checked out at
+`/home/murthy/repos/snp-ma-vm-harness`. It owns platform build instructions and
+ignored local QEMU/OVMF/guest-kernel/host-kernel trees, not MigTD compilation.
+Neither repository requires the former parent workspace. Historical evidence
+and published bundle manifests retain their original paths and identities.
+For an existing bundle, supply relocated same-hash QEMU/OVMF paths explicitly:
+
+```bash
+HARNESS=/home/murthy/repos/snp-ma-vm-harness
+"$HARNESS/run-emulator-e2e.sh" --bundle /declared/bundle \
+  --qemu "$HARNESS/.local/platform/qemu-9.2/build/qemu-system-x86_64" \
+  --ovmf "$HARNESS/.local/platform/edk2-amdsev/Build/AmdSev/RELEASE_GCC5/FV/OVMF.fd" \
+  --qemu-data "$HARNESS/.local/platform/qemu-9.2/pc-bios"
+```
+
+New platform builds require new explicit producer identities/hashes and a new
+bundle; do not rewrite historical manifests or weaken relocation validation.
+The explicit QEMU ROM directory replaces unavailable compiled-in data paths.
+The harness records required legacy ROM hashes in its run result; this does
+not amend bundle-v1 or establish a qualified production runtime closure.
+
 Install the MigTD-owned contract into a consumer without copying a build tree:
 
 ```bash
@@ -137,12 +159,17 @@ python3 -m unittest discover -s tests/snp/feature-matrix -v
 python3 -m unittest discover -s sh_script/test -p test_snp_task4_inventory.py -v
 python3 tests/snp/integration/test_bundles.py \
   --emulator /declared/emulator --production /declared/production \
-  --consumer /declared/consumer -v
+  --consumer /declared/consumer \
+  --qemu /declared/relocated-qemu --ovmf /declared/relocated-ovmf -v
 ```
 
 The first tests are explicitly nonbuilt schema vectors. Integration tests use
 real bundles, reseal deliberate corruptions to reach the intended deeper gates,
-and never substitute a fake successful MA/attestation. SNP contract CI runs
+and never substitute a fake successful MA/attestation.
+The optional `--qemu`/`--ovmf` test arguments apply the same hash-checked
+relocations to in-process, packaged-validator and consumer checks; omit them
+when the original manifest paths remain available.
+SNP contract CI runs
 schema/isolation controls; actual bundle and VM evidence require declared
 external inputs. No existing MigTD CI job used the retired external build
 workflow; existing TDX EMU CI remains unchanged.

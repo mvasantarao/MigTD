@@ -18,11 +18,18 @@ sys.path.insert(0, str(ROOT / "sh_script/test"))
 from build_bundle import make_initramfs
 from snp_task4_inventory import fixture_needles
 from validate_bundle import (
-    ARTIFACTS, ValidationError, file_hash, parse_initramfs, read_json, validate_bundle,
+    ARTIFACTS, ValidationError, file_hash, parse_initramfs, read_json,
+    validate_bundle as validate_bundle_contract,
 )
 
 BUNDLES = {}
 CONSUMER = None
+EXTERNAL_INPUT_OVERRIDES = {}
+TOOL_ARGUMENTS = []
+
+
+def validate_bundle(bundle, **overrides):
+    return validate_bundle_contract(bundle, **(EXTERNAL_INPUT_OVERRIDES | overrides))
 
 
 @contextmanager
@@ -60,8 +67,8 @@ class BundleTests(unittest.TestCase):
                 env = os.environ.copy()
                 env.pop("PYTHONPATH", None)
                 result = subprocess.run([
-                    sys.executable, str(bundle / "contract/validate_bundle.py"),
-                    "--bundle", str(bundle),
+                    sys.executable, "-B", str(bundle / "contract/validate_bundle.py"),
+                    "--bundle", str(bundle), *TOOL_ARGUMENTS,
                 ], cwd=directory, env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -183,6 +190,21 @@ class BundleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "external input hash/size"):
                 validate_bundle(BUNDLES["SnpEmuAzure"], qemu=path)
 
+    def test_explicit_tool_relocation_does_not_require_original_paths(self):
+        for composition in BUNDLES:
+            with self.subTest(composition=composition), copied(composition) as (root, manifest):
+                tools = {}
+                for name in ("qemu", "ovmf"):
+                    tools[name] = EXTERNAL_INPUT_OVERRIDES.get(
+                        name, Path(manifest["external_inputs"][name]["path"]))
+                    manifest["external_inputs"][name]["path"] = str(root / f"absent-{name}")
+                reseal(root, manifest)
+                with self.assertRaises(ValueError):
+                    validate_bundle_contract(root)
+                validated = validate_bundle_contract(root, **tools)
+                self.assertEqual(validated["composition"], composition)
+                self.assertEqual(validated["qualification"], "Build-validated/migration-unqualified")
+
     def test_production_inspector_cannot_be_overridden_to_accept_emulator(self):
         result = subprocess.run([
             "bash", str(ROOT / "tools/snp/inspect-production-image.sh"),
@@ -202,7 +224,8 @@ class BundleTests(unittest.TestCase):
                 output = Path(directory) / "must-not-exist"
                 command = ["bash", str(ROOT / "tools/snp" / script), "--output", str(output)]
                 for name, entry in manifest["external_inputs"].items():
-                    command += [f"--{name}", entry["path"], f"--{name}-identity", entry["identity"],
+                    path = str(EXTERNAL_INPUT_OVERRIDES.get(name, entry["path"]))
+                    command += [f"--{name}", path, f"--{name}-identity", entry["identity"],
                                 f"--{name}-sha256", entry["sha256"]]
                 command += ["--composition", opposite]
                 result = subprocess.run(command, capture_output=True, text=True)
@@ -215,7 +238,7 @@ class BundleTests(unittest.TestCase):
             with self.subTest(composition=composition):
                 result = subprocess.run([
                     sys.executable, str(CONSUMER / "consume_bundle.py"),
-                    "validate", "--bundle", str(bundle),
+                    "validate", "--bundle", str(bundle), *TOOL_ARGUMENTS,
                 ], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -226,7 +249,7 @@ class BundleTests(unittest.TestCase):
             logs = Path(directory)
             result = subprocess.run([
                 sys.executable, str(CONSUMER / "consume_bundle.py"),
-                "run", "--bundle", str(root), "--log-root", str(logs),
+                "run", "--bundle", str(root), "--log-root", str(logs), *TOOL_ARGUMENTS,
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2, result.stderr)
             reports = list(logs.glob("*/result.json"))
@@ -234,6 +257,20 @@ class BundleTests(unittest.TestCase):
             report = read_json(reports[0])
             self.assertEqual(report["outcome"], "bundle-validation-failed")
             self.assertFalse(report["validated"])
+            self.assertEqual(report["processes"], [])
+
+    def test_consumer_rejects_missing_qemu_runtime_data_before_launch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            logs = Path(directory) / "logs"
+            result = subprocess.run([
+                sys.executable, str(CONSUMER / "consume_bundle.py"),
+                "run", "--bundle", str(BUNDLES["SnpEmuAzure"]),
+                "--qemu-data", str(Path(directory) / "absent-rom-directory"),
+                "--log-root", str(logs), *TOOL_ARGUMENTS,
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            report = read_json(next(logs.glob("*/result.json")))
+            self.assertIn("missing required ROM", report["error"])
             self.assertEqual(report["processes"], [])
 
     def test_consumer_records_malformed_nested_record_before_launch(self):
@@ -245,7 +282,7 @@ class BundleTests(unittest.TestCase):
             reseal(root, m)
             result = subprocess.run([
                 sys.executable, str(CONSUMER / "consume_bundle.py"),
-                "run", "--bundle", str(root), "--log-root", directory,
+                "run", "--bundle", str(root), "--log-root", directory, *TOOL_ARGUMENTS,
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2, result.stderr)
             report = read_json(next(Path(directory).glob("*/result.json")))
@@ -259,7 +296,14 @@ if __name__ == "__main__":
     parser.add_argument("--emulator", required=True, type=Path)
     parser.add_argument("--production", required=True, type=Path)
     parser.add_argument("--consumer", required=True, type=Path)
+    parser.add_argument("--qemu", type=Path, help="Same-hash relocation of the declared QEMU")
+    parser.add_argument("--ovmf", type=Path, help="Same-hash relocation of the declared OVMF")
     args, remainder = parser.parse_known_args()
     BUNDLES = {"SnpEmuAzure": args.emulator.resolve(), "SnpHardware": args.production.resolve()}
     CONSUMER = args.consumer.resolve()
+    for name in ("qemu", "ovmf"):
+        path = getattr(args, name)
+        if path is not None:
+            EXTERNAL_INPUT_OVERRIDES[name] = path.resolve()
+            TOOL_ARGUMENTS += [f"--{name}", str(path.resolve())]
     unittest.main(argv=[sys.argv[0], *remainder])
