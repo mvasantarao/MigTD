@@ -103,6 +103,9 @@ impl SnpAuthorizationResultV1 {
     pub const ENCODED_SIZE: usize = 88;
 
     fn validate_decision(&self) -> SnpCodecResult<()> {
+        if self.algorithm != SnpMigrationAlgorithmV1::Aes256GcmMigrationV1 {
+            return Err(SnpCodecError::NonCanonicalEncoding);
+        }
         match (self.decision, self.failure) {
             (SnpAuthorizationDecisionV1::Accepted, SnpAuthorizationFailureV1::None) => Ok(()),
             (SnpAuthorizationDecisionV1::Rejected, failure)
@@ -200,7 +203,7 @@ mod tests {
             evidence_profile: SnpEvidenceProfileV1::Production,
             tcb_profile: SnpTcbProfileV1::Turin,
             failure: SnpAuthorizationFailureV1::None,
-            algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
+            algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
             negotiated_migration_version: 0x090A,
             authorization_context_digest: [0x55; SHA384_DIGEST_SIZE],
         }
@@ -223,6 +226,27 @@ mod tests {
         assert_eq!(&encoded[0x20..0x22], &[0x0A, 0x09]);
         assert_eq!(&encoded[0x22..0x28], &[0; 6]);
         assert_eq!(&encoded[0x28..0x58], &[0x55; SHA384_DIGEST_SIZE]);
+    }
+
+    #[test]
+    fn local_algorithms_cannot_leak_into_inter_node_authorization_results() {
+        for algorithm in [
+            SnpMigrationAlgorithmV1::None,
+            SnpMigrationAlgorithmV1::LocalHandoffSecretV1,
+        ] {
+            let mut value = accepted_result();
+            value.algorithm = algorithm;
+            assert_eq!(
+                value.encode_exact(),
+                Err(SnpCodecError::NonCanonicalEncoding)
+            );
+            let mut encoded = accepted_result().encode_exact().unwrap();
+            encoded[0x1e..0x20].copy_from_slice(&(algorithm as u16).to_le_bytes());
+            assert_eq!(
+                SnpAuthorizationResultV1::decode_exact(&encoded),
+                Err(SnpCodecError::NonCanonicalEncoding)
+            );
+        }
     }
 
     #[test]

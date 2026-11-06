@@ -87,7 +87,7 @@ pub fn vmcall_raw_transport_can_send() -> bool {
 }
 
 /// Whether can receive packet.
-pub fn vmcall_raw_transport_can_recv() -> Result<bool, ()> {
+pub fn vmcall_raw_transport_can_recv() -> Result<bool, VmcallRawError> {
     Ok(false)
 }
 
@@ -103,10 +103,10 @@ pub fn vmcall_raw_transport_can_recv() -> Result<bool, ()> {
 ///
 /// NOTE: `data_length` is owned by MigTD when status=0; on the send path
 /// the post-completion value is not meaningful and must be discarded.
-fn poll_vmcall_completion<'a>(
+fn poll_vmcall_completion(
     mig_request_id: u64,
-    data_buffer: &'a mut [u8],
-) -> Poll<Result<(&'a mut [u8], u32), VmcallRawError>> {
+    data_buffer: &mut [u8],
+) -> Poll<Result<(&mut [u8], u32), VmcallRawError>> {
     if let Some(flag) = VMCALL_MIG_CONTEXT_FLAGS.lock().get(&mig_request_id) {
         if flag.load(Ordering::SeqCst) {
             flag.store(false, Ordering::SeqCst);

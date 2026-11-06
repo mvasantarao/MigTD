@@ -2,8 +2,32 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg_attr(not(any(test, feature = "AzCVMEmu", feature = "SnpEmu")), no_std)]
-#![cfg_attr(not(any(test, feature = "AzCVMEmu", feature = "SnpEmu")), no_main)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_main)]
+
+#[cfg(all(
+    feature = "SnpHardware",
+    any(feature = "tdx-platform", feature = "attestation")
+))]
+compile_error!(
+    "SnpHardware cannot include TDX providers, transports, policy or attestation bypasses"
+);
+#[cfg(all(
+    feature = "SnpHardware",
+    any(
+        feature = "SnpEmu",
+        feature = "SnpEmuAzure",
+        feature = "snp-fixture",
+        feature = "snp-state-emulator",
+        feature = "snp-tcp-transport",
+        feature = "snp-mock-installation",
+        feature = "snp-mock-rebind",
+        feature = "snp_fixture_only"
+    )
+))]
+compile_error!("SnpHardware cannot include emulator providers or fixture roots");
+#[cfg(all(feature = "AzCVMEmu", feature = "snp-core"))]
+compile_error!("TDX and SNP compositions are mutually exclusive");
 
 // AzCVMEmu only supports the vmcall-raw transport.
 #[cfg(all(
@@ -32,7 +56,7 @@ extern crate alloc;
 
 // Phase 3a emits direct stderr diagnostics in emulation builds. Bare-metal
 // MigTD is no_std, so retain format checking there without producing output.
-#[cfg(not(any(test, feature = "AzCVMEmu", feature = "SnpEmu")))]
+#[cfg(all(feature = "tdx-platform", not(any(test, feature = "std"))))]
 macro_rules! eprintln {
     ($($arg:tt)*) => {{
         let _ = core::format_args!($($arg)*);
@@ -40,11 +64,20 @@ macro_rules! eprintln {
 }
 
 // Re-export TDX dependencies conditionally to avoid feature gates throughout the code
-#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
+#[cfg(all(
+    feature = "tdx-platform",
+    not(any(feature = "AzCVMEmu", feature = "SnpEmu"))
+))]
 extern crate td_payload;
-#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
+#[cfg(all(
+    feature = "tdx-platform",
+    not(any(feature = "AzCVMEmu", feature = "SnpEmu"))
+))]
 extern crate td_shim_interface;
-#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
+#[cfg(all(
+    feature = "tdx-platform",
+    not(any(feature = "AzCVMEmu", feature = "SnpEmu"))
+))]
 extern crate tdx_tdcall;
 
 #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
@@ -54,14 +87,25 @@ extern crate td_shim_interface_emu as td_shim_interface;
 #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
 extern crate tdx_tdcall_emu as tdx_tdcall;
 
+#[cfg(feature = "tdx-platform")]
 pub mod config;
+#[cfg(feature = "tdx-platform")]
 pub mod driver;
+#[cfg(feature = "tdx-platform")]
 pub mod event_log;
+#[cfg(feature = "tdx-platform")]
 pub mod mig_policy;
+#[cfg(feature = "tdx-platform")]
 pub mod migration;
+#[cfg(feature = "tdx-platform")]
 pub mod quote;
+#[cfg(feature = "tdx-platform")]
 pub mod ratls;
+#[cfg(feature = "tdx-platform")]
 pub mod spdm;
+
+#[cfg(any(feature = "SnpHardware", feature = "SnpEmu"))]
+pub mod snp_composition;
 
 pub const STACK_SIZE: usize = 0x20_0000;
 pub const HEAP_SIZE: usize = 0x70_0000;
@@ -71,7 +115,7 @@ pub const HEAP_SIZE: usize = 0x70_0000;
 /// For the x86_64-unknown-none target, the entry point name is '_start'
 #[no_mangle]
 #[cfg(not(test))]
-#[cfg(target_os = "none")]
+#[cfg(all(target_os = "none", feature = "tdx-platform"))]
 pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
     use td_payload::arch;
     use td_payload::mm::layout::*;
@@ -130,7 +174,7 @@ pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
     arch::init::init(&layout, main);
 }
 
-#[cfg(target_os = "none")]
+#[cfg(all(target_os = "none", feature = "tdx-platform"))]
 fn init(payload: u64) {
     use td_loader::elf;
 
@@ -153,11 +197,11 @@ fn init(payload: u64) {
     }
 }
 
-#[cfg(feature = "SnpEmu")]
+#[cfg(feature = "snp-core")]
 pub mod runtime;
 
-#[cfg(feature = "SnpEmu")]
+#[cfg(all(feature = "SnpEmu", feature = "snp-tcp-transport"))]
 pub mod transport;
 
-#[cfg(feature = "SnpEmu")]
+#[cfg(feature = "snp-fixture")]
 pub mod evidence;

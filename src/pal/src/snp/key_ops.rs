@@ -4,8 +4,10 @@
 //! MigrationKeyOps: abstraction over SNP PSP key export/import lifecycle.
 //!
 //! Phase 3a: SnpEmuKeyOps returns NotAvailable (fixture phase, no PSP, A3).
-//! Phase 3b: real impl via MSG_KEY_REQ + MSG_SET_MIGRATION_INFO through
-//!   /dev/sev-guest GHCB VMGEXIT path (Venice hardware required).
+//! T4.10: V1 has no approved platform-derived-key operation. MSG_KEY_REQ
+//! is not a prerequisite for MSK establishment or installation.
+//! Real installation and the disposition of these legacy lifecycle methods
+//! remain separately gated; this module does not implement firmware services.
 
 use crate::traits::PalError;
 
@@ -17,10 +19,10 @@ pub trait MigrationKeyOps {
 }
 
 /// Phase 3a stub — returns NotAvailable (PSP not available in fixture mode, A3).
-#[cfg(feature = "snp-emu")]
+#[cfg(feature = "snp-mock-installation")]
 pub struct SnpEmuKeyOps;
 
-#[cfg(feature = "snp-emu")]
+#[cfg(feature = "snp-mock-installation")]
 impl MigrationKeyOps for SnpEmuKeyOps {
     fn export(&self, _session: u64) -> Result<Vec<u8>, PalError> {
         Err(PalError::NotAvailable)

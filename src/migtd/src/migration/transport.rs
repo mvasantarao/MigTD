@@ -62,7 +62,7 @@ pub(super) async fn setup_transport(
             "[MA] setup_transport: vmcall-raw channel ready (request_id={})",
             mig_request_id
         );
-        return Ok(vmcall_raw_instance);
+        Ok(vmcall_raw_instance)
     }
 
     #[cfg(all(feature = "virtio-serial", not(feature = "vmcall-raw")))]

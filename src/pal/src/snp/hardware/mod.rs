@@ -1,14 +1,14 @@
 // Copyright (c) 2026 Microsoft Corporation
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-//! SnpHardwareProvider: AttestationProvider backed by /dev/sev-guest ioctl.
+//! Hardware-backed MA evidence provider using the /dev/sev-guest ioctl.
 //!
 //! Issues SNP_GET_REPORT (ioctl 'S'/0x0) to obtain a fresh 1184-byte
 //! ATTESTATION_REPORT from the PSP.  vmpl=1 is embedded in the report so
 //! verifiers can confirm the MA runs at VMPL1.
 //!
-//! Only compiled when NOT building the SnpEmu fixture path (snp-emu feature
-//! is absent).  Phase 3b / real HW required.
+//! Compiled through the independent `snp-linux-hardware` capability.
+//! Real hardware qualification and production runtime integration remain open.
 //!
 //! Kernel interface: OHCL-Linux-Kernel include/uapi/linux/sev-guest.h
 //!   SNP_GET_REPORT = _IOWR('S', 0x0, struct snp_guest_request_ioctl)
@@ -16,20 +16,22 @@
 //!   snp_report_req  { user_data:[u8;64], vmpl:u32, rsvd:[u8;28] }
 //!   snp_report_resp { data:[u8;4000] }  — ATTESTATION_REPORT in data[0..1184]
 
-#![cfg(not(feature = "snp-emu"))]
+#![cfg(feature = "snp-linux-hardware")]
 
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;
 
-use crate::traits::{AttestationProvider, PalError};
-use crate::types::AttestationBundle;
+use crate::traits::{AttestationProvider, MaEvidenceProvider, PalError, SnpCollateralProvider};
+use crate::types::{
+    AttestationBundle, MaEvidence, MaEvidenceBinding, MaEvidenceError, MaEvidenceRequest,
+    SnpCollateralError, SnpCollateralRequest, SnpVerificationCollateral,
+    SNP_ATTESTATION_REPORT_SIZE,
+};
 
 // ── Kernel struct layouts (must match sev-guest.h exactly) ──────────────────
 
 const SNP_REPORT_USER_DATA_SIZE: usize = 64;
 const SNP_REPORT_RESP_DATA_SIZE: usize = 4000;
-const SNP_ATTESTATION_REPORT_SIZE: usize = 1184;
-
 /// vmpl level embedded in the report.  MA runs at VMPL1 in OHCL architecture.
 const MA_VMPL: u32 = 1;
 
@@ -98,19 +100,22 @@ unsafe extern "C" {
 
 /// Phase 3b hardware attestation provider — issues SNP_GET_REPORT on /dev/sev-guest.
 ///
-/// Only available when not building the SnpEmu fixture path.
+/// Available through `snp-linux-hardware`, independently of the emulator gate.
 /// Requires: running inside an SNP CVM with /dev/sev-guest present.
 pub struct SnpHardwareProvider;
 
-impl AttestationProvider for SnpHardwareProvider {
+impl MaEvidenceProvider for SnpHardwareProvider {
     /// Get a fresh SNP ATTESTATION_REPORT with `report_data` embedded as user_data.
     ///
     /// Steps:
     ///   1. Open /dev/sev-guest
     ///   2. Fill snp_report_req { user_data=report_data, vmpl=1, rsvd=0 }
     ///   3. Issue SNP_GET_REPORT ioctl
-    ///   4. Extract snp_report_resp.data[0..1184] as ma_report_blob
-    fn get_report(&self, report_data: &[u8; 64]) -> Result<AttestationBundle, PalError> {
+    ///   4. Extract snp_report_resp.data[0..1184] as typed MA evidence
+    fn acquire_ma_evidence(
+        &self,
+        request: &MaEvidenceRequest,
+    ) -> Result<MaEvidence, MaEvidenceError> {
         // Step 1: Open /dev/sev-guest (requires root or sev-guest group membership)
         let sev_fd = OpenOptions::new()
             .read(true)
@@ -122,12 +127,12 @@ impl AttestationProvider for SnpHardwareProvider {
                     SEV_GUEST_DEVICE,
                     e
                 );
-                PalError::NotAvailable
+                MaEvidenceError::ProviderUnavailable
             })?;
 
         // Step 2: Fill request — user_data = challenge, vmpl = 1, rsvd = 0
         let mut req = SnpReportReq {
-            user_data: *report_data,
+            user_data: *request.report_data(),
             vmpl: MA_VMPL,
             rsvd: [0u8; 28],
         };
@@ -152,7 +157,7 @@ impl AttestationProvider for SnpHardwareProvider {
                 errno,
                 arg.exitinfo2
             );
-            return Err(PalError::NotAvailable);
+            return Err(MaEvidenceError::DeviceIo);
         }
 
         // Check firmware error in exitinfo2[31:0]
@@ -163,23 +168,58 @@ impl AttestationProvider for SnpHardwareProvider {
                 fw_err,
                 arg.exitinfo2
             );
-            return Err(PalError::VerificationFailed(format!(
-                "PSP fw_error={:#010x}",
-                fw_err
-            )));
+            return Err(MaEvidenceError::FirmwareRejected { status: fw_err });
         }
 
         // Step 4: Extract 1184-byte ATTESTATION_REPORT from response
-        let ma_report_blob = resp.data[..SNP_ATTESTATION_REPORT_SIZE].to_vec();
+        let mut report = [0u8; SNP_ATTESTATION_REPORT_SIZE];
+        report.copy_from_slice(&resp.data[..SNP_ATTESTATION_REPORT_SIZE]);
         log::info!(
             "[MA] SnpHardwareProvider: SNP_GET_REPORT OK — {} bytes, vmpl={}",
-            ma_report_blob.len(),
+            report.len(),
             MA_VMPL
         );
 
+        Ok(MaEvidence::new(
+            report,
+            MaEvidenceBinding::RequestedReportData,
+        ))
+    }
+}
+
+impl SnpCollateralProvider for SnpHardwareProvider {
+    fn acquire_snp_collateral(
+        &self,
+        _request: &SnpCollateralRequest<'_>,
+    ) -> Result<SnpVerificationCollateral, SnpCollateralError> {
+        // SNP_GET_REPORT returns only the attestation report. A production
+        // certificate-table or platform-service provider is not wired yet.
+        // Hardware mode must not fall back to emulator fixture collateral.
+        log::error!("selected Linux SNP collateral provider unavailable; no fixture fallback");
+        Err(SnpCollateralError::ProviderUnavailable)
+    }
+}
+
+impl AttestationProvider for SnpHardwareProvider {
+    fn get_report(
+        &self,
+        report_data: &[u8; SNP_REPORT_USER_DATA_SIZE],
+    ) -> Result<AttestationBundle, PalError> {
+        let evidence = self
+            .acquire_ma_evidence(&MaEvidenceRequest::new(*report_data))
+            .map_err(|error| match error {
+                MaEvidenceError::InvalidReportLength { .. } => PalError::InvalidInput,
+                MaEvidenceError::ProviderUnavailable | MaEvidenceError::DeviceIo => {
+                    PalError::NotAvailable
+                }
+                MaEvidenceError::FirmwareRejected { status } => {
+                    PalError::VerificationFailed(format!("PSP fw_error={status:#010x}"))
+                }
+            })?;
+
         Ok(AttestationBundle {
-            ma_report_blob,
-            tenant_report: None, // Populated by the production tenant-report acquisition path.
+            ma_report_blob: evidence.into_report().to_vec(),
+            tenant_report: None,
         })
     }
 }

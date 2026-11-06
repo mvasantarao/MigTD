@@ -8,6 +8,7 @@ use super::{
     },
     collateral_set::{SnpCertificateEntryV1, SnpCertificateRoleV1, SnpCollateralSetV1},
     evidence_header::{SnpEvidenceHeaderV1, SnpEvidenceProfileV1, SnpTcbProfileV1},
+    key_contribution::SnpKeyContributionV1,
     limits::MAX_SNP_COLLATERAL_SET_SIZE,
     ma_evidence::SnpMaEvidenceV1,
     policy_identity::PolicyIdentityV1,
@@ -47,11 +48,13 @@ fn seeded_fixed_record_round_trips_are_stable() {
     let mut state = 0xC0DE_CAFE_1234_5678;
     for index in 0..256 {
         let purpose = match index % 3 {
-            0 => SnpEvidencePurposeV1::MaKeyContribution,
-            1 => SnpEvidencePurposeV1::TenantMigrationAuthorization,
-            _ => SnpEvidencePurposeV1::PostInstallConfirmation,
+            0 => SnpEvidencePurposeV1::InterNodeKeyContribution,
+            1 => SnpEvidencePurposeV1::InterNodeTenantAuthorization,
+            _ => SnpEvidencePurposeV1::InterNodePostInstallConfirmation,
         };
-        let role = if index % 2 == 0 {
+        let role = if index % 2 == 0
+            && purpose != SnpEvidencePurposeV1::InterNodePostInstallConfirmation
+        {
             SnpMaRoleV1::Source
         } else {
             SnpMaRoleV1::Destination
@@ -61,17 +64,32 @@ fn seeded_fixed_record_round_trips_are_stable() {
             role,
             request_id: next_u64(&mut state),
             negotiated_migration_version: next_u64(&mut state) as u16,
-            algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
-            tenant_report_id: fill::<TENANT_REPORT_ID_SIZE>(&mut state),
+            algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
+            tenant_binding_id: fill::<TENANT_REPORT_ID_SIZE>(&mut state),
             th1: fill::<SHA384_DIGEST_SIZE>(&mut state),
-            contribution_commitment: fill::<SHA384_DIGEST_SIZE>(&mut state),
-            local_policy_digest: fill::<SHA384_DIGEST_SIZE>(&mut state),
+            purpose_binding_digest: fill::<SHA384_DIGEST_SIZE>(&mut state),
+            ma_policy_identity_digest: fill::<SHA384_DIGEST_SIZE>(&mut state),
         };
         let encoded = context.encode_exact().unwrap();
         assert_eq!(
             ReportDataContextV1::decode_exact(&encoded).unwrap(),
             context
         );
+        let mut contribution_context = context.clone();
+        contribution_context.evidence_purpose = SnpEvidencePurposeV1::InterNodeKeyContribution;
+        let contribution = SnpKeyContributionV1::new(
+            contribution_context,
+            zeroize::Zeroizing::new(fill::<32>(&mut state)),
+        )
+        .unwrap();
+        let mut encoded = contribution.encode_exact().unwrap();
+        let decoded = SnpKeyContributionV1::decode_exact(encoded.as_mut()).unwrap();
+        assert_eq!(
+            decoded.report_data_context,
+            contribution.report_data_context
+        );
+        assert_eq!(decoded.contribution(), contribution.contribution());
+        assert!(encoded.iter().all(|b| *b == 0));
 
         let identity = PolicyIdentityV1 {
             policy_digest: fill::<SHA384_DIGEST_SIZE>(&mut state),
@@ -112,7 +130,7 @@ fn seeded_fixed_record_round_trips_are_stable() {
             } else {
                 SnpAuthorizationFailureV1::EvidenceInvalid
             },
-            algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
+            algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
             negotiated_migration_version: next_u64(&mut state) as u16,
             authorization_context_digest: fill::<SHA384_DIGEST_SIZE>(&mut state),
         };
@@ -157,15 +175,15 @@ fn collateral_role_and_length_combinations_round_trip() {
 #[test]
 fn every_truncation_of_valid_records_is_rejected() {
     let context = ReportDataContextV1 {
-        evidence_purpose: SnpEvidencePurposeV1::TenantMigrationAuthorization,
+        evidence_purpose: SnpEvidencePurposeV1::InterNodeTenantAuthorization,
         role: SnpMaRoleV1::Source,
         request_id: 1,
         negotiated_migration_version: 1,
-        algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
-        tenant_report_id: [1; TENANT_REPORT_ID_SIZE],
+        algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
+        tenant_binding_id: [1; TENANT_REPORT_ID_SIZE],
         th1: [2; SHA384_DIGEST_SIZE],
-        contribution_commitment: [3; SHA384_DIGEST_SIZE],
-        local_policy_digest: [4; SHA384_DIGEST_SIZE],
+        purpose_binding_digest: [3; SHA384_DIGEST_SIZE],
+        ma_policy_identity_digest: [4; SHA384_DIGEST_SIZE],
     };
     assert_all_truncations_rejected(&context.encode_exact().unwrap(), |bytes| {
         ReportDataContextV1::decode_exact(bytes)
@@ -192,7 +210,7 @@ fn every_truncation_of_valid_records_is_rejected() {
         evidence_profile: SnpEvidenceProfileV1::Fixture,
         tcb_profile: SnpTcbProfileV1::Turin,
         failure: SnpAuthorizationFailureV1::PolicyDenied,
-        algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
+        algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
         negotiated_migration_version: 1,
         authorization_context_digest: [6; SHA384_DIGEST_SIZE],
     };
@@ -234,5 +252,7 @@ fn arbitrary_bytes_are_handled_without_panics() {
         let _ = SnpTenantEvidenceV1::decode_exact(&bytes);
         let _ = SnpAuthorizationResultV1::decode_exact(&bytes);
         let _ = SnpCollateralSetV1::decode_exact(&bytes);
+        let _ = SnpKeyContributionV1::decode_exact(&mut bytes);
+        assert!(bytes.iter().all(|b| *b == 0));
     }
 }

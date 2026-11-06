@@ -122,7 +122,10 @@ for role in source destination; do
     awk -v marker="$attestation_evidence_marker" \
         'index($0, marker) && index($0, "result=success") { found=1 } END { exit !found }' \
         "$log"
-    grep -q "operation=MSG_KEY_REQ.*result=success" "$log"
+    if grep -q "operation=MSG_KEY_REQ" "$log"; then
+        echo "$role log contains an unapproved platform-key operation" >&2
+        exit 1
+    fi
     grep -q "operation=MSG_SET_MIGRATION_INFO.*result=success" "$log"
     grep -q "START_MIGRATION_WORKFLOW_END: result=success request_id=1" "$log"
     if grep -Eq \

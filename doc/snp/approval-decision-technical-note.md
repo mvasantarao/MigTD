@@ -2699,3 +2699,168 @@ The fresh `validation-manifest.json` records pre-commit verification;
 without a self-referential commit-hash claim. The central log records this
 freeze and its limits. T4.19 acceptance is preserved. T4.20 acceptance and
 Phase1 closure remain pending; P2.1/P2.2 remain NOT STARTED.
+
+## 34. T4.20 bounded completion acceptance
+
+Status: DONE - ACCEPTED AND FROZEN within the documented bounded scope and
+exclusions at `2026-11-06T00:32:02.025Z`; conditions: None.
+Freeze identifier: `T4.20-Task4Freeze-2026-11-05`.
+
+The user explicitly stated:
+
+> I accept T4.20 within its documented bounded scope and exclusions.
+
+This accepts the [Task4 audit/freeze](task4/task4-freeze.md), corrected diagrams,
+consumer-readiness/feature matrices, source-hash record and separate accepted
+ELF/dependency inventories within section33's exact bounds. The existing
+documentation-only freeze commit is
+`ab91f5f9194152cd4e5440ec050c447de5de8f0d`. The audited implementation remains
+uncommitted and hash-identified; that commit alone is not a reproducible source
+tree. Acceptance does not authorize an implementation commit or push.
+
+The Phase1 gate is satisfied at the documented interface level only.
+P2.1 is READY for separate implementation authorization, NOT STARTED.
+P2.2 remains NOT STARTED pending P2.1 completion and separate authorization.
+No later task is started by this acceptance.
+
+All existing exclusions remain: unavailable common V6/AAS and final providers;
+Task6/AAS1A-M's inherited executable-verifier obligations before Task7; no full
+Task3/V2 runtime, production transport/state/effects/trust/time/revocation/RNG,
+deployment, authoritative shutdown or hardware/end-to-end migration
+qualification. No PA row advances. Task12/purpose3 remains separately deferred
+and is not a current readiness gate.
+
+Recording evidence: `target/t4.20-acceptance/20261106T003202Z/`.
+Before editing,519 existing files,470 audited non-document inputs and1535
+prior evidence files were verified and captured. Fresh recording verification
+checks the exact six-document change scope, all other file hashes, full
+historical log/note prefixes, accepted evidence and the unchanged37-step
+canonical order. Section33 and the original freeze inventory/validation/commit
+receipts remain unchanged historical snapshots; their acceptance-pending
+fields are superseded by this explicit record, not silently rewritten.
+
+This is documentation-only acceptance recording. No tests/builds are rerun,
+no fresh runtime or production result is claimed, and no new commit or push is
+made. Exact recording checks and hashes are in `recording-verification.json`.
+
+## 35. P2.1 descriptive migration scenario terminology
+
+Status: implemented and validated within bounded scope; explicit user acceptance
+pending. Authorization: `2026-11-06T00:34:35.144Z`.
+Completion identifier: `P2.1-ScenarioTerminology-2026-11-06`.
+Separate naming-only commit:
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`.
+
+The user explicitly selected: commit only P2.1 naming changes; leave
+prerequisite changes uncommitted. The tested working scripts retain accepted
+uncommitted MSG_KEY_REQ rejection assertions. Their staged counterparts are
+exact naming transforms of the parent commit's scripts, not a covert commit
+of those prerequisite behavior changes. The accepted assertion delta remains
+intact at the canonical paths. Prerequisite acceptance-record updates also
+remain uncommitted. The rename-only commit is not a reproducible snapshot of
+the accepted working implementation.
+
+Implemented current names:
+
+| Canonical scenario | Current runner / disposition |
+|---|---|
+| `SingleProcessMigration` | `run_snp_single_process_migration.sh`; existing autostart source/destination workflow |
+| `InterNodeTwoProcessMigration` | `run_snp_inter_node_two_process_migration.sh`; existing WFR/controller and two-MA workflow |
+| `LocalMaHandoffTwoProcess` | Reserved Phase4 local old/new-MA workflow; no current executable runner to rename or activate |
+
+The [scenario guide](../snp-migration-scenarios.md) documents exact canonical
+environment variables, output/evidence names and aliases. The old script paths
+are thin executable delegates and old environment variables remain fallbacks;
+nonempty canonical values win. Positional arguments, role/start-mode flags,
+ports/timeouts, explicit evidence paths, manifest fields, process topology,
+protocol and trust are unchanged. The single-process label does not merge
+the legacy runner's source/destination OS processes.
+
+An active-reference audit found no stage-letter Rust/CLI symbols or CI
+commands requiring a rename. Active guide/README and the live T4.10 test
+instruction now use canonical names. Historical validation summaries, frozen
+addenda, hashes, commits, inventory manifests and prior log/note bytes retain
+their original terminology. Old-name occurrences in active runners/tests are
+explicit compatibility aliases, not primary scenario names.
+
+Fresh validation:
+
+- Bash syntax and ShellCheck pass for both canonical runners and both aliases.
+- Eight naming/compatibility tests pass on the working tree and again on an
+  isolated eight-file rename-only index snapshot. Deliberately failing
+  processes exercise naming, defaults, alias forwarding, environment priority/
+  empty-value fallback, address rejection and exit status; no successful
+  attestation/migration doubles are claimed.
+- Both canonical runners and both old-path/old-env aliases pass sequentially
+  using the same frozen accepted musl MigTD and controller:12 zero MA/controller
+  exits. The scenario ports have no remaining listeners.
+- MigTD SHA256:
+  `2a1933640374ed55a3becc377c989314039ede0b5ef9e0baea50d35109da91d5`.
+  Controller SHA256:
+  `166ec9302efcd9f655ba243b25756153a32beadf5b30afa3cc2bba67dbc7c2a9`.
+- Mechanical equivalence proves each working runner is only a naming transform
+  of the accepted input, and each staged runner is only that transform of its
+  parent-commit input. All eight committed bytes match the isolated tested
+  index; prior implementation and acceptance changes were excluded.
+
+No Rust source, dependency, lockfile, fixture or firmware behavior changes.
+The unchanged Rust/full-CI suites are not rerun or relabeled as fresh results;
+accepted earlier evidence is preserved. These are legacy captured-fixture
+scenario regressions, not common V6/AAS, active V2, local-handoff, production
+or actual page migration/resume qualification. No PA row advances.
+
+Evidence: `target/p2.1-terminology/20261106T003435Z/`.
+Baseline:519 files,1540 prior evidence files and two frozen executables.
+`rename-equivalence.json`, `validation-manifest.json`, `scenario-results.json`
+and `commit.json` record exact source/index equivalence, checks, executions and
+persisted commit scope. Final `recording-verification.json` verifies the
+expected seven existing/four new working files,512 untouched baseline files,
+all prior evidence, historical log/note prefixes and the37-step canonical order.
+No push. Bounded P2.1 acceptance is pending; P2.2 remains NOT STARTED pending
+that acceptance and separate implementation authorization.
+
+## 36. P2.1 bounded completion acceptance
+
+Status: DONE - ACCEPTED AND FROZEN within the documented bounded scope and
+exclusions at `2026-11-06T00:47:34.984Z`; conditions: None.
+Accepted completion identifier: `P2.1-ScenarioTerminology-2026-11-06`.
+
+The user explicitly stated:
+
+> I accept P2.1 within its documented bounded scope and exclusions.
+
+This accepts section35's exact naming-only implementation and validation:
+canonical runner/environment/evidence/diagnostic names, explicit old-name
+compatibility aliases, current usage documentation and the reserved
+`LocalMaHandoffTwoProcess` name. It does not activate that local runtime or
+change process topology, protocol, trust, firmware operations or manifest
+semantics. Historical records retain their original terminology and bytes.
+
+The accepted naming-only commit remains
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`. Prior implementation and acceptance
+changes remain intact and uncommitted; that commit alone is not a reproducible
+snapshot of the accepted working implementation. No implementation commit,
+amendment or push is authorized by this acceptance.
+
+All documented exclusions remain: legacy captured-fixture scenarios only;
+no common V6/AAS or active V2 qualification, local handoff, production
+state/effects/trust/time/revocation/RNG/deployment/shutdown/hardware or actual
+page migration/resume qualification. No PA row advances. Task12/purpose3
+remains separately deferred and is not a current readiness gate.
+
+P2.2 is READY for separate implementation authorization, NOT STARTED.
+This acceptance does not start P2.2, accept Phase2 as a whole or waive any
+downstream prerequisites. T4.20 and the bounded Phase1 disposition are unchanged.
+
+Recording evidence: `target/p2.1-acceptance/20261106T004734Z/`.
+Before editing,523 existing files and1600 prior evidence files were verified
+and captured. Final recording verification covers the exact five-document
+change scope,518 untouched baseline files, unchanged code/scripts/tests,
+historical log/note prefixes, accepted evidence, HEAD/index/submodule revisions
+and all37 canonical execution-order steps.
+
+Section35 and the original naming/validation/commit receipts remain unchanged
+historical snapshots; their acceptance-pending fields are superseded by this
+explicit record, not silently rewritten. No tests/builds are rerun, no fresh
+runtime result claimed and no new commit or push made. Exact checks and hashes
+are recorded in `recording-verification.json`.

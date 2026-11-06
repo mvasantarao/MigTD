@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg(feature = "vmcall-raw")]
-
 use crate::migration::MigrationResult;
 #[cfg(test)]
 use alloc::boxed::Box;
@@ -38,7 +36,7 @@ pub fn u8_to_levelfilter(value: u8) -> LevelFilter {
         2 => LevelFilter::Warn,
         3 => LevelFilter::Info,
         4 => LevelFilter::Debug,
-        5 | _ => LevelFilter::Trace,
+        _ => LevelFilter::Trace,
     }
 }
 
@@ -268,8 +266,7 @@ pub async fn enable_logarea(log_max_level: u8, request_id: u64, data: &mut Vec<u
 
     if !logarea_created {
         data.extend_from_slice(
-            &format!("Error: LogArea has not been successfuly created by create_logarea()\n")
-                .into_bytes(),
+            b"Error: LogArea has not been successfuly created by create_logarea()\n",
         );
         return Err(MigrationResult::UnsupportedOperationError);
     }
@@ -359,11 +356,11 @@ pub async fn enable_logarea(log_max_level: u8, request_id: u64, data: &mut Vec<u
             )
             .into_bytes(),
         );
-        return Err(MigrationResult::InvalidParameter);
+        Err(MigrationResult::InvalidParameter)
     }
 }
 
-pub fn entrylog(msg: &Vec<u8>, loglevel: Level, request_id: u64) {
+pub fn entrylog(msg: &[u8], loglevel: Level, request_id: u64) {
     let logarea_initialized: bool = LOGGING_INFORMATION
         .logarea_initialized
         .load(Ordering::SeqCst);
@@ -501,8 +498,7 @@ pub fn entrylog(msg: &Vec<u8>, loglevel: Level, request_id: u64) {
                 return;
             }
             let data_buffer = logareavector[0] as *mut u8;
-            let data_buffer =
-                unsafe { core::slice::from_raw_parts_mut(data_buffer as *mut u8, PAGE_SIZE) };
+            let data_buffer = unsafe { core::slice::from_raw_parts_mut(data_buffer, PAGE_SIZE) };
             LOGGING_INFORMATION
                 .logentry_id
                 .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
@@ -709,11 +705,11 @@ pub(crate) mod test {
     /// clears LOGAREAPTR while another test's logger callback reads from it.
     /// pub(crate) so cross-module tests (e.g. snpemu.rs) that touch LOGAREAPTR
     /// can also acquire this lock and avoid index-out-of-bounds panics.
-    pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    pub(crate) static TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     #[test]
     fn test_create_logarea() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.blocking_lock();
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -764,7 +760,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_enable_logarea() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         let mut data: Vec<u8> = Vec::new();
         let log_max_level: u8 = 5;
 
@@ -783,7 +779,7 @@ pub(crate) mod test {
             .store(false, Ordering::SeqCst);
 
         let result = enable_logarea(log_max_level, 0, &mut data).await;
-        assert!(!result.is_ok());
+        assert!(result.is_err());
 
         let mut result = create_logarea();
         assert!(result.is_ok());
@@ -809,7 +805,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_provisional_entrylog() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -892,7 +888,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_entrylog() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -981,7 +977,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_provisional_and_entrylog_combined() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -1126,7 +1122,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_entrylog_message_max_buffersize() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -1187,7 +1183,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_entrylog_message_greaterthan_buffersize() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -1230,7 +1226,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_entrylog_message_with_headerlen_left_at_bottom() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -1289,8 +1285,8 @@ pub(crate) mod test {
         drop(logareavector);
 
         // Fill new message with 1 byte, ideally this should start from beginning of circular buffer
-        let newmessage = "Y".repeat(1);
-        entrylog(&newmessage.into_bytes(), Level::Info, 2);
+        let newmessage = "Y";
+        entrylog(newmessage.as_bytes(), Level::Info, 2);
         entry_id = LOGGING_INFORMATION.logentry_id.load(Ordering::SeqCst);
 
         // Validate buffer structure
@@ -1329,7 +1325,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_entrylog_message_with_lessthan_headerlen_at_bottom() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -1388,8 +1384,8 @@ pub(crate) mod test {
         drop(logareavector);
 
         // Fill new message with 1 byte, ideally this should start from beginning of circular buffer
-        let newmessage = "Y".repeat(1);
-        entrylog(&newmessage.into_bytes(), Level::Info, 2);
+        let newmessage = "Y";
+        entrylog(newmessage.as_bytes(), Level::Info, 2);
         entry_id = LOGGING_INFORMATION.logentry_id.load(Ordering::SeqCst);
 
         // Validate buffer structure
@@ -1427,7 +1423,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_entrylog_message_with_startoffset_at_invalid_message() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // Reset the global state for testing
         LOGGING_INFORMATION.num_vcpus.store(0, Ordering::SeqCst);
         LOGGING_INFORMATION
@@ -1525,7 +1521,7 @@ pub(crate) mod test {
 
     #[tokio::test]
     async fn test_log_info() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK.lock().await;
         // cargo test --features vmcall-raw --lib migration::logging::test::test_log_info -- --nocapture
 
         // Reset the global state for testing
@@ -1614,7 +1610,7 @@ pub(crate) mod test {
         let mig_request_id_2 = header_2.mig_request_id;
         let loglevel_2 = header_2.loglevel;
         let length_2 = header_2.length;
-        let second_log_entry_start = first_entry_message_end as usize + size_of::<LogEntryHeader>();
+        let second_log_entry_start = first_entry_message_end + size_of::<LogEntryHeader>();
         let second_entry_message_end = second_log_entry_start + length as usize;
         let second_entry_message_bytes =
             &data_buffer[second_log_entry_start..second_entry_message_end];

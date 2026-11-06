@@ -7,6 +7,12 @@ homepage = "https://github.com/confidential-containers"
 license = "BSD-2-Clause-Patent"
 edition = "2018"
 
+[[bin]]
+name = "test-td-payload"
+required-features = ["tdx"]
+test = false
+bench = false
+
 [dependencies]
 attestation = { path = "../../src/attestation" }
 spin = "0.9.2"

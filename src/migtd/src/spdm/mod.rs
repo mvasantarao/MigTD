@@ -134,7 +134,10 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
     }
 }
 
-pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
+pub fn gen_quote_spdm(
+    report_data: &[u8],
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> Result<Vec<u8>, MigrationResult> {
     let hash = digest_sha384(report_data)?;
 
     // Build 64-byte additional_data: SHA384(report_data) padded to 64 bytes.
@@ -143,21 +146,13 @@ pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
     let mut additional_data = [0u8; 64];
     additional_data[..hash.len()].copy_from_slice(hash.as_ref());
 
-    // SnpEmu (Phase 3a): return pre-captured fixture blob.
-    // report_data is accepted but NOT injected -- fixture carries stale nonce.
-    // TODO(Phase-3b/3b-binding): switch to SnpHardwareProvider which injects
-    // additional_data as user_data in the live PSP SNP_GET_REPORT request.
+    // Legacy SNP compatibility does not claim a fresh TH1 report-data binding.
     #[cfg(feature = "SnpEmu")]
     {
-        use pal::traits::AttestationProvider;
-        use snp_emu::provider_fixture::SnpFixtureProvider;
-        let bundle = SnpFixtureProvider
-            .get_report(&additional_data)
-            .map_err(|e| {
-                log::error!("SnpFixtureProvider.get_report failed: {:?}\n", e);
-                MigrationResult::MutualAttestationError
-            })?;
-        return Ok(bundle.ma_report_blob);
+        return providers.legacy_report_blob(&additional_data).map_err(|e| {
+            log::error!("selected SNP MA evidence acquisition failed: {:?}\n", e);
+            MigrationResult::MutualAttestationError
+        });
     }
 
     // TDX / AzCVMEmu path: generate a real TD report and get a quote via QVL.
@@ -223,14 +218,20 @@ pub fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Ve
 
 /// Verify a quote, returning the supplemental data on success.
 ///
-/// SnpEmu uses a pre-captured fixture whose REPORTDATA cannot be rebound to
-/// the live SPDM transcript. Verification is bypassed only for that emulator
-/// feature and for the explicit test bypass.
-pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<Vec<u8>> {
+/// Legacy SNP verifies captured signatures/certificates through its selected
+/// compatibility bridge, without claiming live REPORTDATA binding. Only the
+/// explicit test bypass skips that verification.
+pub fn spdm_verify_quote(
+    #[allow(unused_variables)] quote: &[u8],
+    #[cfg(feature = "SnpEmu")]
+    #[allow(unused_variables)]
+    context: &pal::types::SnpOperationContext,
+    #[cfg(feature = "SnpEmu")] _providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> SpdmResult<Vec<u8>> {
     #[cfg(not(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all")))]
     let res = attestation::verify_quote(quote);
     #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
-    let res = verify_snp_fixture_quote(quote);
+    let res = verify_snp_fixture_quote(quote, context, _providers);
     #[cfg(feature = "test_disable_ra_and_accept_all")]
     let res: Result<Vec<u8>, ()> = Ok(vec![]);
 
@@ -241,54 +242,14 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 }
 
 #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
-fn verify_snp_fixture_quote(quote: &[u8]) -> Result<Vec<u8>, ()> {
-    use pal::snp::fixture::platform_services::{active_operation_context, trace_qvl_verification};
-    use pal::snp::qvl::validate::AttestationVerificationParams;
-    use pal::snp::qvl::verify::SnpQvl;
-    use pal::traits::QvlLibrary;
-
-    const SNP_REPORT_SIZE: usize = 1184;
-    const REPORT_DATA_OFFSET: usize = 0x50;
-    const REPORT_DATA_HASH_SIZE: usize = 48;
-
-    if quote.len() < SNP_REPORT_SIZE {
-        return Err(());
-    }
-    let report = &quote[..SNP_REPORT_SIZE];
-    let mut offset = SNP_REPORT_SIZE;
-    let mut cert_chain = Vec::with_capacity(2);
-    for _ in 0..2 {
-        let length_bytes: [u8; 4] = quote
-            .get(offset..offset + 4)
-            .and_then(|bytes| bytes.try_into().ok())
-            .ok_or(())?;
-        offset += 4;
-        let length = u32::from_le_bytes(length_bytes) as usize;
-        let certificate = quote.get(offset..offset + length).ok_or(())?;
-        cert_chain.push(certificate.to_vec());
-        offset += length;
-    }
-
-    let context = active_operation_context();
-    let mut fixture_report_data = [0u8; REPORT_DATA_HASH_SIZE];
-    fixture_report_data.copy_from_slice(
-        report
-            .get(REPORT_DATA_OFFSET..REPORT_DATA_OFFSET + REPORT_DATA_HASH_SIZE)
-            .ok_or(())?,
-    );
-    let params = AttestationVerificationParams::crypto_only(report, &fixture_report_data);
-
-    trace_qvl_verification(&context, "begin", "pending");
-    if SnpQvl.verify(&params, &cert_chain).is_err() {
-        trace_qvl_verification(&context, "end", "failure");
-        return Err(());
-    }
-    trace_qvl_verification(&context, "end", "success");
-    eprintln!(
-        "[MA] FIXTURE_LIMITATION: the selected QVL verified the captured report signature and \
-         certificate chain; live TH1 report_data binding was not claimed"
-    );
-
+fn verify_snp_fixture_quote(
+    quote: &[u8],
+    context: &pal::types::SnpOperationContext,
+    providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> Result<Vec<u8>, ()> {
+    providers
+        .verify_legacy_fixture_quote(quote, context)
+        .map_err(|_| ())?;
     Ok(vec![])
 }
 
@@ -511,15 +472,22 @@ pub(crate) fn decode_spdm_session_err(e: SpdmStatus) -> MigrationResult {
 ))]
 mod snp_fixture_tests {
     use super::verify_snp_fixture_quote;
-    use pal::traits::AttestationProvider;
-    use snp_emu::provider_fixture::SnpFixtureProvider;
+    use pal::types::{
+        HostRequestId, ManagedGuestHandle, MigrationId, MigrationRole, SnpOperationContext,
+    };
 
     #[test]
     fn fixture_quote_runs_qvl_verification() {
-        let quote = SnpFixtureProvider
-            .get_report(&[0u8; 64])
-            .expect("fixture report")
-            .ma_report_blob;
-        assert!(verify_snp_fixture_quote(&quote).is_ok());
+        let context = SnpOperationContext::new(
+            HostRequestId::new(7),
+            MigrationId::new(7),
+            MigrationRole::Source,
+            ManagedGuestHandle::new(9),
+        );
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        let quote = providers
+            .legacy_report_blob(&[0u8; 64])
+            .expect("fixture report");
+        assert!(verify_snp_fixture_quote(&quote, &context, &providers).is_ok());
     }
 }

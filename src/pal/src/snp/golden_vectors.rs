@@ -28,11 +28,11 @@ fn context(purpose: SnpEvidencePurposeV1) -> ReportDataContextV1 {
         role: SnpMaRoleV1::Source,
         request_id: REQUEST_ID,
         negotiated_migration_version: 0x090A,
-        algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
-        tenant_report_id: [0x11; TENANT_REPORT_ID_SIZE],
+        algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
+        tenant_binding_id: [0x11; TENANT_REPORT_ID_SIZE],
         th1: [0x22; SHA384_DIGEST_SIZE],
-        contribution_commitment: [0x33; SHA384_DIGEST_SIZE],
-        local_policy_digest: [0x44; SHA384_DIGEST_SIZE],
+        purpose_binding_digest: [0x33; SHA384_DIGEST_SIZE],
+        ma_policy_identity_digest: [0x44; SHA384_DIGEST_SIZE],
     }
 }
 
@@ -120,7 +120,7 @@ fn golden_tenant_policy_context() -> [u8; TenantPolicyContextV1::ENCODED_SIZE] {
 
 #[test]
 fn nested_fixed_record_golden_vectors_are_stable() {
-    let context = context(SnpEvidencePurposeV1::MaKeyContribution);
+    let context = context(SnpEvidencePurposeV1::InterNodeKeyContribution);
     let encoded = context.encode_exact().unwrap();
     assert_eq!(encoded, golden_context(1));
     assert_eq!(
@@ -134,7 +134,7 @@ fn nested_fixed_record_golden_vectors_are_stable() {
     let header = header(
         SnpRecordTypeV1::MaEvidence,
         SnpMaEvidenceV1::ENCODED_SIZE,
-        SnpEvidencePurposeV1::MaKeyContribution,
+        SnpEvidencePurposeV1::InterNodeKeyContribution,
         SnpTcbProfileV1::MilanGenoa,
     );
     let encoded = header.encode_exact().unwrap();
@@ -174,10 +174,10 @@ fn ma_evidence_golden_vector_is_stable() {
         header: header(
             SnpRecordTypeV1::MaEvidence,
             SnpMaEvidenceV1::ENCODED_SIZE,
-            SnpEvidencePurposeV1::MaKeyContribution,
+            SnpEvidencePurposeV1::InterNodeKeyContribution,
             SnpTcbProfileV1::MilanGenoa,
         ),
-        report_data_context: context(SnpEvidencePurposeV1::MaKeyContribution),
+        report_data_context: context(SnpEvidencePurposeV1::InterNodeKeyContribution),
         policy_identity: policy_identity(),
         collateral_digest: [0x55; SHA384_DIGEST_SIZE],
         ma_report: [0x66; SNP_ATTESTATION_REPORT_SIZE],
@@ -206,10 +206,10 @@ fn tenant_evidence_golden_vector_is_stable() {
         header: header(
             SnpRecordTypeV1::TenantEvidence,
             SnpTenantEvidenceV1::ENCODED_SIZE,
-            SnpEvidencePurposeV1::TenantMigrationAuthorization,
+            SnpEvidencePurposeV1::InterNodeTenantAuthorization,
             SnpTcbProfileV1::Turin,
         ),
-        report_data_context: context(SnpEvidencePurposeV1::TenantMigrationAuthorization),
+        report_data_context: context(SnpEvidencePurposeV1::InterNodeTenantAuthorization),
         policy_identity: policy_identity(),
         tenant_policy_context: tenant_policy_context(),
         collateral_digest: [0x55; SHA384_DIGEST_SIZE],
@@ -242,7 +242,7 @@ fn authorization_and_collateral_golden_vectors_are_stable() {
         evidence_profile: SnpEvidenceProfileV1::Production,
         tcb_profile: SnpTcbProfileV1::Turin,
         failure: SnpAuthorizationFailureV1::PolicyDenied,
-        algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
+        algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
         negotiated_migration_version: 0x090A,
         authorization_context_digest: [0x77; SHA384_DIGEST_SIZE],
     };

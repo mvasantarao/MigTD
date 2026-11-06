@@ -13,12 +13,14 @@ use super::{
 #[repr(u8)]
 pub enum SnpEtcbProjectionProfileV1 {
     ArgSvnV1 = 0x01,
+    VeniceV1 = 0x02,
 }
 
 impl SnpEtcbProjectionProfileV1 {
     pub(crate) fn decode(reader: &mut StrictReader<'_>) -> SnpCodecResult<Self> {
         match reader.read_u8()? {
             0x01 => Ok(Self::ArgSvnV1),
+            0x02 => Ok(Self::VeniceV1),
             _ => Err(SnpCodecError::UnknownEnumValue),
         }
     }
@@ -41,7 +43,24 @@ impl TenantPolicyContextV1 {
     pub const MIGRATION_DATA_VERSION: u8 = 1;
     pub const REQUIRED_VALIDATION_RULES: u32 = 0x0000_001F;
 
+    pub fn venice() -> Self {
+        Self {
+            tcb_profile: SnpTcbProfileV1::Venice,
+            etcb_projection_profile: SnpEtcbProjectionProfileV1::VeniceV1,
+        }
+    }
+
+    fn validate_profiles(&self) -> SnpCodecResult<()> {
+        if (self.tcb_profile == SnpTcbProfileV1::Venice)
+            != (self.etcb_projection_profile == SnpEtcbProjectionProfileV1::VeniceV1)
+        {
+            return Err(SnpCodecError::NonCanonicalEncoding);
+        }
+        Ok(())
+    }
+
     pub fn encode(&self, writer: &mut StrictWriter<'_>) -> SnpCodecResult<()> {
+        self.validate_profiles()?;
         writer.write_u8(Self::MAJOR_VERSION)?;
         writer.write_u8(Self::MINOR_VERSION)?;
         self.tcb_profile.encode(writer)?;
@@ -83,6 +102,7 @@ impl TenantPolicyContextV1 {
             return Err(SnpCodecError::NonCanonicalEncoding);
         }
         record.finish()?;
+        value.validate_profiles()?;
         Ok(value)
     }
 
@@ -103,6 +123,32 @@ mod tests {
             tcb_profile: SnpTcbProfileV1::Turin,
             etcb_projection_profile: SnpEtcbProjectionProfileV1::ArgSvnV1,
         }
+    }
+
+    #[test]
+    fn venice_descriptor_has_new_allocations_and_rejects_mixed_profiles() {
+        let value = TenantPolicyContextV1::venice();
+        let encoded = value.encode_exact().unwrap();
+        assert_eq!(encoded, [1, 0, 3, 2, 16, 0, 0, 0, 1, 0, 0, 0, 31, 0, 0, 0]);
+        assert_eq!(
+            TenantPolicyContextV1::decode_exact(&encoded).unwrap(),
+            value
+        );
+        for (tcb, projection) in [(3, 1), (1, 2), (2, 2)] {
+            let mut changed = encoded;
+            changed[2] = tcb;
+            changed[3] = projection;
+            assert_eq!(
+                TenantPolicyContextV1::decode_exact(&changed),
+                Err(SnpCodecError::NonCanonicalEncoding)
+            );
+        }
+        let mut invalid = value;
+        invalid.etcb_projection_profile = SnpEtcbProjectionProfileV1::ArgSvnV1;
+        assert_eq!(
+            invalid.encode_exact(),
+            Err(SnpCodecError::NonCanonicalEncoding)
+        );
     }
 
     #[test]

@@ -87,7 +87,7 @@ impl LibraryCrates {
 
     fn crates(&self) -> Vec<String> {
         if let Some(specified) = self.crates.as_ref() {
-            return specified.clone();
+            specified.clone()
         } else {
             let mut crates = Vec::new();
             for name in DEFAULT_LIB_CRATES {

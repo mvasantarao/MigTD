@@ -253,6 +253,7 @@ impl MigtdMigrationInformation {
     /// Parse a policy_v2 wire payload of either:
     /// - header-only (short form, `has_init_data == 0`), or
     /// - header + 512-byte TDINFO_STRUCT (full form, `has_init_data == 1`).
+    ///
     /// Header size is transport-dependent (56 for vmcall-raw, 72 otherwise).
     pub fn read_from_bytes(
         data_length: u32,

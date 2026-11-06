@@ -22,16 +22,19 @@ static FIXTURE_ASK: &[u8] = include_bytes!("fixture_data/ask.der");
 
 /// Build the attestation blob: SNP report + cert chain DERs.
 ///
-/// Format: report[1184] || vcek_len[4LE] || vcek || ask_len[4LE] || ask || ark_len[4LE] || ark
-/// Total: ~5850 bytes (1184 + 3*4 + 1351 + 1677 + 1639)
+/// Format: report[1184] || vcek_len[4LE] || vcek || ask_len[4LE] || ask
 pub fn build_fixture_blob() -> Result<Vec<u8>, PalError> {
-    let mut blob = FIXTURE_REPORT.to_vec();
-    for cert in &[FIXTURE_VCEK, FIXTURE_ASK] {
-        let len = cert.len() as u32;
-        blob.extend_from_slice(&len.to_le_bytes());
-        blob.extend_from_slice(cert);
-    }
-    Ok(blob)
+    use pal::types::{MaEvidence, MaEvidenceBinding, SnpVerificationCollateral};
+
+    let evidence =
+        MaEvidence::from_report_bytes(FIXTURE_REPORT, MaEvidenceBinding::CapturedFixture).map_err(
+            |error| {
+                log::error!("captured fixture report encoding failed: {error:?}");
+                PalError::InvalidInput
+            },
+        )?;
+    let collateral = SnpVerificationCollateral::new(FIXTURE_VCEK.to_vec(), FIXTURE_ASK.to_vec());
+    pal::snp::fixture::encode_legacy_ma_blob(&evidence, &collateral)
 }
 
 /// Return the raw fixture SNP report bytes (1184 bytes, no cert chain).
@@ -39,36 +42,54 @@ pub fn fixture_report_bytes() -> &'static [u8] {
     FIXTURE_REPORT
 }
 
+pub fn fixture_vcek_der() -> &'static [u8] {
+    FIXTURE_VCEK
+}
+
+pub fn fixture_ask_der() -> &'static [u8] {
+    FIXTURE_ASK
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tee_attestation_verification_lib::{
-        certificate_from_der,
-        snp::{
-            report::{AttestationReport, TryFromBytes},
-            verify::{sync::verify_attestation, ChainVerification},
-        },
-    };
 
     #[test]
-    fn test_fixture_chain_verification() {
-        // Parse certs from DER
-        let ask = certificate_from_der(FIXTURE_ASK).expect("ASK DER parse");
-        let vcek = certificate_from_der(FIXTURE_VCEK).expect("VCEK DER parse");
+    fn test_fixture_verifier_rejects_modified_signature_and_collateral() {
+        use pal::snp::qvl::{validate::AttestationVerificationParams, verify::SnpQvl};
+        use pal::traits::QvlLibrary;
 
-        // Parse SNP report (zerocopy, 1184 bytes, version=5, cpuid_fam_id=0x19 Milan)
-        let report =
-            AttestationReport::try_read_from_bytes(FIXTURE_REPORT).expect("SNP report parse");
+        let expected = FIXTURE_REPORT[0x50..0x80].try_into().unwrap();
+        let mut modified_report = FIXTURE_REPORT.to_vec();
+        modified_report[0x2a0] ^= 1;
+        assert!(SnpQvl
+            .verify(
+                &AttestationVerificationParams::crypto_only(&modified_report, &expected),
+                &[FIXTURE_VCEK.to_vec(), FIXTURE_ASK.to_vec()],
+            )
+            .is_err());
+        let mut modified_vcek = FIXTURE_VCEK.to_vec();
+        let last = modified_vcek.len() - 1;
+        modified_vcek[last] ^= 1;
+        assert!(SnpQvl
+            .verify(
+                &AttestationVerificationParams::crypto_only(FIXTURE_REPORT, &expected),
+                &[modified_vcek, FIXTURE_ASK.to_vec()],
+            )
+            .is_err());
+    }
 
-        // Verify via TAV: ARK->ASK->VCEK chain + VCEK report sig
-        verify_attestation(
-            &report,
-            &vcek,
-            &ChainVerification::WithPinnedArk { ask: &ask },
-        )
-        .expect("TAV verify_attestation");
+    #[test]
+    fn test_fixture_verifier_accepts_complete_report_data() {
+        use pal::snp::qvl::{validate::AttestationVerificationParams, verify::SnpQvl};
+        use pal::traits::QvlLibrary;
 
-        println!("Fixture chain + report sig verified OK (TAV, cpuid_fam_id=0x19 Milan)");
+        let expected: [u8; 48] = FIXTURE_REPORT[0x50..0x80].try_into().unwrap();
+        assert_eq!(&FIXTURE_REPORT[0x80..0x90], &[0u8; 16]);
+        let params = AttestationVerificationParams::crypto_only(FIXTURE_REPORT, &expected);
+        SnpQvl
+            .verify(&params, &[FIXTURE_VCEK.to_vec(), FIXTURE_ASK.to_vec()])
+            .expect("fixture signature, collateral, and complete REPORT_DATA verification");
     }
 
     #[test]

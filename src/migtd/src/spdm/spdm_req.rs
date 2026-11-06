@@ -10,7 +10,7 @@ use crate::{
         MigtdMigrationInformation,
     },
     spdm::{
-        build_report_data, gen_quote_spdm, spdm_rsp::SECRET_ASYM_IMPL_INSTANCE, spdm_verify_quote,
+        build_report_data, gen_quote_spdm, spdm_rsp::SECRET_ASYM_IMPL_INSTANCE,
         verify_report_data_binding, verify_tdreport_data_binding, vmcall_msg::VmCallTransportEncap,
         *,
     },
@@ -33,9 +33,13 @@ use zeroize::Zeroize;
 extern crate alloc;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
+#[cfg(feature = "SnpEmu")]
+use crate::migration::session::snp_operation_context;
 use crate::{event_log::get_event_log, migration::session::ExchangeInformation};
 use alloc::sync::Arc;
 use log::error;
+#[cfg(feature = "SnpEmu")]
+use pal::types::SnpOperationContext;
 
 pub fn spdm_requester<T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static>(
     stream: T,
@@ -94,6 +98,7 @@ pub async fn spdm_requester_transfer_msk(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
 ) -> Result<(), SpdmStatus> {
     // `send_and_receive_pub_key` encodes the requester's ephemeral ECDSA
     // private key into `spdm_requester.common.app_context_data_buffer` so
@@ -105,6 +110,8 @@ pub async fn spdm_requester_transfer_msk(
         mig_info,
         #[cfg(feature = "policy_v2")]
         peer_data,
+        #[cfg(feature = "SnpEmu")]
+        providers,
     )
     .await;
     spdm_requester.common.app_context_data_buffer.zeroize();
@@ -115,49 +122,46 @@ async fn spdm_requester_transfer_msk_inner(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
 ) -> Result<(), SpdmStatus> {
     eprintln!("[MA] SPDM requester: GET_VERSION");
     Box::pin(spdm_requester.send_receive_spdm_version())
         .await
-        .map_err(|e| {
+        .inspect_err(|&e| {
             eprintln!("[MA] ERROR: SPDM requester GET_VERSION failed: {:?}", e);
-            e
         })?;
     eprintln!("[MA] SPDM requester: GET_VERSION complete");
 
     eprintln!("[MA] SPDM requester: GET_CAPABILITIES");
     Box::pin(spdm_requester.send_receive_spdm_capability())
         .await
-        .map_err(|e| {
+        .inspect_err(|&e| {
             eprintln!(
                 "[MA] ERROR: SPDM requester GET_CAPABILITIES failed: {:?}",
                 e
             );
-            e
         })?;
     eprintln!("[MA] SPDM requester: GET_CAPABILITIES complete");
 
     eprintln!("[MA] SPDM requester: NEGOTIATE_ALGORITHMS");
     Box::pin(spdm_requester.send_receive_spdm_algorithm())
         .await
-        .map_err(|e| {
+        .inspect_err(|&e| {
             eprintln!(
                 "[MA] ERROR: SPDM requester NEGOTIATE_ALGORITHMS failed: {:?}",
                 e
             );
-            e
         })?;
     eprintln!("[MA] SPDM requester: NEGOTIATE_ALGORITHMS complete");
 
     eprintln!("[MA] SPDM requester: EXCHANGE_PUBLIC_KEY");
     Box::pin(send_and_receive_pub_key(spdm_requester))
         .await
-        .map_err(|e| {
+        .inspect_err(|&e| {
             eprintln!(
                 "[MA] ERROR: SPDM requester EXCHANGE_PUBLIC_KEY failed: {:?}",
                 e
             );
-            e
         })?;
     eprintln!("[MA] SPDM requester: EXCHANGE_PUBLIC_KEY complete");
 
@@ -167,9 +171,8 @@ async fn spdm_requester_transfer_msk_inner(
         SpdmMeasurementSummaryHashType::SpdmMeasurementSummaryHashTypeNone,
     ))
     .await
-    .map_err(|e| {
+    .inspect_err(|&e| {
         eprintln!("[MA] ERROR: SPDM requester KEY_EXCHANGE failed: {:?}", e);
-        e
     })?;
     eprintln!(
         "[MA] SPDM requester: KEY_EXCHANGE complete (session_id={:#010x})",
@@ -183,23 +186,23 @@ async fn spdm_requester_transfer_msk_inner(
         session_id,
         #[cfg(feature = "policy_v2")]
         peer_data,
+        #[cfg(feature = "SnpEmu")]
+        providers,
     ))
     .await
-    .map_err(|e| {
+    .inspect_err(|&e| {
         eprintln!(
             "[MA] ERROR: SPDM requester MIGRATION_ATTEST_INFO failed: {:?}",
             e
         );
-        e
     })?;
     eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO complete");
 
     eprintln!("[MA] SPDM requester: FINISH");
     Box::pin(spdm_requester.send_receive_spdm_finish(Some(0xff), session_id))
         .await
-        .map_err(|e| {
+        .inspect_err(|&e| {
             eprintln!("[MA] ERROR: SPDM requester FINISH failed: {:?}", e);
-            e
         })?;
     eprintln!("[MA] SPDM requester: FINISH complete");
 
@@ -208,23 +211,23 @@ async fn spdm_requester_transfer_msk_inner(
         spdm_requester,
         mig_info,
         Some(session_id),
+        #[cfg(feature = "SnpEmu")]
+        providers,
     ))
     .await
-    .map_err(|e| {
+    .inspect_err(|&e| {
         eprintln!(
             "[MA] ERROR: SPDM requester EXCHANGE_MIGRATION_INFO failed: {:?}",
             e
         );
-        e
     })?;
     eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO complete");
 
     eprintln!("[MA] SPDM requester: END_SESSION");
     Box::pin(spdm_requester.send_receive_spdm_end_session(session_id))
         .await
-        .map_err(|e| {
+        .inspect_err(|&e| {
             eprintln!("[MA] ERROR: SPDM requester END_SESSION failed: {:?}", e);
-            e
         })?;
     eprintln!("[MA] SPDM requester: END_SESSION complete");
 
@@ -404,7 +407,12 @@ pub async fn send_and_receive_sdm_migration_attest_info(
     mig_info: &MigtdMigrationInformation,
     session_id: u32,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
 ) -> SpdmResult {
+    #[cfg(all(feature = "SnpEmu", not(feature = "policy_v2")))]
+    let operation_context =
+        snp_operation_context(mig_info).map_err(|_| SPDM_STATUS_INVALID_MSG_FIELD)?;
+
     if spdm_requester.common.provision_info.my_pub_key.is_none()
         || spdm_requester.common.provision_info.peer_pub_key.is_none()
     {
@@ -441,13 +449,23 @@ pub async fn send_and_receive_sdm_migration_attest_info(
     let report_data = build_report_data(b"MigTDReq", &th1)?;
 
     //quote src
-    let quote_src = gen_quote_spdm(&report_data)?;
+    let quote_src = gen_quote_spdm(
+        &report_data,
+        #[cfg(feature = "SnpEmu")]
+        providers,
+    )?;
     // Self-quote verification is only needed for policy v1, which uses
     // verified_report_local in authenticate_policy(). Policy v2 re-verifies
     // the quote internally via authenticate_remote().
     #[cfg(not(feature = "policy_v2"))]
     let verified_report_local = {
-        let res = spdm_verify_quote(quote_src.as_slice());
+        let res = spdm_verify_quote(
+            quote_src.as_slice(),
+            #[cfg(feature = "SnpEmu")]
+            &operation_context,
+            #[cfg(feature = "SnpEmu")]
+            providers,
+        );
         if res.is_err() {
             error!("mutual attestation failed, end the session!\n");
             let session = spdm_requester
@@ -697,6 +715,8 @@ pub async fn send_and_receive_sdm_migration_attest_info(
         &th1,
         spdm_requester,
         session_id,
+        #[cfg(feature = "SnpEmu")]
+        (&operation_context, providers),
     )?;
 
     #[cfg(feature = "policy_v2")]
@@ -739,9 +759,19 @@ fn verify_peer_attestation_v1(
     th1: &SpdmDigestStruct,
     spdm_requester: &mut RequesterContext,
     session_id: u32,
+    #[cfg(feature = "SnpEmu")] (operation_context, providers): (
+        &SnpOperationContext,
+        &crate::snp_composition::SnpRuntimeProviders,
+    ),
 ) -> SpdmResult {
     // 1. Verify peer's quote
-    let res = spdm_verify_quote(quote_peer);
+    let res = spdm_verify_quote(
+        quote_peer,
+        #[cfg(feature = "SnpEmu")]
+        operation_context,
+        #[cfg(feature = "SnpEmu")]
+        providers,
+    );
     if res.is_err() {
         error!("mutual attestation failed, end the session!\n");
         let session = spdm_requester
@@ -850,6 +880,7 @@ async fn send_and_receive_sdm_exchange_migration_info(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,
     session_id: Option<u32>,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
 ) -> SpdmResult {
     let mut vendor_id = [0u8; MAX_SPDM_VENDOR_DEFINED_VENDOR_ID_LEN];
     vendor_id[..VDM_MESSAGE_VENDOR_ID_LEN].copy_from_slice(&VDM_MESSAGE_VENDOR_ID);
@@ -1020,7 +1051,12 @@ async fn send_and_receive_sdm_exchange_migration_info(
 
     let mig_ver = cal_mig_version(true, &exchange_information, &remote_information)?;
     set_mig_version(mig_info, mig_ver)?;
-    write_msk(mig_info, &remote_information.key)?;
+    write_msk(
+        mig_info,
+        &remote_information.key,
+        #[cfg(feature = "SnpEmu")]
+        providers,
+    )?;
     log::info!("Set MSK and report status\n");
 
     Ok(())
@@ -1384,7 +1420,7 @@ pub async fn send_and_receive_sdm_rebind_info(
         .encode(&mut writer)
         .map_err(|_| SPDM_STATUS_BUFFER_FULL)?;
     cnt += writer
-        .extend_from_slice(&token)
+        .extend_from_slice(token)
         .ok_or(SPDM_STATUS_BUFFER_FULL)?;
 
     spdm_requester.common.reset_buffer_via_request_code(

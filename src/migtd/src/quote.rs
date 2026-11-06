@@ -104,7 +104,7 @@ fn delay_milliseconds(ms: u64) {
 
     let mut timer = Timer::after(Duration::from_millis(ms));
     let waker = Waker::noop();
-    let mut cx = Context::from_waker(&waker);
+    let mut cx = Context::from_waker(waker);
 
     loop {
         if let Poll::Ready(()) = Pin::new(&mut timer).poll(&mut cx) {

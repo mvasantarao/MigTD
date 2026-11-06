@@ -23,6 +23,7 @@ use migtd::runtime::snp::config::{
     RuntimeConfig, StartMode,
 };
 use migtd::runtime::snp::snpemu::execute_start_migration;
+use migtd::snp_composition::{selected_runtime_provider_set, SnpRuntimeProviders};
 use migtd::transport::host_control::emulated::EmulatedHostControlTransport;
 use tdx_tdcall_emu::tdx_emu::{connect_tcp_client, set_emulated_start_migration};
 use tdx_tdcall_emu::{init_tcp_emulation_with_mode, start_tcp_server_sync, TcpEmulationMode};
@@ -45,6 +46,7 @@ pub fn main() {
         eprintln!("[MA] FATAL: {error}");
         process::exit(2);
     }
+    let providers = selected_runtime_provider_set();
 
     eprintln!(
         "[MA] RUNTIME_PROFILE: process={} start={} role={} host_control={} \
@@ -65,13 +67,13 @@ pub fn main() {
     let exit_code = match config.start_mode {
         StartMode::Autostart => {
             queue_autostart_request(&config);
-            runtime_main_autostart()
+            runtime_main_autostart(&providers)
         }
         StartMode::Wfr => {
             if config.process_mode == ProcessMode::Pid1 {
                 eprintln!("[MA] MA_BOOT_STAGE_2: entering WFR service loop");
             }
-            runtime_main_wfr(&config)
+            runtime_main_wfr(&config, &providers)
         }
     };
     if config.process_mode == ProcessMode::Pid1 && exit_code == 0 {
@@ -107,7 +109,7 @@ fn prepare_process(config: &RuntimeConfig) -> Result<(), String> {
 
             #[cfg(not(any(
                 feature = "test_disable_ra_and_accept_all",
-                feature = "SnpUnderhill",
+                feature = "SnpUnderhillRuntime",
                 feature = "SnpEmuAzure"
             )))]
             attestation::attest_init_heap();
@@ -117,12 +119,12 @@ fn prepare_process(config: &RuntimeConfig) -> Result<(), String> {
             Ok(())
         }
         ProcessMode::Pid1 => {
-            #[cfg(feature = "SnpUnderhill")]
+            #[cfg(feature = "SnpUnderhillRuntime")]
             {
-                super::main_snp_underhill::prepare_pid1(config.role);
+                migtd::runtime::snp::pid1::prepare_pid1(config.role);
                 Ok(())
             }
-            #[cfg(not(feature = "SnpUnderhill"))]
+            #[cfg(not(feature = "SnpUnderhillRuntime"))]
             {
                 Err(
                     "PID1 process mode requires a binary built with the SnpUnderhill feature"
@@ -232,7 +234,7 @@ fn queue_autostart_request(config: &RuntimeConfig) {
     );
 }
 
-fn runtime_main_autostart() -> i32 {
+fn runtime_main_autostart(providers: &SnpRuntimeProviders) -> i32 {
     match create_logarea() {
         Ok(_) => log::info!("LogArea created successfully\n"),
         Err(error) => log::error!("Failed to create logarea: {}\n", error as u8),
@@ -290,6 +292,7 @@ fn runtime_main_autostart() -> i32 {
                             return execute_start_migration(
                                 &EmulatedHostControlTransport,
                                 &request,
+                                providers,
                             )
                             .await;
                         }
@@ -313,7 +316,7 @@ fn runtime_main_autostart() -> i32 {
     })
 }
 
-fn runtime_main_wfr(config: &RuntimeConfig) -> i32 {
+fn runtime_main_wfr(config: &RuntimeConfig, providers: &SnpRuntimeProviders) -> i32 {
     if config.host_control != HostControlMode::Tcp {
         eprintln!(
             "[MA] FATAL: WFR requires TCP host control, configured={}",
@@ -356,7 +359,7 @@ fn runtime_main_wfr(config: &RuntimeConfig) -> i32 {
         };
 
         match transport {
-            Ok(transport) => runtime_main_snp(&transport).await,
+            Ok(transport) => runtime_main_snp(&transport, providers).await,
             Err(error) => {
                 eprintln!("[MA] FATAL: TCP host-control setup failed: {error}");
                 1

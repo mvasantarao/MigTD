@@ -1,13 +1,18 @@
 # T4.20 Task4 interface and composition freeze
 
-Status: IMPLEMENTED AND VALIDATED WITHIN BOUNDED SCOPE; explicit user acceptance
-pending. Freeze identifier: `T4.20-Task4Freeze-2026-11-05`.
+Status: DONE - ACCEPTED AND FROZEN within the documented bounded scope and
+exclusions at `2026-11-06T00:32:02.025Z`; conditions: None.
+Freeze identifier: `T4.20-Task4Freeze-2026-11-05`.
 Authorization: `2026-11-05T23:50:40.311Z`.
 
 This freezes the audited typed contracts, selected compositions and explicit
-consumer obligations inherited from accepted T4.9-T4.19. It does not activate
-their missing providers or declare Phase1 accepted. P2.1/P2.2 remain NOT
-STARTED, pending the canonical acceptance/authorization gates.
+consumer obligations inherited from accepted T4.9-T4.19. Explicit bounded
+acceptance satisfies the Phase1 interface-level gate, not executable/provider
+or production qualification. P2.1 is READY for separate authorization, NOT
+STARTED; P2.2 remains NOT STARTED pending P2.1 and separate authorization.
+See [the acceptance record](../approval-decision-technical-note.md#34-t420-bounded-completion-acceptance).
+Historical inventory, validation and commit receipts retain their original
+acceptance-pending snapshot status; none is rewritten by this acceptance.
 
 ## Provenance and commit boundary
 

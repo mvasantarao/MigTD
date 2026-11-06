@@ -164,5 +164,10 @@ pub enum State {
 
 /// Align `size` up to a page.
 pub(crate) fn align_up(size: usize) -> usize {
-    (size & !(PAGE_SIZE - 1)) + if size % PAGE_SIZE != 0 { PAGE_SIZE } else { 0 }
+    (size & !(PAGE_SIZE - 1))
+        + if !size.is_multiple_of(PAGE_SIZE) {
+            PAGE_SIZE
+        } else {
+            0
+        }
 }

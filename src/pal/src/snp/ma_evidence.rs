@@ -7,11 +7,10 @@
 use super::{
     evidence_header::{SnpEvidenceHeaderV1, SnpRecordTypeV1},
     policy_identity::PolicyIdentityV1,
-    report_data_context::{ReportDataContextV1, SnpEvidencePurposeV1, SHA384_DIGEST_SIZE},
+    report_data_context::{ReportDataContextV1, SHA384_DIGEST_SIZE},
     wire::{SnpCodecError, SnpCodecResult, StrictReader, StrictWriter},
 };
-
-pub const SNP_ATTESTATION_REPORT_SIZE: usize = 1_184;
+pub use crate::types::SNP_ATTESTATION_REPORT_SIZE;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnpMaEvidenceV1 {
@@ -27,13 +26,16 @@ impl SnpMaEvidenceV1 {
 
     fn validate_structure(&self) -> SnpCodecResult<()> {
         if self.header.record_type != SnpRecordTypeV1::MaEvidence
-            || self.header.evidence_purpose != SnpEvidencePurposeV1::MaKeyContribution
+            || self.header.evidence_purpose != self.report_data_context.evidence_purpose
+            || self.header.role != self.report_data_context.role
+            || self.header.request_id != self.report_data_context.request_id
         {
             return Err(SnpCodecError::NonCanonicalEncoding);
         }
         if self.header.record_length != Self::ENCODED_SIZE as u32 {
             return Err(SnpCodecError::InvalidLength);
         }
+        self.report_data_context.validate()?;
         Ok(())
     }
 
@@ -83,7 +85,9 @@ mod tests {
     use super::*;
     use crate::snp::{
         evidence_header::{SnpEvidenceProfileV1, SnpTcbProfileV1},
-        report_data_context::{SnpMaRoleV1, SnpMigrationAlgorithmV1, TENANT_REPORT_ID_SIZE},
+        report_data_context::{
+            SnpEvidencePurposeV1, SnpMaRoleV1, SnpMigrationAlgorithmV1, TENANT_REPORT_ID_SIZE,
+        },
     };
 
     fn sample_evidence() -> SnpMaEvidenceV1 {
@@ -93,20 +97,20 @@ mod tests {
                 record_length: SnpMaEvidenceV1::ENCODED_SIZE as u32,
                 request_id: 0x0102_0304_0506_0708,
                 role: SnpMaRoleV1::Destination,
-                evidence_purpose: SnpEvidencePurposeV1::MaKeyContribution,
+                evidence_purpose: SnpEvidencePurposeV1::InterNodeKeyContribution,
                 evidence_profile: SnpEvidenceProfileV1::Production,
                 tcb_profile: SnpTcbProfileV1::MilanGenoa,
             },
             report_data_context: ReportDataContextV1 {
-                evidence_purpose: SnpEvidencePurposeV1::MaKeyContribution,
+                evidence_purpose: SnpEvidencePurposeV1::InterNodeKeyContribution,
                 role: SnpMaRoleV1::Destination,
                 request_id: 0x0102_0304_0506_0708,
                 negotiated_migration_version: 1,
-                algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
-                tenant_report_id: [0x11; TENANT_REPORT_ID_SIZE],
+                algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
+                tenant_binding_id: [0x11; TENANT_REPORT_ID_SIZE],
                 th1: [0x22; SHA384_DIGEST_SIZE],
-                contribution_commitment: [0x33; SHA384_DIGEST_SIZE],
-                local_policy_digest: [0x44; SHA384_DIGEST_SIZE],
+                purpose_binding_digest: [0x33; SHA384_DIGEST_SIZE],
+                ma_policy_identity_digest: [0x44; SHA384_DIGEST_SIZE],
             },
             policy_identity: PolicyIdentityV1 {
                 policy_digest: [0x44; SHA384_DIGEST_SIZE],
@@ -182,14 +186,14 @@ mod tests {
     #[test]
     fn wrong_evidence_purpose_is_rejected() {
         let mut evidence = sample_evidence();
-        evidence.header.evidence_purpose = SnpEvidencePurposeV1::TenantMigrationAuthorization;
+        evidence.header.evidence_purpose = SnpEvidencePurposeV1::InterNodeTenantAuthorization;
         assert_eq!(
             evidence.encode_exact(),
             Err(SnpCodecError::NonCanonicalEncoding)
         );
 
         let mut encoded = sample_evidence().encode_exact().unwrap();
-        encoded[0x19] = SnpEvidencePurposeV1::TenantMigrationAuthorization as u8;
+        encoded[0x19] = SnpEvidencePurposeV1::InterNodeTenantAuthorization as u8;
         assert_eq!(
             SnpMaEvidenceV1::decode_exact(&encoded),
             Err(SnpCodecError::NonCanonicalEncoding)
@@ -227,5 +231,68 @@ mod tests {
             SnpMaEvidenceV1::decode_exact(&extended),
             Err(SnpCodecError::TrailingBytes)
         );
+    }
+
+    #[test]
+    fn header_and_context_request_role_and_purpose_must_match() {
+        for offset in [0x10, 0x18, 0x19] {
+            let mut encoded = sample_evidence().encode_exact().unwrap();
+            encoded[offset] ^= if offset == 0x19 { 3 } else { 1 };
+            assert_eq!(
+                SnpMaEvidenceV1::decode_exact(&encoded),
+                Err(SnpCodecError::NonCanonicalEncoding)
+            );
+        }
+        for field in 0..3 {
+            let mut evidence = sample_evidence();
+            match field {
+                0 => evidence.header.request_id ^= 1,
+                1 => evidence.header.role = SnpMaRoleV1::Source,
+                _ => {
+                    evidence.header.evidence_purpose =
+                        SnpEvidencePurposeV1::InterNodeTenantAuthorization
+                }
+            }
+            assert_eq!(
+                evidence.encode_exact(),
+                Err(SnpCodecError::NonCanonicalEncoding)
+            );
+        }
+    }
+
+    #[test]
+    fn all_frozen_ma_purposes_use_the_same_envelope() {
+        for purpose in [
+            SnpEvidencePurposeV1::InterNodeKeyContribution,
+            SnpEvidencePurposeV1::InterNodeTenantAuthorization,
+            SnpEvidencePurposeV1::InterNodePostInstallConfirmation,
+            SnpEvidencePurposeV1::LocalPlannedHandoffAuthorization,
+            SnpEvidencePurposeV1::LocalRecoveryHandoffAuthorization,
+        ] {
+            let mut evidence = sample_evidence();
+            let context = &mut evidence.report_data_context;
+            context.evidence_purpose = purpose;
+            context.role = if purpose as u8 >= 4 {
+                SnpMaRoleV1::Incoming
+            } else {
+                SnpMaRoleV1::Destination
+            };
+            if purpose as u8 >= 4 {
+                context.tenant_binding_id.fill(0);
+                context.negotiated_migration_version = 1;
+                context.algorithm =
+                    if purpose == SnpEvidencePurposeV1::LocalPlannedHandoffAuthorization {
+                        SnpMigrationAlgorithmV1::LocalHandoffSecretV1
+                    } else {
+                        context.th1.fill(0);
+                        SnpMigrationAlgorithmV1::None
+                    };
+            }
+            evidence.header.evidence_purpose = context.evidence_purpose;
+            evidence.header.role = context.role;
+            let encoded = evidence.encode_exact().unwrap();
+            assert_eq!(SnpMaEvidenceV1::decode_exact(&encoded).unwrap(), evidence);
+            assert_eq!(encoded.len(), 1540);
+        }
     }
 }

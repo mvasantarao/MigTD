@@ -3,139 +3,58 @@
 
 //! Typed fixture implementations of the logical SNP platform services.
 
-use core::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::traits::{MigrationKeyInstaller, PalError, PlatformKeyProvider};
-use crate::types::{MigrationRole, PlatformOperationContext};
+use crate::traits::{MigrationKeyInstaller, PalError};
+use crate::types::SnpOperationContext;
 
 const MIGRATION_KEY_SIZE: usize = 32;
 static TRACE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
-static ACTIVE_REQUEST_ID: AtomicU64 = AtomicU64::new(0);
-static ACTIVE_ROLE: AtomicU8 = AtomicU8::new(2);
-static ACTIVE_BINDING_HANDLE: AtomicU64 = AtomicU64::new(0);
-static ACTIVE_TARGET_UUID: [AtomicU64; 4] = [
-    AtomicU64::new(0),
-    AtomicU64::new(0),
-    AtomicU64::new(0),
-    AtomicU64::new(0),
-];
 
-pub fn set_active_operation_context(context: &PlatformOperationContext) {
-    ACTIVE_ROLE.store(
-        match context.role {
-            MigrationRole::Source => 0,
-            MigrationRole::Destination => 1,
-            MigrationRole::Unknown => 2,
-        },
-        Ordering::Relaxed,
-    );
-    ACTIVE_BINDING_HANDLE.store(context.binding_handle, Ordering::Relaxed);
-    for (slot, value) in ACTIVE_TARGET_UUID.iter().zip(context.target_uuid) {
-        slot.store(value, Ordering::Relaxed);
-    }
-    ACTIVE_REQUEST_ID.store(context.request_id, Ordering::Release);
-}
-
-pub fn active_operation_context() -> PlatformOperationContext {
-    let request_id = ACTIVE_REQUEST_ID.load(Ordering::Acquire);
-    PlatformOperationContext {
-        request_id,
-        role: match ACTIVE_ROLE.load(Ordering::Relaxed) {
-            0 => MigrationRole::Source,
-            1 => MigrationRole::Destination,
-            _ => MigrationRole::Unknown,
-        },
-        binding_handle: ACTIVE_BINDING_HANDLE.load(Ordering::Relaxed),
-        target_uuid: [
-            ACTIVE_TARGET_UUID[0].load(Ordering::Relaxed),
-            ACTIVE_TARGET_UUID[1].load(Ordering::Relaxed),
-            ACTIVE_TARGET_UUID[2].load(Ordering::Relaxed),
-            ACTIVE_TARGET_UUID[3].load(Ordering::Relaxed),
-        ],
-    }
-}
-
-fn trace(
-    context: &PlatformOperationContext,
-    phase: &str,
-    operation: &str,
-    interface: &str,
-    provider: &str,
-    execution: &str,
+struct TraceSite<'a> {
+    phase: &'a str,
+    operation: &'a str,
+    interface: &'a str,
+    provider: &'a str,
+    execution: &'a str,
     hardware_invoked: bool,
-    event: &str,
-    result: &str,
-) {
+}
+
+fn trace(context: &SnpOperationContext, site: &TraceSite<'_>, event: &str, result: &str) {
     let sequence = TRACE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     eprintln!(
         "SNP_API_CALL sequence={} role={} request_id={} phase={} operation={} \
          interface={} provider={} execution={} hardware_invoked={} event={} result={}",
         sequence,
         context.role.as_str(),
-        context.request_id,
-        phase,
-        operation,
-        interface,
-        provider,
-        execution,
-        hardware_invoked,
+        context.request_id.value(),
+        site.phase,
+        site.operation,
+        site.interface,
+        site.provider,
+        site.execution,
+        site.hardware_invoked,
         event,
         result
     );
 }
 
-pub fn trace_qvl_verification(context: &PlatformOperationContext, event: &str, result: &str) {
-    let operation = if cfg!(feature = "azure-snp-verify") {
-        "AZURE_VERIFY_ATTESTATION"
-    } else {
-        "TAV_VERIFY_ATTESTATION"
-    };
-    let provider = if cfg!(feature = "azure-snp-verify") {
-        "AzureSnpQvl"
-    } else {
-        "SnpQvl"
-    };
+pub fn trace_qvl_verification(context: &SnpOperationContext, event: &str, result: &str) {
+    let operation = "AZURE_VERIFY_ATTESTATION";
+    let provider = "AzureSnpQvl";
     trace(
         context,
-        "attestation-verification",
-        operation,
-        "QvlLibrary::verify",
-        provider,
-        "software",
-        false,
+        &TraceSite {
+            phase: "attestation-verification",
+            operation,
+            interface: "QvlLibrary::verify",
+            provider,
+            execution: "software",
+            hardware_invoked: false,
+        },
         event,
         result,
     );
-}
-
-pub struct MockPlatformKeyProvider;
-
-impl PlatformKeyProvider for MockPlatformKeyProvider {
-    fn prepare_key(&self, context: &PlatformOperationContext) -> Result<(), PalError> {
-        trace(
-            context,
-            "platform-key",
-            "MSG_KEY_REQ",
-            "PlatformKeyProvider::prepare_key",
-            "MockPlatformKeyProvider",
-            "mock",
-            false,
-            "begin",
-            "pending",
-        );
-        trace(
-            context,
-            "platform-key",
-            "MSG_KEY_REQ",
-            "PlatformKeyProvider::prepare_key",
-            "MockPlatformKeyProvider",
-            "mock",
-            false,
-            "end",
-            "success",
-        );
-        Ok(())
-    }
 }
 
 pub struct MockMigrationKeyInstaller;
@@ -143,45 +62,23 @@ pub struct MockMigrationKeyInstaller;
 impl MigrationKeyInstaller for MockMigrationKeyInstaller {
     fn set_migration_info(
         &self,
-        context: &PlatformOperationContext,
+        context: &SnpOperationContext,
         migration_key: &[u8],
     ) -> Result<(), PalError> {
-        trace(
-            context,
-            "msk-install",
-            "MSG_SET_MIGRATION_INFO",
-            "MigrationKeyInstaller::set_migration_info",
-            "MockMigrationKeyInstaller",
-            "mock",
-            false,
-            "begin",
-            "pending",
-        );
+        let site = TraceSite {
+            phase: "msk-install",
+            operation: "MSG_SET_MIGRATION_INFO",
+            interface: "MigrationKeyInstaller::set_migration_info",
+            provider: "MockMigrationKeyInstaller",
+            execution: "mock",
+            hardware_invoked: false,
+        };
+        trace(context, &site, "begin", "pending");
         if migration_key.len() != MIGRATION_KEY_SIZE {
-            trace(
-                context,
-                "msk-install",
-                "MSG_SET_MIGRATION_INFO",
-                "MigrationKeyInstaller::set_migration_info",
-                "MockMigrationKeyInstaller",
-                "mock",
-                false,
-                "end",
-                "invalid-input",
-            );
+            trace(context, &site, "end", "invalid-input");
             return Err(PalError::InvalidInput);
         }
-        trace(
-            context,
-            "msk-install",
-            "MSG_SET_MIGRATION_INFO",
-            "MigrationKeyInstaller::set_migration_info",
-            "MockMigrationKeyInstaller",
-            "mock",
-            false,
-            "end",
-            "success",
-        );
+        trace(context, &site, "end", "success");
         Ok(())
     }
 }
@@ -189,20 +86,21 @@ impl MigrationKeyInstaller for MockMigrationKeyInstaller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::MigrationRole;
+    use crate::types::{
+        HostRequestId, ManagedGuestHandle, MigrationId, MigrationRole, SnpOperationContext,
+    };
 
-    fn context() -> PlatformOperationContext {
-        PlatformOperationContext {
-            request_id: 7,
-            role: MigrationRole::Source,
-            binding_handle: 0x1234,
-            target_uuid: [1, 2, 3, 4],
-        }
+    fn context() -> SnpOperationContext {
+        SnpOperationContext::new(
+            HostRequestId::new(7),
+            MigrationId::new(8),
+            MigrationRole::Source,
+            ManagedGuestHandle::new(0x1234),
+        )
     }
 
     #[test]
-    fn fixture_services_accept_valid_logical_inputs() {
-        MockPlatformKeyProvider.prepare_key(&context()).unwrap();
+    fn installer_accepts_valid_logical_inputs() {
         MockMigrationKeyInstaller
             .set_migration_info(&context(), &[0u8; MIGRATION_KEY_SIZE])
             .unwrap();
@@ -214,12 +112,5 @@ mod tests {
             MockMigrationKeyInstaller.set_migration_info(&context(), &[0u8; 31]),
             Err(PalError::InvalidInput)
         ));
-    }
-
-    #[test]
-    fn active_context_round_trips() {
-        let expected = context();
-        set_active_operation_context(&expected);
-        assert_eq!(active_operation_context(), expected);
     }
 }

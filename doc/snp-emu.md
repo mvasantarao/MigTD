@@ -1,6 +1,67 @@
 ## AMD SEV-SNP Emulation (SnpEmu)
 
-For development and testing of MigTD live migration logic on AMD SEV-SNP platforms, MigTD can be
+**Command-contract update (2026-11-02; original correction 2026-10-24):** the
+[Q162 current Firmware ABI 1.59 / ARG v1.20 addendum](snp/task4/q162-arg-v120-command-addendum.md#current-p02-addendum-2026-11-02)
+supersedes removed-command assumptions in older Venice/Technical Notes flows.
+`MSG_VERIFY_REPORT` is not a current hardware operation. The phase records
+below retain their historical context; current verification is software
+validation, and installation retains `MSG_SET_MIGRATION_INFO`.
+
+**Current feature selection (T4.16, 2026-11-05):** shared PAL SNP code uses
+`snp-core`, independently of fixtures. `SnpEmuAzure` selects explicit fixture,
+state-emulator, TCP and mock capabilities; `SnpHardware` rejects them at
+compile time and contains no TDX shim/transport providers. Both select existing
+`SystemRandomSource` and the local AAS verification capability, without a remote
+service dependency for peer authorization. TAV and its crypto patch are no
+longer workspace dependencies or registered test targets; historical patch
+files and the phase records below are retained only as prior evidence.
+Historical certificate-vector tests now use the repository X.509 parser and
+ring; their frozen corpus is unchanged.
+
+`SnpUnderhillRuntime` (also named by compatibility alias `SnpUnderhill`) supplies
+Linux/PID1 support without implying `SnpEmu`. Existing emulator runs should
+select `SnpEmuAzure`, or explicitly combine `SnpEmu,SnpUnderhillRuntime`.
+Explicit `std` does not select an emulator. TDX firmware remains `no_std`;
+AzCVMEmu retains its existing provider path.
+
+```bash
+AS=nasm AR=llvm-ar CC=clang \
+  cargo build --locked -p migtd --no-default-features --features SnpHardware
+AS=nasm AR=llvm-ar CC=clang \
+  python3 sh_script/test/snp_feature_conformance.py
+```
+
+The production binary deliberately exits with status 2 and a startup diagnostic:
+production services and the common AAS Version 6 claims/layout adapter remain
+unavailable. The working AAS captured-fixture verifier is not that adapter and
+cannot authenticate live Version 6 requests. This is feature isolation, not
+production activation or hardware/RNG qualification; T4.18 caller integration
+remains downstream. No automatic emulator fallback is permitted.
+
+**Historical TAV dependency (2026-11-04; superseded by T4.16):** PAL and the emulator's test dependency
+use `tav-1.0.7` with `default-features = false` and `crypto_pure_rust`.
+TAV 1.0.8 removed that backend, so it is not a compatible replacement.
+The [local crypto patch](../deps/tav-crypto/README.md) retains that legacy
+feature name but replaces RSA public signature verification with the existing
+patched ring, including native code/assembly. It is not strictly pure Rust.
+X.509/path policy and RustCrypto ECDSA remain unchanged; the affected `rsa`
+crate is removed rather than waived. The user explicitly approved this
+maintained patch. Its tests are included in `cargo xtask lib-test`.
+The [workspace lockfile](../Cargo.lock) selects `crypto-bigint 0.7.10`,
+`elliptic-curve 0.14.3`, `ecdsa 0.17.0`, and `p256`/`p384`/`p521 0.14.0`.
+The shared helpers are `subtle 2.6.1` and `hybrid-array 0.4.15`.
+Use `--locked` for reproducible builds: `pkcs1 0.8.0-rc.4` matches TAV
+1.0.7's own release lockfile; stable `pkcs1 0.8.0` has an incompatible
+`RsaPssParams` API. Do not blanket-update that dependency without validating
+the upstream parser. The earlier RustCrypto-only upgrade did not fix RSA;
+the separately approved local patch removes that dependency entirely.
+The seven other advisory paths now use `rustls 0.23.46`,
+`rustls-webpki 0.103.16`, `tokio 1.53.3` and `webpki-roots 1.0.10`.
+The advisory check passes without exceptions. Earlier phase/version records
+below remain historical; production qualification is not implied.
+
+The following phase descriptions are historical. For the original development
+and testing of MigTD live migration logic on AMD SEV-SNP platforms, MigTD could be
 built with SNP emulation support (`snp-emu` feature). This mode runs the PAL attestation stack
 using real AMD SEV-SNP hardware attestation (PSP-generated reports, VCEK/ASK certificate chain,
 TAV-based verification) without the Intel TDX UEFI shim. It is the AMD SEV-SNP counterpart of
@@ -32,7 +93,7 @@ report[1184B] || vcek_len[4LE] || vcek[1351B] || ask_len[4LE] || ask[1677B] || a
 Total: ~5,867 bytes
 ```
 
-**TAV version:** `tee-attestation-verification-lib` v1.0.2 (tag `tav-1.0.2`),
+**Historical Phase 1 TAV version:** `tee-attestation-verification-lib` v1.0.2 (tag `tav-1.0.2`),
 `ChainVerification::WithProvidedArk { ask, ark }` — all three certs on wire.
 
 ---
@@ -73,13 +134,13 @@ ARK is no longer transmitted. TAV validates the chain against its pinned AMD Mil
 
 ```bash
 # Unit tests (no hardware required)
-cargo test -p pal --features snp-emu
+cargo test --locked -p pal --features snp-emu
 
 # snp_emu crate tests
-cargo test -p snp_emu
+cargo test --locked -p snp_emu
 
 # Full SnpEmu binary
-cargo build -p migtd --features SnpEmu
+cargo build --locked -p migtd --features SnpEmu
 
 # End-to-end handshake (source + destination)
 ./snpemu.sh
@@ -93,7 +154,7 @@ cargo build -p migtd --features SnpEmu
 |---|---|---|
 | Phase 1 | TAV integration, scaffold PAL traits, E2E SnpEmu handshake | Complete |
 | Phase 2 | WithPinnedArk (ARK off wire), validate() TCB floor, SnpMigPolicy, SnpIdentityInfo, TDX PAL | In progress |
-| Phase 3 | maReportID/MSG_VERIFY_REPORT trust boundary, source_tcb, migration_data policy fields | Planned |
+| Phase 3 | Software report verification and tenant-to-MA binding, source_tcb, migration_data policy fields; governed by the ARG v1.20 addendum | Planned |
 | Phase 4 | Production policy enforcement, VCEK OID parsing, real platform TCB in QvlResult | Planned |
 
 ---

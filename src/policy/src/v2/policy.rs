@@ -594,12 +594,6 @@ enum Reference {
     StringList(Vec<String>),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct PolicyField {
-    operation: String,
-    reference: Reference,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PolicyProperty {

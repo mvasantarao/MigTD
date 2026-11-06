@@ -54,7 +54,7 @@ fn verify_event_hash(
 /// Convert a hex string to bytes without using external crates
 fn hex_string_to_bytes(hex: &str) -> Result<Vec<u8>, PolicyError> {
     // Ensure even number of characters and ASCII-only
-    if hex.is_empty() || hex.len() % 2 != 0 || !hex.is_ascii() {
+    if hex.is_empty() || !hex.len().is_multiple_of(2) || !hex.is_ascii() {
         return Err(PolicyError::InvalidParameter);
     }
 

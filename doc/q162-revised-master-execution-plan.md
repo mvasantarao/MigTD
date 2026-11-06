@@ -5609,8 +5609,9 @@ emulator code.
 
 ## T4.20 Task 4 freeze
 
-Status: IMPLEMENTED AND VALIDATED WITHIN BOUNDED SCOPE - explicit acceptance
-pending. Authorized at `2026-11-05T23:50:40.311Z`.
+Status: DONE - ACCEPTED AND FROZEN within the documented bounded scope and
+exclusions at `2026-11-06T00:32:02.025Z`; conditions: None.
+Authorized at `2026-11-05T23:50:40.311Z`.
 Freeze identifier: `T4.20-Task4Freeze-2026-11-05`.
 The [audit/freeze record](snp/task4/task4-freeze.md),
 [consumer-readiness matrix](snp/task4/consumer-readiness-matrix.md),
@@ -5628,8 +5629,12 @@ submodule revisions, not by a fabricated implementation commit. The commit alone
 cannot reproduce the audited source tree. Fresh T4.20 checks verify documentation,
 input/evidence correspondence and commit scope; T4.19 runtime/CI results are
 reused evidence, not rerun tests. See technical-note section33 and the central log.
-T4.19 acceptance/exclusions remain unchanged. No T4.20 acceptance, production
-qualification, Task12 reactivation, P2.1/P2.2 start or push.
+T4.19 acceptance/exclusions remain unchanged. Explicit T4.20 acceptance is
+recorded in technical-note section34 and the central log. The documentation-only
+freeze commit remains `ab91f5f9194152cd4e5440ec050c447de5de8f0d`; no new commit
+or push is made for this acceptance. Historical validation/inventory/commit
+receipts retain their original acceptance-pending snapshot status.
+No production qualification, Task12 reactivation or P2.1/P2.2 start is implied.
 
 Audit:
 
@@ -5677,8 +5682,8 @@ emulator and production image-content manifests
 
 ## Phase 1 gate
 
-This gate remains pending explicit bounded T4.20 acceptance; implementation
-and documentation-commit verification do not imply that acceptance.
+Status: SATISFIED within the documented interface-level scope following explicit
+bounded T4.20 acceptance at `2026-11-06T00:32:02.025Z`. All exclusions remain.
 
 Task 4 Steps 9-20 are complete, frozen, and consumable by all later runtime
 tasks at the interface level. This gate does not claim executable AAS Version 6
@@ -5691,7 +5696,14 @@ verifier implementation and executable-test obligations before Task 7.
 
 ## P2.1 Replace Stage A/B terminology
 
-Status: READY after T4.20
+Status: DONE - ACCEPTED AND FROZEN within the documented bounded scope and
+exclusions at `2026-11-06T00:47:34.984Z`; conditions: None.
+Authorized at `2026-11-06T00:34:35.144Z` following bounded T4.20 acceptance.
+Naming-only commit:
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`.
+User-selected scope excludes prerequisite implementation and acceptance changes;
+those remain intact and uncommitted. The commit alone does not reproduce the
+accepted working implementation.
 
 Use:
 
@@ -5706,9 +5718,32 @@ Preserve historical logs, commits, hashes, and frozen execution records.
 
 Commit this behavior-neutral change separately.
 
+Implemented: canonical runner paths, environment names, evidence-directory
+defaults and diagnostics for the first two scenarios, with old paths/env names
+retained only as explicit compatibility aliases. Active usage is documented in
+[the scenario guide](snp-migration-scenarios.md). `LocalMaHandoffTwoProcess`
+remains the reserved Phase4 name; no local runtime was created.
+Rust/CLI symbols and CI contained no stage-letter scenario names to rename;
+existing process arguments/protocol/manifest fields are unchanged. Historical
+summaries, frozen addenda/manifests, note/log prefixes and exact37-step order
+are preserved.
+
+Validation: Bash syntax/ShellCheck on all four entry points; eight naming/alias
+tests on both the working tree and the independently reconstructed rename-only
+index; exact naming-transform equivalence; four sequential canonical/alias
+regressions on the same frozen accepted ELF/controller,12 process exits zero.
+No scenario listeners remain. Rust and full-CI builds were not rerun for this
+harness/documentation-only change. Earlier CI evidence remains inherited, not
+relabeled as fresh execution. See technical-note section35 and the central log.
+Explicit bounded P2.1 acceptance is recorded in technical-note section36 and
+the central log. Original validation/commit receipts retain their historical
+acceptance-pending snapshot status. No common V6/V2 activation,local-handoff/
+production qualification,P2.2 start,new commit or push is implied.
+
 ## P2.2 Make MigTD an atomic artifact producer
 
-Status: READY after P2.1 and T4.20
+Status: READY for separate implementation authorization following bounded P2.1
+acceptance; NOT STARTED. The bounded T4.20 prerequisite remains accepted.
 
 MigTD must build, describe, and validate its own emulator and production
 artifacts without requiring a `vm_enclave` source checkout, nested MigTD tree,

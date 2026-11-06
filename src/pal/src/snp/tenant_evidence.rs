@@ -30,14 +30,23 @@ impl SnpTenantEvidenceV1 {
 
     fn validate_structure(&self) -> SnpCodecResult<()> {
         if self.header.record_type != SnpRecordTypeV1::TenantEvidence
-            || self.header.evidence_purpose != SnpEvidencePurposeV1::TenantMigrationAuthorization
+            || !matches!(
+                self.header.evidence_purpose,
+                SnpEvidencePurposeV1::InterNodeTenantAuthorization
+                    | SnpEvidencePurposeV1::InterNodeTenantAuthorizationV2
+            )
             || self.header.role != SnpMaRoleV1::Source
+            || self.header.evidence_purpose != self.report_data_context.evidence_purpose
+            || self.header.role != self.report_data_context.role
+            || self.header.request_id != self.report_data_context.request_id
+            || self.header.tcb_profile != self.tenant_policy_context.tcb_profile
         {
             return Err(SnpCodecError::NonCanonicalEncoding);
         }
         if self.header.record_length != Self::ENCODED_SIZE as u32 {
             return Err(SnpCodecError::InvalidLength);
         }
+        self.report_data_context.validate()?;
         Ok(())
     }
 
@@ -100,20 +109,20 @@ mod tests {
                 record_length: SnpTenantEvidenceV1::ENCODED_SIZE as u32,
                 request_id: 0x0102_0304_0506_0708,
                 role: SnpMaRoleV1::Source,
-                evidence_purpose: SnpEvidencePurposeV1::TenantMigrationAuthorization,
+                evidence_purpose: SnpEvidencePurposeV1::InterNodeTenantAuthorization,
                 evidence_profile: SnpEvidenceProfileV1::Production,
                 tcb_profile: SnpTcbProfileV1::Turin,
             },
             report_data_context: ReportDataContextV1 {
-                evidence_purpose: SnpEvidencePurposeV1::TenantMigrationAuthorization,
+                evidence_purpose: SnpEvidencePurposeV1::InterNodeTenantAuthorization,
                 role: SnpMaRoleV1::Source,
                 request_id: 0x0102_0304_0506_0708,
                 negotiated_migration_version: 1,
-                algorithm: SnpMigrationAlgorithmV1::Aes256Gcm,
-                tenant_report_id: [0x11; TENANT_REPORT_ID_SIZE],
+                algorithm: SnpMigrationAlgorithmV1::Aes256GcmMigrationV1,
+                tenant_binding_id: [0x11; TENANT_REPORT_ID_SIZE],
                 th1: [0x22; SHA384_DIGEST_SIZE],
-                contribution_commitment: [0x33; SHA384_DIGEST_SIZE],
-                local_policy_digest: [0x44; SHA384_DIGEST_SIZE],
+                purpose_binding_digest: [0x33; SHA384_DIGEST_SIZE],
+                ma_policy_identity_digest: [0x44; SHA384_DIGEST_SIZE],
             },
             policy_identity: PolicyIdentityV1 {
                 policy_digest: [0x44; SHA384_DIGEST_SIZE],
@@ -125,6 +134,28 @@ mod tests {
             collateral_digest: [0x55; SHA384_DIGEST_SIZE],
             tenant_report: [0x66; SNP_ATTESTATION_REPORT_SIZE],
         }
+    }
+
+    #[test]
+    fn venice_tenant_descriptor_must_match_envelope_profile() {
+        let mut evidence = sample_evidence();
+        evidence.tenant_policy_context = TenantPolicyContextV1::venice();
+        assert_eq!(
+            evidence.encode_exact(),
+            Err(SnpCodecError::NonCanonicalEncoding)
+        );
+        evidence.header.tcb_profile = SnpTcbProfileV1::Venice;
+        let encoded = evidence.encode_exact().unwrap();
+        assert_eq!(
+            SnpTenantEvidenceV1::decode_exact(&encoded).unwrap(),
+            evidence
+        );
+        let mut mismatched = encoded;
+        mismatched[0x1b] = SnpTcbProfileV1::Turin as u8;
+        assert_eq!(
+            SnpTenantEvidenceV1::decode_exact(&mismatched),
+            Err(SnpCodecError::NonCanonicalEncoding)
+        );
     }
 
     #[test]
@@ -197,14 +228,14 @@ mod tests {
     #[test]
     fn wrong_evidence_purpose_is_rejected() {
         let mut evidence = sample_evidence();
-        evidence.header.evidence_purpose = SnpEvidencePurposeV1::MaKeyContribution;
+        evidence.header.evidence_purpose = SnpEvidencePurposeV1::InterNodeKeyContribution;
         assert_eq!(
             evidence.encode_exact(),
             Err(SnpCodecError::NonCanonicalEncoding)
         );
 
         let mut encoded = sample_evidence().encode_exact().unwrap();
-        encoded[0x19] = SnpEvidencePurposeV1::MaKeyContribution as u8;
+        encoded[0x19] = SnpEvidencePurposeV1::InterNodeKeyContribution as u8;
         assert_eq!(
             SnpTenantEvidenceV1::decode_exact(&encoded),
             Err(SnpCodecError::NonCanonicalEncoding)
@@ -241,6 +272,24 @@ mod tests {
         encoded[0x140..0x144].copy_from_slice(&0x0Fu32.to_le_bytes());
         assert_eq!(
             SnpTenantEvidenceV1::decode_exact(&encoded),
+            Err(SnpCodecError::NonCanonicalEncoding)
+        );
+    }
+
+    #[test]
+    fn tenant_envelope_and_context_must_name_the_same_operation() {
+        for offset in [0x10, 0x20 + 0x1e, 0x20 + 0x1f] {
+            let mut encoded = sample_evidence().encode_exact().unwrap();
+            encoded[offset] ^= if offset == 0x20 + 0x1e { 3 } else { 1 };
+            assert_eq!(
+                SnpTenantEvidenceV1::decode_exact(&encoded),
+                Err(SnpCodecError::NonCanonicalEncoding)
+            );
+        }
+        let mut evidence = sample_evidence();
+        evidence.report_data_context.request_id ^= 1;
+        assert_eq!(
+            evidence.encode_exact(),
             Err(SnpCodecError::NonCanonicalEncoding)
         );
     }

@@ -220,7 +220,7 @@ impl ConfigSpacePciEx {
             + ((func as u64) << 12)
             + offset as u64;
 
-        if addr % align_of::<T>() as u64 != 0 {
+        if !addr.is_multiple_of(align_of::<T>() as u64) {
             return Err(PciError::Misaligned);
         }
         #[cfg(feature = "iocall")]
@@ -234,7 +234,7 @@ impl ConfigSpacePciEx {
     pub fn read<T: Copy + Clone>(_bus: u8, _device: u8, _func: u8, offset: u16) -> Result<T> {
         let base_address = crate::get_fuzz_seed_address();
         let address = base_address + offset as u64;
-        if address % align_of::<T>() as u64 != 0 {
+        if !address.is_multiple_of(align_of::<T>() as u64) {
             return Err(PciError::Misaligned);
         }
         unsafe { Ok(core::ptr::read_volatile(address as *const T)) }
@@ -254,7 +254,7 @@ impl ConfigSpacePciEx {
             + ((func as u64) << 12)
             + offset as u64;
 
-        if addr % align_of::<T>() as u64 != 0 {
+        if !addr.is_multiple_of(align_of::<T>() as u64) {
             return Err(PciError::Misaligned);
         }
         #[cfg(feature = "iocall")]
@@ -276,7 +276,7 @@ impl ConfigSpacePciEx {
     ) -> Result<()> {
         let base_address = crate::get_fuzz_seed_address();
         let address = base_address + offset as u64;
-        if address % align_of::<T>() as u64 != 0 {
+        if !address.is_multiple_of(align_of::<T>() as u64) {
             return Err(PciError::Misaligned);
         }
         unsafe { Ok(core::ptr::write_volatile(address as *mut T, value)) }

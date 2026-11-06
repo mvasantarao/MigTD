@@ -5,7 +5,7 @@
 
 use std::fs;
 
-use migtd::runtime::snp::config::MigrationRole;
+use super::config::MigrationRole;
 
 pub fn prepare_pid1(role: MigrationRole) {
     for (fstype, target) in &[("proc", "/proc"), ("sysfs", "/sys"), ("devtmpfs", "/dev")] {

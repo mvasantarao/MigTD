@@ -43,7 +43,7 @@ pub fn build_td_info(
     igvmformat: bool,
 ) -> Result<TdInfoStruct, Error> {
     // Initialize the configurable fields of TD info structure.
-    let manifest = serde_json::from_slice::<Manifest>(&manifest)?;
+    let manifest = serde_json::from_slice::<Manifest>(manifest)?;
     let mut td_info = TdInfoStruct {
         attributes: manifest.attributes,
         xfam: manifest.xfam,
@@ -68,7 +68,7 @@ pub fn build_td_info(
     if igvmformat {
         cfv = td_info.read_igvmcfvdata(&mut image);
     } else {
-        image.read(&mut cfv)?;
+        image.read_exact(&mut cfv)?;
     }
 
     let rtmr1 = rtmr1(&cfv, &td_info.rtmr1, is_policy_v2)?;

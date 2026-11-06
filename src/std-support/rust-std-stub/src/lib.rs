@@ -45,7 +45,7 @@ pub mod sync {
         pub fn new(user_data: T) -> Self {
             Mutex(spin::Mutex::new(user_data))
         }
-        pub fn try_lock(&self) -> Result<spin::MutexGuard<T>, Error> {
+        pub fn try_lock(&self) -> Result<spin::MutexGuard<'_, T>, Error> {
             if let Some(res) = self.0.try_lock() {
                 Ok(res)
             } else {
@@ -53,7 +53,7 @@ pub mod sync {
             }
         }
 
-        pub fn lock(&self) -> Result<spin::MutexGuard<T>, Error> {
+        pub fn lock(&self) -> Result<spin::MutexGuard<'_, T>, Error> {
             self.try_lock()
         }
     }

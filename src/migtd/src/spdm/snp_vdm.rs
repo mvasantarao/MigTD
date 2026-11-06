@@ -5,17 +5,11 @@
 //! Static SNP opcode, element, and payload-length validation.
 
 use pal::snp::{
-    authorization_result::SnpAuthorizationResultV1,
-    collateral_set::SnpCollateralSetV1,
-    limits::{
-        validate_snp_application_message_size, MAX_SNP_COLLATERAL_SET_SIZE,
-        SNP_VDM_SINGLE_ELEMENT_OVERHEAD,
-    },
-    ma_evidence::SnpMaEvidenceV1,
-    tenant_evidence::SnpTenantEvidenceV1,
+    limits::{validate_snp_application_message_size, SNP_VDM_SINGLE_ELEMENT_OVERHEAD},
+    peer_channel::active_inter_node_layout,
 };
 
-use super::spdm_vdm::{VdmMessage, VdmMessageElement, VdmMessageElementType, VdmMessageOpCode};
+use super::spdm_vdm::{VdmMessage, VdmMessageElement};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SnpVdmValidationError {
@@ -35,33 +29,10 @@ pub fn validate_snp_vdm_static_layout(
     }
 
     let (expected_element, minimum_length, maximum_length) =
-        match message.op_code {
-            VdmMessageOpCode::ExchangeSnpMaEvidenceReq
-            | VdmMessageOpCode::ExchangeSnpMaEvidenceRsp => (
-                VdmMessageElementType::SnpMaEvidenceV1,
-                SnpMaEvidenceV1::ENCODED_SIZE,
-                SnpMaEvidenceV1::ENCODED_SIZE,
-            ),
-            VdmMessageOpCode::ExchangeSnpCollateralReq
-            | VdmMessageOpCode::ExchangeSnpCollateralRsp => (
-                VdmMessageElementType::SnpCollateralSetV1,
-                SnpCollateralSetV1::MINIMUM_SIZE_BEFORE_DER + 2,
-                MAX_SNP_COLLATERAL_SET_SIZE,
-            ),
-            VdmMessageOpCode::ExchangeSnpTenantEvidenceReq => (
-                VdmMessageElementType::SnpTenantEvidenceV1,
-                SnpTenantEvidenceV1::ENCODED_SIZE,
-                SnpTenantEvidenceV1::ENCODED_SIZE,
-            ),
-            VdmMessageOpCode::ExchangeSnpAuthorizationResultRsp => (
-                VdmMessageElementType::SnpAuthorizationResultV1,
-                SnpAuthorizationResultV1::ENCODED_SIZE,
-                SnpAuthorizationResultV1::ENCODED_SIZE,
-            ),
-            _ => return Err(SnpVdmValidationError::NotSnpOpcode),
-        };
+        active_inter_node_layout(message.op_code.get_u8())
+            .ok_or(SnpVdmValidationError::NotSnpOpcode)?;
 
-    if element.element_type != expected_element {
+    if element.element_type.get_u16() != expected_element {
         return Err(SnpVdmValidationError::UnexpectedElementType);
     }
 
@@ -80,8 +51,83 @@ pub fn validate_snp_vdm_static_layout(
 
 #[cfg(test)]
 mod tests {
+    use super::super::spdm_vdm::{VdmMessageElementType, VdmMessageOpCode};
     use super::*;
     use crate::spdm::{VDM_MESSAGE_MAJOR_VERSION, VDM_MESSAGE_MINOR_VERSION};
+    use pal::snp::{
+        authorization_result::SnpAuthorizationResultV1, collateral_set::SnpCollateralSetV1,
+        limits::MAX_SNP_COLLATERAL_SET_SIZE, ma_evidence::SnpMaEvidenceV1,
+        tenant_evidence::SnpTenantEvidenceV1,
+    };
+
+    #[test]
+    fn direct_random_v2_schedule_has_distinct_exact_opcode_and_element_mappings() {
+        let rows = [
+            (
+                VdmMessageOpCode::DeliverSnpKeyV2Req,
+                0x30,
+                VdmMessageElementType::SnpKeyDeliveryV2,
+                0x0109,
+                168,
+            ),
+            (
+                VdmMessageOpCode::DeliverSnpKeyV2Rsp,
+                0x31,
+                VdmMessageElementType::SnpKeyAcceptanceV2,
+                0x010a,
+                80,
+            ),
+            (
+                VdmMessageOpCode::PollSnpCompletionV2Req,
+                0x32,
+                VdmMessageElementType::SnpInstallSessionControlV2,
+                0x010c,
+                80,
+            ),
+            (
+                VdmMessageOpCode::PollSnpCompletionV2Rsp,
+                0x33,
+                VdmMessageElementType::SnpFirmwareCompletionV2,
+                0x010b,
+                88,
+            ),
+            (
+                VdmMessageOpCode::SubmitSnpCompletionV2Req,
+                0x34,
+                VdmMessageElementType::SnpFirmwareCompletionV2,
+                0x010b,
+                88,
+            ),
+            (
+                VdmMessageOpCode::SubmitSnpCompletionV2Rsp,
+                0x35,
+                VdmMessageElementType::SnpInstallSessionControlV2,
+                0x010c,
+                80,
+            ),
+        ];
+        for (opcode, number, tag, element_number, size) in rows {
+            assert_eq!(opcode.get_u8(), number);
+            assert_eq!(tag.get_u16(), element_number);
+            assert_eq!(
+                validate_snp_vdm_static_layout(&message(opcode), &element(tag, size)),
+                Ok(())
+            );
+            for wrong_size in [size - 1, size + 1] {
+                assert_eq!(
+                    validate_snp_vdm_static_layout(&message(opcode), &element(tag, wrong_size)),
+                    Err(SnpVdmValidationError::InvalidElementLength)
+                );
+            }
+            assert_eq!(
+                validate_snp_vdm_static_layout(
+                    &message(opcode),
+                    &element(VdmMessageElementType::SnpInstallationResultV1, 136)
+                ),
+                Err(SnpVdmValidationError::UnexpectedElementType)
+            );
+        }
+    }
 
     fn message(op_code: VdmMessageOpCode) -> VdmMessage {
         VdmMessage {
@@ -268,5 +314,83 @@ mod tests {
             ),
             Err(SnpVdmValidationError::NotSnpOpcode)
         );
+    }
+
+    #[test]
+    fn historical_contribution_numbers_are_reserved_and_rejected() {
+        assert_eq!(
+            VdmMessageOpCode::ExchangeSnpKeyContributionReq.get_u8(),
+            0x26
+        );
+        assert_eq!(
+            VdmMessageOpCode::ExchangeSnpKeyContributionRsp.get_u8(),
+            0x27
+        );
+        assert_eq!(
+            VdmMessageElementType::SnpKeyContributionV1.get_u16(),
+            0x0104
+        );
+        for opcode in [
+            VdmMessageOpCode::ExchangeSnpKeyContributionReq,
+            VdmMessageOpCode::ExchangeSnpKeyContributionRsp,
+        ] {
+            assert_eq!(
+                validate_snp_vdm_static_layout(
+                    &message(opcode),
+                    &element(VdmMessageElementType::SnpKeyContributionV1, 272),
+                ),
+                Err(SnpVdmValidationError::NotSnpOpcode)
+            );
+            for length in [0, 271, 273, usize::MAX] {
+                assert_eq!(
+                    validate_snp_vdm_static_layout(
+                        &message(opcode),
+                        &element(VdmMessageElementType::SnpKeyContributionV1, length),
+                    ),
+                    Err(SnpVdmValidationError::NotSnpOpcode)
+                );
+            }
+            for count in [0, 2] {
+                let mut invalid = message(opcode);
+                invalid.element_count = count;
+                assert_eq!(
+                    validate_snp_vdm_static_layout(
+                        &invalid,
+                        &element(VdmMessageElementType::SnpKeyContributionV1, 272),
+                    ),
+                    Err(SnpVdmValidationError::InvalidElementCount)
+                );
+            }
+            assert_eq!(
+                validate_snp_vdm_static_layout(
+                    &message(opcode),
+                    &element(VdmMessageElementType::ForwardMigrationSessionKey, 272),
+                ),
+                Err(SnpVdmValidationError::NotSnpOpcode)
+            );
+        }
+        assert_eq!(SNP_VDM_SINGLE_ELEMENT_OVERHEAD + 272, 282);
+    }
+
+    #[test]
+    fn confirmation_elements_are_reserved_but_not_activated_on_existing_opcodes() {
+        assert_eq!(VdmMessageElementType::SnpConfirmationV1.get_u16(), 0x0105);
+        assert_eq!(
+            VdmMessageElementType::SnpInstallationResultV1.get_u16(),
+            0x0106
+        );
+        for (element_type, size) in [
+            (VdmMessageElementType::SnpConfirmationV1, 128),
+            (VdmMessageElementType::SnpInstallationResultV1, 136),
+        ] {
+            assert_eq!(
+                validate_snp_vdm_static_layout(
+                    &message(VdmMessageOpCode::ExchangeSnpKeyContributionReq),
+                    &element(element_type, size)
+                ),
+                Err(SnpVdmValidationError::NotSnpOpcode)
+            );
+            assert!(SNP_VDM_SINGLE_ELEMENT_OVERHEAD + size <= 8192);
+        }
     }
 }

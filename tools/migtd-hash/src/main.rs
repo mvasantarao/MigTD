@@ -144,10 +144,7 @@ fn main() {
         exit(1);
     });
 
-    assert_eq!(
-        imagename.contains(".igvm") || imagename.contains(".bin"),
-        true
-    );
+    assert!(imagename.contains(".igvm") || imagename.contains(".bin"));
 
     if imagename.contains(".igvm") {
         igvmformat = true;

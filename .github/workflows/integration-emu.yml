@@ -452,3 +452,12 @@ jobs:
             cargo build -p migtd --bin migtd --no-default-features \
               --features SnpEmuAzure \
               --target x86_64-unknown-linux-musl --release
+
+      - name: Check isolated SNP feature compositions
+        env:
+          AS: nasm
+          AR: llvm-ar
+          CC: clang
+        run: |
+          cargo fetch --locked
+          python3 sh_script/test/snp_feature_conformance.py

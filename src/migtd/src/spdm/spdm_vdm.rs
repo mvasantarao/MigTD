@@ -60,7 +60,21 @@ enum_builder! {
         ExchangeSnpCollateralReq => 0x22,
         ExchangeSnpCollateralRsp => 0x23,
         ExchangeSnpTenantEvidenceReq => 0x24,
-        ExchangeSnpAuthorizationResultRsp => 0x25
+        ExchangeSnpAuthorizationResultRsp => 0x25,
+        ExchangeSnpKeyContributionReq => 0x26,
+        ExchangeSnpKeyContributionRsp => 0x27,
+        PollSnpConfirmationReq => 0x28,
+        PollSnpConfirmationRsp => 0x29,
+        SubmitSnpConfirmationReq => 0x2A,
+        SubmitSnpConfirmationRsp => 0x2B,
+        SubmitSnpCompletionReq => 0x2C,
+        SubmitSnpCompletionRsp => 0x2D,
+        DeliverSnpKeyV2Req => 0x30,
+        DeliverSnpKeyV2Rsp => 0x31,
+        PollSnpCompletionV2Req => 0x32,
+        PollSnpCompletionV2Rsp => 0x33,
+        SubmitSnpCompletionV2Req => 0x34,
+        SubmitSnpCompletionV2Rsp => 0x35
     }
 }
 
@@ -124,7 +138,16 @@ enum_builder! {
         SnpMaEvidenceV1 => 0x0100,
         SnpCollateralSetV1 => 0x0101,
         SnpTenantEvidenceV1 => 0x0102,
-        SnpAuthorizationResultV1 => 0x0103
+        SnpAuthorizationResultV1 => 0x0103,
+        SnpKeyContributionV1 => 0x0104,
+        SnpConfirmationV1 => 0x0105,
+        SnpInstallationResultV1 => 0x0106,
+        SnpFirmwareCompletionV1 => 0x0107,
+        SnpInstallSessionControlV1 => 0x0108,
+        SnpKeyDeliveryV2 => 0x0109,
+        SnpKeyAcceptanceV2 => 0x010A,
+        SnpFirmwareCompletionV2 => 0x010B,
+        SnpInstallSessionControlV2 => 0x010C
     }
 }
 

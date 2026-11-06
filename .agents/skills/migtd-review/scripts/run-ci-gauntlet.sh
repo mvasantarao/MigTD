@@ -147,7 +147,7 @@ if stage_should_run deny; then
 fi
 
 # ============================================================ STAGE: main
-# Mirrors .github/workflows/main.yml: 32 cargo image builds.
+# Mirrors .github/workflows/main.yml: 32 cargo image builds and six tools.
 # device × policy_version × protocol × build_type
 if stage_should_run main; then
     banner main
@@ -179,6 +179,10 @@ if stage_should_run main; then
             done
         done
     done
+    for tool in json-signer migtd-collateral-generator migtd-hash \
+        migtd-policy-generator migtd-policy-verifier servtd-collateral-generator; do
+        step "tool-${tool}" cargo build -p "$tool"
+    done
 fi
 
 # ============================================================ STAGE: emu
@@ -188,70 +192,67 @@ fi
 if stage_should_run emu; then
     banner emu
 
-    # Generate policy files from mock measurements (replaces tracked files)
-    if [ ! -f config/AzCVMEmu/policy_v2_signed.json ]; then
-        echo "  [emu] generating policy files with mock measurements" | tee -a "$SUMMARY"
-        step policy-gen ./sh_script/build_AzCVMEmu_policy_and_test.sh --mock-report --skip-test
-    fi
+    # Generate a coherent set of base and rotation fixtures, as CI does.
+    step policy-gen ./sh_script/build_AzCVMEmu_policy_and_test.sh --mock-report --skip-test
 
     # 1. skip-ra
-    step skip-ra__build cargo build --release \
+    step skip-ra__build cargo build \
         --features AzCVMEmu,test_disable_ra_and_accept_all --no-default-features
-    step skip-ra ./migtdemu.sh --skip-ra --both --no-sudo --log-level info
+    step skip-ra timeout 300 ./migtdemu.sh --skip-ra --debug --both --no-sudo --log-level info
 
     # 2. policy-v2
-    step policy-v2 ./migtdemu.sh --policy-v2 \
+    step policy-v2 timeout 900 ./migtdemu.sh --policy-v2 \
         --policy-file ./config/AzCVMEmu/policy_v2_signed.json \
         --policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain.pem \
         --mock-report --both --no-sudo --log-level info
 
     # 3. policy-v2-igvm
-    step policy-v2-igvm ./migtdemu.sh --policy-v2 \
+    step policy-v2-igvm timeout 900 ./migtdemu.sh --policy-v2 \
         --policy-file ./config/AzCVMEmu/policy_v2_signed.json \
         --policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain.pem \
         --mock-report --features igvm-attest --both --no-sudo --log-level info
 
     # 4. rebind-skip-ra
-    step rebind-skip-ra__build cargo build --release \
+    step rebind-skip-ra__build cargo build \
         --features AzCVMEmu,policy_v2,test_disable_ra_and_accept_all --no-default-features
-    step rebind-skip-ra ./migtdemu.sh --operation rebind-prepare \
+    step rebind-skip-ra timeout 300 ./migtdemu.sh --operation rebind-prepare \
         --policy-file ./config/AzCVMEmu/policy_v2_signed.json \
         --policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain.pem \
-        --skip-ra --both --no-sudo --log-level info
+        --skip-ra --debug --both --no-sudo --log-level info
 
     # 5. rebind-mock
-    step rebind-mock ./migtdemu.sh --operation rebind-prepare \
+    step rebind-mock timeout 900 ./migtdemu.sh --operation rebind-prepare \
         --policy-file ./config/AzCVMEmu/policy_v2_signed.json \
         --policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain.pem \
         --mock-report --both --no-sudo --log-level info
 
     # 6. spdm-skip-ra
     export SPDM_CONFIG="$REPO_ROOT/config/spdm_config.json"
-    step spdm-skip-ra__build cargo build --release \
+    step spdm-skip-ra__build cargo build \
         --features AzCVMEmu,test_disable_ra_and_accept_all,spdm_attestation --no-default-features
-    step spdm-skip-ra ./migtdemu.sh --skip-ra --features spdm_attestation \
+    step spdm-skip-ra timeout 300 ./migtdemu.sh --skip-ra --debug --features spdm_attestation \
         --both --no-sudo --log-level info
 
     # 7. spdm-policy-v2
-    step spdm-policy-v2 ./migtdemu.sh --policy-v2 \
+    step spdm-policy-v2 timeout 900 ./migtdemu.sh --policy-v2 \
         --policy-file ./config/AzCVMEmu/policy_v2_signed.json \
         --policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain.pem \
         --mock-report --features spdm_attestation --both --no-sudo --log-level info
 
     # 8. spdm-rebind-skip-ra
-    step spdm-rebind-skip-ra__build cargo build --release \
+    step spdm-rebind-skip-ra__build cargo build \
         --features AzCVMEmu,policy_v2,test_disable_ra_and_accept_all,spdm_attestation --no-default-features
-    step spdm-rebind-skip-ra ./migtdemu.sh --operation rebind-prepare \
+    step spdm-rebind-skip-ra timeout 300 ./migtdemu.sh --operation rebind-prepare \
         --policy-file ./config/AzCVMEmu/policy_v2_signed.json \
         --policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain.pem \
-        --skip-ra --features spdm_attestation --both --no-sudo --log-level info
+        --skip-ra --debug --features spdm_attestation --both --no-sudo --log-level info
 
     # 9. mock-quote-retry
-    step mock-quote-retry ./migtdemu.sh --mock-report --mock-quote-retry \
+    step mock-quote-retry timeout 900 ./migtdemu.sh --mock-report --mock-quote-retry \
         --features igvm-attest --both --no-sudo --log-level info
 
     # 10. policy-v2-key-rotation
-    step policy-v2-key-rotation ./migtdemu.sh --policy-v2 \
+    step policy-v2-key-rotation timeout 900 ./migtdemu.sh --policy-v2 \
         --src-policy-file ./config/AzCVMEmu/policy_v2_signed_a.json \
         --src-policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain_a.pem \
         --dst-policy-file ./config/AzCVMEmu/policy_v2_signed_b.json \
@@ -259,7 +260,7 @@ if stage_should_run emu; then
         --mock-report --both --no-sudo --log-level info
 
     # 11. policy-v2-key-rotation-igvm
-    step policy-v2-key-rotation-igvm ./migtdemu.sh --policy-v2 \
+    step policy-v2-key-rotation-igvm timeout 900 ./migtdemu.sh --policy-v2 \
         --src-policy-file ./config/AzCVMEmu/policy_v2_signed_a.json \
         --src-policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain_a.pem \
         --dst-policy-file ./config/AzCVMEmu/policy_v2_signed_b.json \
@@ -267,7 +268,7 @@ if stage_should_run emu; then
         --mock-report --features igvm-attest --both --no-sudo --log-level info
 
     # 12. spdm-policy-v2-key-rotation
-    step spdm-policy-v2-key-rotation ./migtdemu.sh --policy-v2 \
+    step spdm-policy-v2-key-rotation timeout 900 ./migtdemu.sh --policy-v2 \
         --src-policy-file ./config/AzCVMEmu/policy_v2_signed_a.json \
         --src-policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain_a.pem \
         --dst-policy-file ./config/AzCVMEmu/policy_v2_signed_b.json \
@@ -275,7 +276,7 @@ if stage_should_run emu; then
         --mock-report --features spdm_attestation --both --no-sudo --log-level info
 
     # 13. policy-v2-policy-mapping-rotation
-    step policy-v2-policy-mapping-rotation ./migtdemu.sh --policy-v2 \
+    step policy-v2-policy-mapping-rotation timeout 900 ./migtdemu.sh --policy-v2 \
         --src-policy-file ./config/AzCVMEmu/policy_v2_signed_a.json \
         --src-policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain_a.pem \
         --dst-policy-file ./config/AzCVMEmu/policy_v2_signed_pm_b.json \
@@ -283,7 +284,7 @@ if stage_should_run emu; then
         --mock-report --both --no-sudo --log-level info
 
     # 14. policy-v2-all-chains-rotation
-    step policy-v2-all-chains-rotation ./migtdemu.sh --policy-v2 \
+    step policy-v2-all-chains-rotation timeout 900 ./migtdemu.sh --policy-v2 \
         --src-policy-file ./config/AzCVMEmu/policy_v2_signed_a.json \
         --src-policy-issuer-chain-file ./config/AzCVMEmu/policy_issuer_chain_a.pem \
         --dst-policy-file ./config/AzCVMEmu/policy_v2_signed_pmi_b.json \

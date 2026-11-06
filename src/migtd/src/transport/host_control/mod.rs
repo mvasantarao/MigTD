@@ -1,5 +1,5 @@
-#[cfg(feature = "SnpEmu")]
+#[cfg(feature = "snp-tcp-transport")]
 pub mod emulated;
 
-#[cfg(feature = "SnpEmu")]
+#[cfg(feature = "snp-tcp-transport")]
 pub mod tcp;

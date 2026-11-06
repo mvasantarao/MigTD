@@ -146,8 +146,10 @@ No readiness row, production transport/state/effect, hardware/RNG/deployment,
 full Task 3 or hosted-CI qualification is claimed. Bounded acceptance is recorded
 in [technical-note section 32](snp/approval-decision-technical-note.md#32-t419-bounded-completion-acceptance)
 and the central log; existing exclusions remain unchanged.
-T4.20 is implemented and validated within its bounded documentation-freeze
-scope; explicit acceptance is pending. See the
+T4.20 is DONE - ACCEPTED AND FROZEN within its documented bounded
+documentation-freeze scope and exclusions at `2026-11-06T00:32:02.025Z`;
+conditions: None. See the
+[bounded acceptance record](snp/approval-decision-technical-note.md#34-t420-bounded-completion-acceptance),
 [audit/freeze](snp/task4/task4-freeze.md),
 [consumer matrix](snp/task4/consumer-readiness-matrix.md) and
 [source/feature/dependency/image inventory](snp/task4/freeze-inventory.json).
@@ -156,9 +158,28 @@ or push. Exact audited worktree inputs are hash-identified; the documentation
 commit alone cannot reproduce them. Accepted T4.19 regression/ELF evidence is
 preserved and reused, not relabeled as fresh execution. No PA row, production
 service/layout/RNG/deployment/hardware qualification, broader acceptance,
-Task12 reactivation or P2.1/P2.2 start is claimed.
+Task12 reactivation or P2.1/P2.2 start is claimed. The Phase1 gate is satisfied
+at the documented interface level only. P2.1 was separately authorized at
+`2026-11-06T00:34:35.144Z`; its naming-only execution is recorded centrally.
+P2.2 still requires P2.1 and separate authorization. No new commit or push is
+made for this acceptance; historical evidence/inventory snapshots are unchanged.
 
 ## Status and evidence rules
+
+P2.1 is DONE - ACCEPTED AND FROZEN within its documented bounded naming-only
+scope and exclusions at `2026-11-06T00:47:34.984Z`; conditions: None.
+The separate commit is
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`; prior implementation and acceptance
+changes remain uncommitted. See the [scenario guide](snp-migration-scenarios.md)
+and [technical-note section35](snp/approval-decision-technical-note.md#35-p21-descriptive-migration-scenario-terminology).
+Eight naming tests pass in each working/index snapshot and four sequential
+canonical/compatibility runs pass on the same accepted frozen ELF/controller
+(12 zero process exits). This is not common V6/V2 or local-handoff/production
+qualification. No PA row advances. Explicit acceptance is recorded in
+[technical-note section36](snp/approval-decision-technical-note.md#36-p21-bounded-completion-acceptance).
+P2.2 is READY for separate authorization, NOT STARTED. Existing exclusions and
+historical validation/commit snapshots remain unchanged. No tests/builds are
+rerun and no new commit or push is made for this acceptance.
 
 Statuses are `DESIGN_REQUIRED`, `EXTERNAL_DEPENDENCY`, `READY`, `IN_PROGRESS`,
 `IMPLEMENTED`, `QUALIFIED`, or `BLOCKED`. Implementation/model tests are not

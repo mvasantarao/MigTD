@@ -5427,3 +5427,98 @@ Limits:
   transport/state/effects/trust/time/revocation/RNG/deployment/shutdown/hardware,
   actual page migration/resume,Task12 reactivation or push.
   Phase1 gate and T4.20 acceptance pending;P2.1/P2.2 NOT STARTED.
+
+T4.20 Task4 freeze - ACCEPTANCE
+Accepted at:2026-11-06T00:32:02.025Z.
+User statement:"I accept T4.20 within its documented bounded scope and exclusions."
+Status:DONE - ACCEPTED AND FROZEN within documented bounded scope/exclusions.
+Conditions:None.
+Freeze:T4.20-Task4Freeze-2026-11-05.
+Existing documentation-only commit:ab91f5f9194152cd4e5440ec050c447de5de8f0d.
+Scope:Task4 typed-interface/composition audit,corrected diagrams,consumer and
+  feature matrices,source hashes,separate accepted ELF/dependency inventories.
+  Audited implementation stays uncommitted;the freeze commit alone cannot
+  reproduce it. No implementation commit or push is authorized.
+Phase1:interface-level gate satisfied only within documented bounded scope.
+Next:P2.1 READY for separate implementation authorization,NOT STARTED.
+  P2.2 NOT STARTED;requires P2.1 completion and separate authorization.
+Preserved:all prior exclusions,section33 and earlier note/log bytes,
+  accepted source/evidence and all37 canonical execution-order steps.
+  Original freeze inventory/validation/commit receipts remain historical
+  acceptance-pending snapshots,superseded by this explicit acceptance record.
+Evidence:target/t4.20-acceptance/20261106T003202Z/.
+  Baseline:519 existing files,470 audited inputs,1535 prior evidence files.
+  recording-verification.json:exact final checks,scope and hashes.
+Documentation-only recording:no tests/builds rerun,new runtime result,
+  PA qualification,Task12 reactivation,downstream execution,new commit or push.
+
+P2.1 descriptive migration scenario terminology - START
+Authorized at:2026-11-06T00:34:35.144Z.
+Prerequisite:T4.20 accepted within documented bounded scope/exclusions.
+User-selected commit scope:only P2.1 naming changes;leave prerequisite
+  implementation and acceptance changes intact and uncommitted.
+Baseline:519 existing files,1540 prior evidence files,two frozen executables.
+Evidence:target/p2.1-terminology/20261106T003435Z/.
+Scope:SingleProcessMigration,InterNodeTwoProcessMigration and reserved
+  LocalMaHandoffTwoProcess;canonical scripts/env/output/docs with old entry
+  points/env retained as explicit compatibility aliases.
+No runtime/protocol/provider change,local-handoff activation,P2.2 start or push.
+Commit must exclude prior MSG_KEY_REQ assertion and acceptance-record changes;
+  rename-only staging is distinct from the tested dirty working implementation.
+
+P2.1 descriptive migration scenario terminology - VALIDATION / COMPLETION
+Authorization:2026-11-06T00:34:35.144Z.
+Status:implemented and validated within bounded scope;explicit acceptance pending.
+Completion:P2.1-ScenarioTerminology-2026-11-06.
+Naming-only commit:1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481.
+Scope:SingleProcessMigration,InterNodeTwoProcessMigration and reserved
+  LocalMaHandoffTwoProcess;canonical scripts/env/default evidence/diagnostics.
+  Old entry points are delegates;old env vars are fallbacks;nonempty canonical
+  values win. Role/start-mode/process/protocol/explicit paths/manifest fields,
+  numeric defaults and exit semantics unchanged. No local runner invented.
+Commit:exact eight naming paths;prior MSG_KEY_REQ assertion and acceptance
+  changes remain uncommitted. The commit alone is not the accepted working tree.
+Fresh PASS:
+  Bash syntax and ShellCheck:all four entry points.
+  Eight naming/alias tests:working tree and isolated rename-only index.
+  Exact transforms:accepted pre-rename input to working canonical runner;
+    parent HEAD to staged canonical runner. All committed bytes match tested index.
+  Four sequential real frozen-ELF scenarios:canonical+compatibility for both
+    names;12 process exits zero;no scenario listeners remain.
+  MigTD SHA256:2a1933640374ed55a3becc377c989314039ede0b5ef9e0baea50d35109da91d5.
+  Controller SHA256:166ec9302efcd9f655ba243b25756153a32beadf5b30afa3cc2bba67dbc7c2a9.
+  No stage-letter Rust/CLI/CI symbol required a rename. Compatibility aliases
+    and historical evidence retain old names intentionally.
+Preservation:519-file baseline,1540 prior evidence files,historical log/note
+  prefixes and37-step canonical order;expected seven existing/four new files,
+  512 untouched baseline files. No Rust/Cargo/fixture/submodule change.
+Evidence:target/p2.1-terminology/20261106T003435Z/.
+  rename-equivalence.json;validation-manifest.json;scenario-results.json;
+  commit.json;recording-verification.json. Technical-note section35.
+Limits:no fresh Rust/full-CI run;earlier CI evidence inherited,not relabeled.
+  Legacy captured-fixture regression only;no common V6/V2 activation,local
+  handoff,production/RNG/deployment/shutdown/hardware or VM-resume qualification.
+  No PA advancement,Task12 reactivation,P2.1 acceptance,P2.2 start or push.
+
+P2.1 descriptive migration scenario terminology - ACCEPTANCE
+Accepted at:2026-11-06T00:47:34.984Z.
+User statement:"I accept P2.1 within its documented bounded scope and exclusions."
+Status:DONE - ACCEPTED AND FROZEN within documented bounded scope/exclusions.
+Conditions:None.
+Accepted completion:P2.1-ScenarioTerminology-2026-11-06.
+Existing naming-only commit:1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481.
+Scope:canonical runner/env/evidence/diagnostic names,current usage,explicit
+  compatibility aliases and reserved LocalMaHandoffTwoProcess name.
+  No process/protocol/provider/firmware change or local runtime activation.
+Preserved:all exclusions,prior implementation/acceptance changes uncommitted,
+  section35 and all earlier note/log bytes,accepted evidence and37-step order.
+  Original naming/validation/commit receipts retain their historical snapshot
+  statuses,superseded by this explicit bounded acceptance record.
+Next:P2.2 READY for separate implementation authorization,NOT STARTED.
+  No Phase2-wide acceptance,PA advancement,Task12 reactivation or gate waiver.
+Evidence:target/p2.1-acceptance/20261106T004734Z/.
+  Baseline:523 existing files,1600 prior evidence files.
+  recording-verification.json:five-document recording scope,518 untouched
+    baseline files,unchanged code/scripts/tests,evidence/history/order checks.
+Documentation-only recording:no tests/builds rerun,fresh runtime claim,
+  new commit,amendment or push.

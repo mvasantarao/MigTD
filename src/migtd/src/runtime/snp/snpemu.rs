@@ -7,7 +7,7 @@
 //!
 //! Opcode handling per DataStatusOperation enum (A1 — integer wire contract):
 //!   EnableLogArea  (4) -> enable_logarea() + set_max_level() + report_status()
-//!   GetTDReport    (3) -> SNP_GET_REPORT; return 1184-byte ATTESTATION_REPORT in ACK
+//!   GetTDReport    (3) -> selected MA evidence plus legacy certificate-blob ACK
 //!                         (IGVMAgent MA health check — NOT peer-to-peer SPDM attestation)
 //!   StartMigration (1) -> exchange_msk() + report_status(); exit loop
 //!
@@ -18,7 +18,7 @@ use crate::migration::data::{MigrationInformation, WaitForRequestResponse};
 use crate::migration::host_transport::HostControlTransport;
 use crate::migration::session::exchange_msk;
 use crate::migration::MigrationResult;
-use pal::traits::AttestationProvider;
+use crate::snp_composition::SnpRuntimeProviders;
 
 fn configure_log_level(log_max_level: u8) -> MigrationResult {
     if log_max_level > 5 {
@@ -32,6 +32,7 @@ fn configure_log_level(log_max_level: u8) -> MigrationResult {
 pub async fn execute_start_migration<T: HostControlTransport>(
     transport: &T,
     request: &MigrationInformation,
+    providers: &SnpRuntimeProviders,
 ) -> i32 {
     let request_id = request.mig_info.mig_request_id;
     eprintln!(
@@ -44,7 +45,7 @@ pub async fn execute_start_migration<T: HostControlTransport>(
         request_id
     );
 
-    let result = exchange_msk(request).await;
+    let result = exchange_msk(request, providers).await;
     complete_start_migration(transport, request_id, result).await
 }
 
@@ -81,7 +82,10 @@ async fn complete_start_migration<T: HostControlTransport>(
     }
 }
 
-pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
+pub async fn runtime_main_snp<T: HostControlTransport>(
+    transport: &T,
+    providers: &SnpRuntimeProviders,
+) -> i32 {
     eprintln!("[MA] WFR dispatcher started (Phase 3a SnpEmu)");
 
     loop {
@@ -127,25 +131,29 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
             }
 
             WaitForRequestResponse::GetTdReport(info) => {
-                // IGVMAgent MA health check — must return real 1184-byte ATTESTATION_REPORT.
-                // SnpEmu path: SnpFixtureProvider returns pre-captured fixture blob.
-                // Phase 3b (SnpHardwareProvider): added in 3a-09.
+                // Legacy health-check blob, not live peer or tenant attestation.
                 eprintln!(
                     "[MA] opcode 3: GetTDReport (request_id={})",
                     info.mig_request_id
                 );
-                let report_result =
-                    snp_emu::provider_fixture::SnpFixtureProvider.get_report(&info.reportdata);
+                let report_result = providers.legacy_report_blob(&info.reportdata);
                 let (status, data) = match report_result {
-                    Ok(bundle) => (MigrationResult::Success, bundle.ma_report_blob),
+                    Ok(blob) => (MigrationResult::Success, blob),
                     Err(e) => {
                         eprintln!("[MA] ERROR: GetTDReport: SNP_GET_REPORT failed: {:?}", e);
                         (MigrationResult::MutualAttestationError, Vec::new())
                     }
                 };
-                let _ = transport
+                if let Err(error) = transport
                     .report_status(status as u8, info.mig_request_id, &data)
-                    .await;
+                    .await
+                {
+                    eprintln!(
+                        "[MA] FATAL: GetTDReport report_status failed: {}",
+                        error as u8
+                    );
+                    return error as u8 as i32;
+                }
             }
 
             WaitForRequestResponse::StartMigration(req) => {
@@ -154,7 +162,7 @@ pub async fn runtime_main_snp<T: HostControlTransport>(transport: &T) -> i32 {
                     "[MA] opcode 1: StartMigration -> shared workflow (request_id={})",
                     request_id
                 );
-                return execute_start_migration(transport, &req).await;
+                return execute_start_migration(transport, &req, providers).await;
             }
 
             _ => {
@@ -182,6 +190,7 @@ mod tests {
         responses: Arc<Mutex<Vec<WaitForRequestResponse>>>,
         /// Captured (status, request_id, data_len) from report_status calls.
         calls: Arc<Mutex<Vec<(u8, u64, usize)>>>,
+        report_error: Option<MigrationResult>,
     }
 
     impl MockTransport {
@@ -189,6 +198,7 @@ mod tests {
             Self {
                 responses: Arc::new(Mutex::new(responses)),
                 calls: Arc::new(Mutex::new(Vec::new())),
+                report_error: None,
             }
         }
         fn captured_calls(&self) -> Vec<(u8, u64, usize)> {
@@ -218,7 +228,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push((status, request_id, data.len()));
-            Ok(())
+            self.report_error.map_or(Ok(()), Err)
         }
     }
 
@@ -246,7 +256,8 @@ mod tests {
     async fn test_report_status_enable_logarea_success_code() {
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 3)]);
         // Dispatcher will loop until wait_for_request returns Err (queue empty)
-        let _ = super::runtime_main_snp(&transport).await;
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        let _ = super::runtime_main_snp(&transport, &providers).await;
         let calls = transport.captured_calls();
         // EnableLogArea arm must have fired report_status
         assert!(
@@ -265,7 +276,8 @@ mod tests {
     #[tokio::test]
     async fn test_report_status_enable_logarea_rejects_invalid_level() {
         let transport = MockTransport::new(vec![enable_logarea_req(1001, 6)]);
-        let _ = super::runtime_main_snp(&transport).await;
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        let _ = super::runtime_main_snp(&transport, &providers).await;
         let calls = transport.captured_calls();
         assert!(
             !calls.is_empty(),
@@ -289,7 +301,8 @@ mod tests {
     #[tokio::test]
     async fn test_report_status_get_tdreport_returns_report_blob() {
         let transport = MockTransport::new(vec![get_tdreport_req(1002)]);
-        let _ = super::runtime_main_snp(&transport).await;
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        let _ = super::runtime_main_snp(&transport, &providers).await;
         let calls = transport.captured_calls();
         assert!(
             !calls.is_empty(),
@@ -302,11 +315,33 @@ mod tests {
             MigrationResult::Success,
             "GetTDReport fixture path must return Success"
         );
-        // Fixture blob must be non-empty (report + cert chain)
-        assert!(
-            data_len > 0,
-            "GetTDReport response must carry non-empty blob"
+        assert_eq!(
+            data_len,
+            1184 + 8
+                + snp_emu::report_emu::fixture_vcek_der().len()
+                + snp_emu::report_emu::fixture_ask_der().len(),
+            "GetTDReport must retain the exact legacy report/certificate blob"
         );
+    }
+
+    #[tokio::test]
+    async fn get_tdreport_report_failure_is_terminal_and_retains_transport_status() {
+        let transport = MockTransport {
+            report_error: Some(MigrationResult::NetworkError),
+            ..MockTransport::new(vec![get_tdreport_req(1002), enable_logarea_req(1003, 3)])
+        };
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        let exit = super::runtime_main_snp(&transport, &providers).await;
+        assert_eq!(exit, MigrationResult::NetworkError as u8 as i32);
+        let calls = transport.captured_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, MigrationResult::Success as u8);
+        assert_eq!(calls[0].1, 1002);
+        assert_eq!(
+            calls[0].2,
+            providers.legacy_report_blob(&[0; 64]).unwrap().len()
+        );
+        assert_eq!(transport.responses.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

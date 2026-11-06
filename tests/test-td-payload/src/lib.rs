@@ -35,7 +35,7 @@ pub struct TestSuite {
 impl TestSuite {
     pub fn run(&mut self) {
         for tc in self.testsuite.iter_mut() {
-            print!("[Test: {}]\n", String::from(tc.get_name()));
+            print!("[Test: {}]\n", tc.get_name());
             tc.setup();
             tc.run();
             tc.teardown();

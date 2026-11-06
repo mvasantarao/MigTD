@@ -16,6 +16,15 @@ pub enum SnpRecordTypeV1 {
     TenantEvidence = 0x0002,
     CollateralSet = 0x0003,
     AuthorizationResult = 0x0004,
+    KeyContribution = 0x0005,
+    Confirmation = 0x0006,
+    InstallationResult = 0x0007,
+    FirmwareCompletion = 0x0008,
+    InstallSessionControl = 0x0009,
+    KeyDeliveryV2 = 0x000a,
+    KeyAcceptanceV2 = 0x000b,
+    FirmwareCompletionV2 = 0x000c,
+    InstallSessionControlV2 = 0x000d,
 }
 
 impl SnpRecordTypeV1 {
@@ -25,6 +34,15 @@ impl SnpRecordTypeV1 {
             0x0002 => Ok(Self::TenantEvidence),
             0x0003 => Ok(Self::CollateralSet),
             0x0004 => Ok(Self::AuthorizationResult),
+            0x0005 => Ok(Self::KeyContribution),
+            0x0006 => Ok(Self::Confirmation),
+            0x0007 => Ok(Self::InstallationResult),
+            0x0008 => Ok(Self::FirmwareCompletion),
+            0x0009 => Ok(Self::InstallSessionControl),
+            0x000a => Ok(Self::KeyDeliveryV2),
+            0x000b => Ok(Self::KeyAcceptanceV2),
+            0x000c => Ok(Self::FirmwareCompletionV2),
+            0x000d => Ok(Self::InstallSessionControlV2),
             _ => Err(SnpCodecError::UnknownRecordType),
         }
     }
@@ -60,6 +78,7 @@ impl SnpEvidenceProfileV1 {
 pub enum SnpTcbProfileV1 {
     MilanGenoa = 0x01,
     Turin = 0x02,
+    Venice = 0x03,
 }
 
 impl SnpTcbProfileV1 {
@@ -67,6 +86,7 @@ impl SnpTcbProfileV1 {
         match reader.read_u8()? {
             0x01 => Ok(Self::MilanGenoa),
             0x02 => Ok(Self::Turin),
+            0x03 => Ok(Self::Venice),
             _ => Err(SnpCodecError::UnknownEnumValue),
         }
     }
@@ -103,8 +123,23 @@ impl SnpEvidenceHeaderV1 {
         Ok(())
     }
 
+    fn validate_role_and_purpose(&self) -> SnpCodecResult<()> {
+        self.evidence_purpose.validate_role(self.role)?;
+        if self.record_type == SnpRecordTypeV1::TenantEvidence
+            && (!matches!(
+                self.evidence_purpose,
+                SnpEvidencePurposeV1::InterNodeTenantAuthorization
+                    | SnpEvidencePurposeV1::InterNodeTenantAuthorizationV2
+            ) || self.role != SnpMaRoleV1::Source)
+        {
+            return Err(SnpCodecError::NonCanonicalEncoding);
+        }
+        Ok(())
+    }
+
     pub fn encode(&self, writer: &mut StrictWriter<'_>) -> SnpCodecResult<()> {
         Self::validate_record_type(self.record_type)?;
+        self.validate_role_and_purpose()?;
         if self.record_length < Self::ENCODED_SIZE as u32 {
             return Err(SnpCodecError::InvalidLength);
         }
@@ -159,6 +194,7 @@ impl SnpEvidenceHeaderV1 {
         };
         header.read_zeroes(4)?;
         header.finish()?;
+        value.validate_role_and_purpose()?;
         Ok(value)
     }
 
@@ -180,7 +216,7 @@ mod tests {
             record_length: 1_540,
             request_id: 0x0102_0304_0506_0708,
             role: SnpMaRoleV1::Destination,
-            evidence_purpose: SnpEvidencePurposeV1::MaKeyContribution,
+            evidence_purpose: SnpEvidencePurposeV1::InterNodeKeyContribution,
             evidence_profile: SnpEvidenceProfileV1::Production,
             tcb_profile: SnpTcbProfileV1::MilanGenoa,
         }
@@ -248,6 +284,9 @@ mod tests {
         for record_type in [
             SnpRecordTypeV1::CollateralSet,
             SnpRecordTypeV1::AuthorizationResult,
+            SnpRecordTypeV1::KeyContribution,
+            SnpRecordTypeV1::Confirmation,
+            SnpRecordTypeV1::InstallationResult,
         ] {
             let mut header = sample_header();
             header.record_type = record_type;

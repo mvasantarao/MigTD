@@ -98,7 +98,7 @@ pub fn json_verify_from_signed(
 }
 
 fn hex_string_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err(Error::InvalidString);
     }
 

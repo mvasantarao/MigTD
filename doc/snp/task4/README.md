@@ -71,8 +71,11 @@ Separate explicit release ELF inventories and production scans pass.
 See [the T4.19 coverage and deferred gates](../approval-decision-technical-note.md#31-t419-task-4-regression).
 No full Task 3 activation, P2.2 bundle qualification or broader acceptance is
 implied. See [the bounded acceptance record](../approval-decision-technical-note.md#32-t419-bounded-completion-acceptance).
-Existing exclusions remain unchanged. T4.20 is implemented and validated within
-bounded scope; explicit acceptance is pending. The
+Existing exclusions remain unchanged. T4.20 is DONE - ACCEPTED AND FROZEN within
+its documented bounded scope and exclusions at `2026-11-06T00:32:02.025Z`;
+conditions: None. See the
+[bounded acceptance record](../approval-decision-technical-note.md#34-t420-bounded-completion-acceptance).
+The
 [Task4 audit and freeze](task4-freeze.md),
 [consumer-readiness matrix](consumer-readiness-matrix.md) and
 [source/feature/dependency/image inventory](freeze-inventory.json) record the
@@ -81,8 +84,30 @@ handoff, including separate [emulator](image-content/SnpEmuAzure.json) and
 The user authorized only a documentation freeze commit; the audited source
 remains uncommitted and hash-identified. The commit is not a reproducible source
 snapshot. Fresh documentation/provenance checks do not relabel accepted T4.19
-runtime tests as new runs. No push, T4.20 acceptance, Phase1 gate closure,
-Task12 reactivation or P2.1/P2.2 start is implied.
+runtime tests as new runs. The Phase1 interface-level gate is satisfied only
+within those bounds; P2.1 was separately authorized at
+`2026-11-06T00:34:35.144Z` and is recorded in the central execution log.
+P2.2 is READY for separate authorization following bounded P2.1 acceptance,
+NOT STARTED. Historical
+inventory/validation/commit receipts retain their original snapshot status.
+The T4.20 acceptance itself made no new commit; the separately authorized P2.1
+naming commit is recorded below. No push, production qualification or Task12
+reactivation is implied.
+
+P2.1 is DONE - ACCEPTED AND FROZEN within its documented bounded naming-only
+scope and exclusions at `2026-11-06T00:47:34.984Z`; conditions: None. Commit:
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`.
+Canonical runners/environment/diagnostics and compatibility aliases are in the
+[scenario guide](../../snp-migration-scenarios.md). Eight naming tests pass in
+both the working and isolated rename-only index snapshots; all four actual
+canonical/alias frozen-ELF regressions pass. Prerequisite implementation and
+acceptance changes remain uncommitted. Historical records/manifests are
+unchanged; no runtime/provider activation or P2.2 start is claimed. See
+[technical-note section35](../approval-decision-technical-note.md#35-p21-descriptive-migration-scenario-terminology).
+Explicit acceptance is recorded in
+[technical-note section36](../approval-decision-technical-note.md#36-p21-bounded-completion-acceptance).
+All exclusions remain unchanged. Historical validation/commit snapshots are
+preserved; no tests are rerun, new commit/push made or P2.2 execution authorized.
 
 Task 4 defines interfaces, provider composition, fail-closed selection,
 conformance implementations, and caller integration. It does not activate the

@@ -22,7 +22,7 @@ pub struct SnpMigPolicy {
 use crate::traits::PalError;
 
 /// Extracted SNP ATTESTATION_REPORT fields for policy evaluation.
-/// Pure data adapter — no TAV calls, no cert validation.
+/// Pure data adapter; parsing does not establish authentication or provenance.
 /// Phase 4 will wire this into the full policy evaluation consumer.
 #[derive(Debug, Clone)]
 pub struct PolicyEvaluationInfo {
@@ -31,7 +31,7 @@ pub struct PolicyEvaluationInfo {
     pub launch_digest: [u8; 48],
     pub current_tcb: u64,
     pub policy_bits: u64,
-    pub source_tag: &'static str, // "fixture" or "hardware"
+    pub source_tag: &'static str,
 }
 
 impl PolicyEvaluationInfo {
@@ -50,11 +50,7 @@ impl PolicyEvaluationInfo {
             chip_id: report[0x1A0..0x1E0]
                 .try_into()
                 .map_err(|_| PalError::InvalidInput)?,
-            source_tag: if cfg!(feature = "snp-emu") {
-                "fixture"
-            } else {
-                "hardware"
-            },
+            source_tag: "unverified",
         })
     }
 }
