@@ -87,7 +87,8 @@ snapshot. Fresh documentation/provenance checks do not relabel accepted T4.19
 runtime tests as new runs. The Phase1 interface-level gate is satisfied only
 within those bounds; P2.1 was separately authorized at
 `2026-11-06T00:34:35.144Z` and is recorded in the central execution log.
-P2.2 is IMPLEMENTED and validated, pending explicit user acceptance, under
+P2.2 is DONE - ACCEPTED AND FROZEN within its documented scope and exclusions at
+`2026-11-06T15:39:00.609Z`, following implementation under
 separate authorization at `2026-11-06T00:49:32.416Z`;
 the user subsequently authorized the separate accepted-prerequisite commit
 `5d6a4ad302d2c5b17a8a80d11286657559ad126d` for fresh-source validation. The
@@ -98,8 +99,13 @@ legacy compatibility workflow. The final external consumer commit is
 `efb0d48614d5a386a263058a9a8b1e3788a01ac3`; nested source was moved intact after
 actual old/new VM runs and explicit approval of the stale-assertion change.
 See [technical-note section37](../approval-decision-technical-note.md#37-p22-atomic-artifact-producer-and-bundle-consumer).
-No qualification, P2.2 acceptance, Phase2 closure or Task5 start is inferred. Historical
-inventory/validation/commit receipts retain their original snapshot status.
+Explicit bounded acceptance and Phase2 closure are recorded in
+[technical-note section38](../approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure).
+Harness/MigTD relocation commits are respectively
+`4a10dafd9125457616d09589f618cef1d3ff9e68` and
+`af17a246a2ec6117e0872b63e7d750e7dbe71165`. No broader qualification is
+granted and Task5 remains NOT STARTED pending separate authorization.
+Historical inventory/validation/commit receipts retain their original snapshot status.
 The T4.20 acceptance itself made no new commit; the separately authorized P2.1
 naming commit is recorded below. No push, production qualification or Task12
 reactivation is implied.

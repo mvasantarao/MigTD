@@ -2978,3 +2978,49 @@ Integrity hashes are not authenticity. No Task14, firmware/persistence,
 production/RNG/deployment/hardware/page-migration/resume qualification or PA
 advancement is claimed. Task12/purpose3 stays deferred; Task5 has not started.
 No push is made. P2.2 awaits explicit bounded acceptance.
+
+## 38. P2.2 bounded acceptance and Phase2 closure
+
+Status: **DONE - ACCEPTED AND FROZEN within the documented scope and exclusions**.
+Explicit acceptance was received at `2026-11-06T15:39:00.609Z`; conditions: None.
+The user requested:
+
+> I accept P2.2 as implemented and validated within its documented scope and exclusions.
+> Commit the remaining harness relocation changes in both repositories and record
+> P2.2 acceptance and Phase 2 closure. Do not push or start Task 5.
+
+Core implementation and fresh-source evidence remain recorded in section37:
+prerequisite commit `5d6a4ad302d2c5b17a8a80d11286657559ad126d`, tooling commit
+`8cd88edcf4eafa7ed8eb9ede7fec7777d61c51ce`, frozen-input/tested-source correction
+`bb1a2fccb2e42062378d4ef454718b6a1b5eadd5` and completion documentation
+`6fe345b3683d72a65068ff19671eed52f35ce6d3`.
+The remaining harness relocation is now persisted in:
+
+- Harness: `4a10dafd9125457616d09589f618cef1d3ff9e68`.
+- MigTD: `af17a246a2ec6117e0872b63e7d750e7dbe71165`.
+
+The independent private repository is `mvasantarao/snp-ma-vm-harness`.
+Its confirmed platform repositories and preserved/rebuilt binaries remain
+ignored local dependencies, not vendored source. Final relocation validation
+passed24 existing SNP controls,21 real-bundle methods and3 harness tests.
+Actual two-VM workflows passed with explicit relocated tools/ROMs, including
+relative runtime paths; all four processes exited0 and topology listeners were
+absent after cleanup. QEMU, OVMF and both kernel images rebuilt in separate
+outputs without replacing validated inputs. The local relocation receipt is
+`/home/murthy/repos/snp-ma-vm-harness/.local/relocation/receipt.json`.
+Acceptance recording itself does not relabel those prior checks as new runs.
+
+P2.1 was already accepted and committed as
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`. With P2.2's explicit bounded
+acceptance, committed implementation/relocation and this persistent record,
+**Phase2 is closed within its documented scope**.
+Earlier authorized IGVM requirements and the working-tree execution-order
+cleanup remain deliberately uncommitted, as separately requested; they are
+not implementation or qualification evidence.
+
+Classification remains **Build-validated/migration-unqualified**. Acceptance
+does not activate common V6/V2, qualify IGVM/ADO, production effects, randomness,
+hardware migration or resume, advance PA rows, or reactivate Task12.
+Historical evidence and section37 retain their original snapshot status.
+Task5 is next pending, **NOT STARTED**, requiring separate authorization.
+No push is authorized or performed.

@@ -179,7 +179,8 @@ qualification. No PA row advances. Explicit acceptance is recorded in
 [technical-note section36](snp/approval-decision-technical-note.md#36-p21-bounded-completion-acceptance).
 At P2.1 acceptance, P2.2 was READY for separate authorization, NOT STARTED.
 That acceptance reran no tests/builds and made no new commit or push.
-P2.2 is now IMPLEMENTED and validated, pending explicit user acceptance, under
+P2.2 is DONE - ACCEPTED AND FROZEN within its documented scope and exclusions at
+`2026-11-06T15:39:00.609Z`, following implementation under
 separate authorization at
 `2026-11-06T00:49:32.416Z`. The user subsequently authorized the separate accepted
 prerequisite baseline commit `5d6a4ad302d2c5b17a8a80d11286657559ad126d`;
@@ -194,8 +195,13 @@ bundle. Actual old/new VM parity and the explicitly approved obsolete assertion
 change do not grant migration qualification. Nested source was moved intact
 to its approved session archive. See
 [technical-note section37](snp/approval-decision-technical-note.md#37-p22-atomic-artifact-producer-and-bundle-consumer).
-No PA row, acceptance or Phase2 gate advances; Task5 has not started and
-historical validation/commit snapshots remain unchanged.
+Explicit bounded acceptance and Phase2 closure are recorded in
+[technical-note section38](snp/approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure).
+Remaining relocation changes are committed in the harness as
+`4a10dafd9125457616d09589f618cef1d3ff9e68` and MigTD as
+`af17a246a2ec6117e0872b63e7d750e7dbe71165`. No PA row or production
+qualification advances. Task5 remains NOT STARTED pending separate authorization;
+no push is authorized. Historical validation/commit snapshots remain unchanged.
 
 Statuses are `DESIGN_REQUIRED`, `EXTERNAL_DEPENDENCY`, `READY`, `IN_PROGRESS`,
 `IMPLEMENTED`, `QUALIFIED`, or `BLOCKED`. Implementation/model tests are not

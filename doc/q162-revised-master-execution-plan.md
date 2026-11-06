@@ -5742,7 +5742,8 @@ production qualification,P2.2 start,new commit or push is implied.
 
 ## P2.2 Make MigTD an atomic artifact producer
 
-Status: IMPLEMENTED AND VALIDATED; PENDING EXPLICIT USER ACCEPTANCE. Authorized at
+Status: DONE - ACCEPTED AND FROZEN within its documented scope and exclusions at
+`2026-11-06T15:39:00.609Z`; conditions: None. Authorized at
 `2026-11-06T00:49:32.416Z`, following bounded P2.1 acceptance. The user subsequently
 authorized a separate accepted-prerequisite commit
 `5d6a4ad302d2c5b17a8a80d11286657559ad126d` to enable fresh-HEAD validation.
@@ -5758,7 +5759,12 @@ completes the legacy compatibility workflow on both actual VMs. The final
 consumer commit is `efb0d48614d5a386a263058a9a8b1e3788a01ac3`.
 See technical-note section37 and
 `target/p2.2-artifact-production/20261106T004932Z/validation.json`.
-No P2.2 acceptance or Phase2 gate closure is inferred; Task5 has not started.
+Explicit bounded P2.2 acceptance and Phase2 closure are recorded in
+[technical-note section38](snp/approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure)
+and the central execution log. Harness relocation commit:
+`4a10dafd9125457616d09589f618cef1d3ff9e68`; MigTD relocation commit:
+`af17a246a2ec6117e0872b63e7d750e7dbe71165`. Task5 has not started and requires
+separate authorization; no push is authorized.
 The bounded T4.20 prerequisite remains accepted.
 
 Implementation and usage: [SNP bundle contract](snp-bundles.md). Current bundles
@@ -5933,6 +5939,14 @@ separately reviewable changes.
 ## Phase 2 gate
 
 Task 5 cannot begin until P2.1 and P2.2 are accepted and committed.
+
+Status: CLOSED within the documented Phase2 scope. P2.1 was accepted at
+`2026-11-06T00:47:34.984Z` and committed as
+`1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`. P2.2 was explicitly accepted at
+`2026-11-06T15:39:00.609Z`; its core implementation, evidence and remaining
+relocation changes are committed. This documentation commit persists the
+acceptance/closure record. Task5 remains NOT STARTED pending separate
+authorization. No production qualification, PA advancement or push is implied.
 
 ---
 
@@ -7694,7 +7708,7 @@ There is no old/new SPDM and no handoff secret in this sequence.
 | D-23 | Final build-mode matrix | SELECTED | TDX hardware/no_std; AzCVMEmu/std; SnpEmuAzure/std; SnpHardware/std |
 | D-24 | SNP report verifier | COMMON CONTRACT AND EMULATOR PROFILE FROZEN | AAS authenticates the Firmware ABI 1.59 base report; MigTD verifies the fixture supplement; production uses the same semantic contract and no TAV |
 | D-25 | SNP production/emulator isolation | CONTRACT FROZEN; IMPLEMENTATION AND PRODUCTION QUALIFICATION PENDING | T4.15-T4.20 enforce supplement/root rejection and no fallback; prove final production image hygiene in H5.7 |
-| D-26 | Atomic MigTD repository and bundle boundary | SELECTED; TO IMPLEMENT | P2.2 makes MigTD the artifact producer; VM harnesses consume versioned bundles and contain no nested MigTD source |
+| D-26 | Atomic MigTD repository and bundle boundary | IMPLEMENTED; ACCEPTED (BOUNDED) | P2.2 makes MigTD the artifact producer; VM harnesses consume versioned bundles and contain no nested MigTD source |
 | D-27 | Authorization profile staging and production-gap tracking | FIXED/ORDERED CONTRACTS AND REPOSITORY TRACKING ACCEPTED; PRODUCTION GATED | P0.9D fixes consumer boundaries; `P0.9E-ReadinessLedgerV1-2026-11-03` tracks PA-001 through PA-011 under @mvasantarao with stable ledger links; production qualification, external approval and publication remain open |
 | D-28 | Session-binding purpose preimages, recovery behavior, and wire registry | APPROVED AND FROZEN | Implement `P0.3-ReportDataContextV1-2026-11-01`; update the existing Task 3 codec and vectors without changing the 220-byte total size |
 | D-29 | Version 6 ETCB/MIGRATION_DATA conflict and emulator continuation | EMULATOR STRATEGY APPROVED AND FROZEN; PRODUCTION EXTERNAL DEPENDENCY | Implement `P0.12A-SnpEmulatorV1-2026-11-02`; H5.0 closes PA-009 with AMD clarification and accepted production AAS parser/adapter conformance; production fails closed until then |
