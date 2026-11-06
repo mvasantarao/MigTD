@@ -7,7 +7,7 @@ Date: 2026-11-04
 The user has now explicitly chosen source-generated random32 MSK,
 independent outgoing-generated random32 handoff secret, and SPDM-protected
 acceptance receipts **without application HMAC confirmations**. See
-[T4.14-PRE](task4/t4.14-pre-direct-random.md) and section13 below.
+[T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation) and section13 below.
 Earlier contribution/commitment/HKDF/HMAC explanations and approvals are
 preserved historical rationale, not current requirements. Section12's
 "no replacement approval" describes the earlier impact-review state, not the
@@ -18,12 +18,12 @@ remain current unless explicitly superseded.
 
 This note explains P0.5, P0.6, P0.7/P0.10, P0.8, P0.11, T4.10, T4.11 and T4.12.
 It is analysis, not a new approval, protocol amendment or runtime activation.
-The [canonical plan](../q162-revised-master-execution-plan.md) and its current
+The [canonical plan](master-execution-plan.md) and its current
 purpose-3 deferral remain authoritative.
 
 The original complete approval-form menus are not recoverable for every
 decision. The selected dispositions are preserved in the plan and
-[central record](../implementation_record.log). Unless explicitly identified
+[central record](implementation_record.log). Unless explicitly identified
 as recorded, the alternatives below are reconstructed engineering alternatives,
 not a claim that the user was originally offered those exact options.
 
@@ -81,10 +81,10 @@ central record; a rationale entry is not itself approval.
 
 ### Recorded choice and problem
 
-The [P0.5 contract](../q162-revised-master-execution-plan.md#p05-freeze-host-push-tenant-evidence-and-identity-lifecycle)
+The [P0.5 contract](master-execution-plan.md#p05-freeze-host-push-tenant-evidence-and-identity-lifecycle)
 selects host acquisition, inline report or SHA-384 cache reference, and no
 MA-pull acquisition. The
-[acceptance](../implementation_record.log:1351) is for shared contract
+[acceptance](implementation_record.log:1351) is for shared contract
 conformance, not a qualified host/kernel implementation.
 
 The MA needs the tenant's authenticated REPORT_ID and relevant claims, but a
@@ -150,7 +150,7 @@ This ownership split is the selected OHCL architecture, not an AMD-specified
 Linux API. The supplied OpenVMM checkout is userspace/OpenHCL source; its
 [guide](../../../openvmm/Guide/src/dev_guide/getting_started/build_ohcl_kernel.md)
 points to a separate kernel repository. An exact kernel patch is not yet
-established. [PA-008](../snp-production-readiness.md#pa-008) tracks that gap.
+established. [PA-008](snp-production-readiness.md#pa-008) tracks that gap.
 
 **Assessment:** BASE push is the best-supported acquisition fit under the
 chosen no-tenant-cooperation/no-MA-pull V1 scope. Cache references are useful
@@ -162,7 +162,7 @@ current firmware binding.
 
 ### Recorded choice and problem
 
-The [accepted P0.6 contract](../q162-revised-master-execution-plan.md#p06-freeze-zero-bound-tenant-report-operation-binding)
+The [accepted P0.6 contract](master-execution-plan.md#p06-freeze-zero-bound-tenant-report-operation-binding)
 explicitly does not require first-use freshness of the host report. Instead,
 fresh MA evidence binds the complete verified tenant evidence to the current
 operation, with trusted replay state and current firmware revalidation.
@@ -249,9 +249,9 @@ are still unqualified.
 
 ### Recorded choice and the actual TDX mismatch
 
-[P0.7](../q162-revised-master-execution-plan.md#p07-freeze-secret-contribution-key-establishment)
+[P0.7](master-execution-plan.md#p07-freeze-secret-contribution-key-establishment)
 selects contributions rather than application ECDH.
-[P0.10](../q162-revised-master-execution-plan.md#p010-produce-migration-cryptographic-golden-vectors)
+[P0.10](master-execution-plan.md#p010-produce-migration-cryptographic-golden-vectors)
 records a newly approved exact recipe because the original Task 2 formula and
 its acceptance were not recovered. That replacement authority must not be
 presented as an AMD recipe or recovered historical choice.
@@ -416,11 +416,11 @@ Section 8.3 provides **one secret slot per MA guest**, used in incoming or
 outgoing mode, accepting a 32-byte secret and allowing deletion. It is not a
 per-operation/per-tenant batch transaction interface.
 
-The [recorded lifecycle approval](../implementation_record.log:2775) selects
+The [recorded lifecycle approval](implementation_record.log:2775) selects
 serial rebinding, split ownership after partial success, retry only after
 authoritative unchanged-state appraisal, and no rollback/secret persistence/
 live-session resume. Authenticated 32-byte MA REPORT_IDs were separately
-[selected as HKDF operands](../implementation_record.log:2779).
+[selected as HKDF operands](implementation_record.log:2779).
 
 ### Subdecision A: local codecs
 
@@ -542,7 +542,7 @@ provider or logical test cannot qualify them.
 
 ### Recorded choice and options
 
-The [T4.10 approval](../implementation_record.log:3297) explicitly selects no
+The [T4.10 approval](implementation_record.log:3297) explicitly selects no
 active V1 platform-derived-key operation. This means no mandatory
 MSG_KEY_REQ call in this workflow, not "SNP has no keys" or "MSG_KEY_REQ is
 obsolete."
@@ -592,11 +592,11 @@ nor rules out that future need. Real MSK installation remains separate.
 
 ### Accepted scope and source of authority
 
-The [canonical T4.11 contract](../q162-revised-master-execution-plan.md#t411-migration-key-and-history-installer)
+The [canonical T4.11 contract](master-execution-plan.md#t411-migration-key-and-history-installer)
 was explicitly approved and its bounded implementation accepted on
 2026-11-04 at 16:35:15 UTC, conditions None. Completion identifier:
 `T4.11-TypedInstallerConformance-2026-11-04`.
-The [central acceptance](../implementation_record.log:3820) distinguishes
+The [central acceptance](implementation_record.log:3820) distinguishes
 that acceptance from runtime activation and hardware qualification.
 
 **[AMD]** ARG section 8.2 defines installation of a supplied 32-byte MSK,
@@ -769,7 +769,7 @@ OHCL/kernel support and hardware qualification remain open.
 The user explicitly approved the bounded A-E contract
 `T4.12-CorrelatedHostControlAndBindingV1` on 2026-11-04. The first form returned
 only "None"; that was not treated as approval. A follow-up boolean returned
-true. The [canonical contract](../q162-revised-master-execution-plan.md#t412-host-control-and-ma-binding-interfaces)
+true. The [canonical contract](master-execution-plan.md#t412-host-control-and-ma-binding-interfaces)
 contains exact framing, assignments and lifecycle rules. Approval of that
 contract is distinct from implementation acceptance and hardware qualification.
 The bounded implementation was separately accepted at 2026-11-04T17:41:29Z,
@@ -837,7 +837,7 @@ This added state is needed by the selected cross-restart semantics, not by an
 AMD-specified storage protocol. TDX does not supply a directly reusable SNP
 pre-proof tombstone service. The provider must qualify integrity, independent
 rollback anchoring, bounded retention, conflict checking and durable reservation
-under [PA-011](../snp-production-readiness.md#pa-011). No production store is
+under [PA-011](snp-production-readiness.md#pa-011). No production store is
 implemented here. Tests explicitly use trusted-interface doubles.
 
 **[DESIGN / SCOPE]** Before a verified P0.6 binding exists, cancellation records
@@ -910,7 +910,7 @@ Unavailable providers make missing support explicit. They are preferable to
 success-only stand-ins but do not implement authoritative emulator state or
 kernel firmware effects. Real APIs, transport behavior, status/effect mapping,
 buffer safety, cleanup and hardware tests remain
-[PA-007/PA-008 obligations](../snp-production-readiness.md#pa-007-t412-ohclbase-host-control-integration-actions).
+[PA-007/PA-008 obligations](snp-production-readiness.md#pa-007-t412-ohclbase-host-control-integration-actions).
 
 ## 10. T4.13: purpose-separated peer-channel boundary
 
@@ -997,7 +997,7 @@ does not attest cleanup or clear firmware slots. These lifecycle choices are
 conservative DESIGN/IMPLEMENTATION decisions, not AMD-specified Rust behavior.
 Real SPDM, routing/UAPI, local wire design, current policy composition,
 cancellation, erasure and restart evidence remain
-[PA-007 peer obligations](../snp-production-readiness.md#pa-007-t413-peer-channel-qualification-actions).
+[PA-007 peer obligations](snp-production-readiness.md#pa-007-t413-peer-channel-qualification-actions).
 Kernel changes cannot be specified honestly before actual API-gap inspection.
 
 <a id="10-consolidated-conclusion-and-evidence-that-could-change-it"></a>
@@ -1162,7 +1162,7 @@ fixture changes. It is not a claim that every file needs wholesale replacement.
 | [migration_install.rs](../../src/pal/src/snp/migration_install.rs:70), [binding_manager.rs](../../src/pal/src/snp/binding_manager.rs:120), [tenant_replay.rs](../../src/pal/src/tenant_replay.rs) | Core operand/effect/ownership interfaces reusable. Revalidate new authorization/session constructors, durable compatibility and no-repeat-effects behavior. |
 | [crypto_vectors.rs](../../src/pal/src/snp/crypto_vectors.rs), [p010_vectors.py](../../sh_script/test/p010_vectors.py), [vector corpus](../../src/pal/src/snp/test_data/p010_vectors.txt) | Preserve original deterministic evidence; produce a separately versioned corpus/reference for the selected replacement. Keep independent identity/policy/history/verification coverage, not just delete tests that mention contributions. |
 | [ma_policy_tests.rs](../../src/pal/src/snp/ma_policy_tests.rs), [ordered_collateral_tests.rs](../../src/pal/src/snp/ordered_collateral_tests.rs), [property_tests.rs](../../src/pal/src/snp/property_tests.rs), [golden_vectors.rs](../../src/pal/src/snp/golden_vectors.rs), [migration_install_tests.rs](../../src/pal/src/snp/migration_install_tests.rs), [peer tests](../../src/pal/src/snp/peer_channel/tests.rs), [host tests](../../src/pal/src/snp/host_control/tests.rs), [tenant-source tests](../../src/pal/src/snp/tenant_source/tests.rs), [control tests](../../src/pal/src/snp/control_exchange/tests.rs) | Adapt affected contexts/builders/vectors/admission assertions. Evidence/authorization record unit fixtures also need review in their own modules. Re-sign generated test evidence if signed bytes change; never edit a captured AMD report and call it authentic. |
-| [wire addendum](task4/p0.5-contribution-wire-addendum.md), [canonical plan](../q162-revised-master-execution-plan.md), [Task 4 architecture](task4/README.md), [production ledger](../snp-production-readiness.md), this note and [central log](../implementation_record.log) | Add an explicit supersession/mapping, update active consumers and future task gates, preserve earlier approval and validation history. No need to invent a new top-level milestone or renumber the37-entry sequence. |
+| [wire addendum (removed)](master-execution-plan.md#removed-task4-documentation), [canonical plan](master-execution-plan.md), [Task 4 architecture (removed)](master-execution-plan.md#removed-task4-documentation), [production ledger](snp-production-readiness.md), this note and [central log](implementation_record.log) | Add an explicit supersession/mapping, update active consumers and future task gates, preserve earlier approval and validation history. No need to invent a new top-level milestone or renumber the37-entry sequence. |
 
 The traced bilateral reference calculations are test-only
 ([test module](../../src/pal/src/snp/ma_policy.rs:858) and its nested
@@ -1251,7 +1251,7 @@ firmware success or attested persistence. Both role-specific firmware outcomes,
 policy, exact history, tenant/source-MA association, durable replay and
 partial/unknown-effect reconciliation remain necessary.
 
-The [replacement contract](task4/t4.14-pre-direct-random.md) specifies purpose6/7,
+The [replacement contract (removed)](master-execution-plan.md#removed-task4-documentation) specifies purpose6/7,
 commitment-free325-byte authorization,703-byte nonsecret session recipe,
 distinct0x30-0x35 scheduling and private channel-minted receipts. These are
 application choices, not AMD-required labels or a claim that TDX uses a single
@@ -1325,7 +1325,7 @@ serial MigTD SNP tests, relevant Clippy and the TDX SPDM/policy_v2 check pass.
 The standard gauntlet's format/check/CI-Clippy stages pass and it stops at
 advisories as required; its later firmware and TDX EMU matrices are not claimed
 as run. Separate rebuilt legacy regressions and their exact results are
-recorded in the [central log](../implementation_record.log), with evidence in
+recorded in the [central log](implementation_record.log), with evidence in
 `target/tav-rustcrypto-upgrade/20261104T222209Z/`.
 
 The selected verifier/trust profiles, evidence encodings, policy/history
@@ -1388,7 +1388,7 @@ The earlier sections' nine/eight-advisory results remain historical execution
 facts. The current checked graph contains no affected `rsa` package.
 The two unchanged baseline strict-Clippy errors and broader CI disposition
 remain separate from advisory remediation. Full feature/build/runtime results
-and preservation are appended to the [central log](../implementation_record.log);
+and preservation are appended to the [central log](implementation_record.log);
 evidence is under `target/remaining-advisories/20261104T223831Z/`.
 No direct-random protocol, firmware ABI, authorization, history or production
 qualification gate is changed by this dependency maintenance.
@@ -1430,7 +1430,7 @@ The crate's full test command also reports 27 failing copied I/O doctests
 All other sources matched the preceding validation manifest before this
 documentation append. Evidence is under
 `target/strict-clippy-lifetimes/20261104T232548Z/` and in the
-[central log](../implementation_record.log). This clears the two named
+[central log](implementation_record.log). This clears the two named
 mutex-guard diagnostics, not the overall strict-Clippy or full-CI gates.
 T4.14-PRE remains unaccepted; T4.14 is not started. No commit or push.
 
@@ -1494,7 +1494,7 @@ Copied I/O doctests remain failed historical evidence and were not repaired
 or claimed passed.
 
 Exact final build/runtime results and preservation are recorded in the
-[central log](../implementation_record.log), with evidence under
+[central log](implementation_record.log), with evidence under
 `target/workspace-strict-clippy/20261104T233000Z/`. The release/accept-all
 guard remains in force. No phase acceptance, T4.14 start, production/hardware
 qualification, commit or push is authorized by this lint maintenance.
@@ -1586,9 +1586,9 @@ At 2026-11-05T02:22:07.036Z the user explicitly stated:
 
 Disposition: DONE - ACCEPTED AND FROZEN.
 Freeze identifier: `T4.14-PRE-DirectRandomV2-2026-11-05`.
-The append-only [central acceptance record](../implementation_record.log)
+The append-only [central acceptance record](implementation_record.log)
 records the exact decision, bounded scope, evidence and exclusions.
-The [amendment](task4/t4.14-pre-direct-random.md), canonical plan and current
+The [amendment (removed)](master-execution-plan.md#removed-task4-documentation), canonical plan and current
 readiness index are reconciled; earlier pending/blocked records remain
 historical and are not rewritten.
 
@@ -1721,7 +1721,7 @@ readiness row is qualified. No GitHub-hosted CI/SARIF execution or excluded
 upstream SPDM/copied I/O doctest pass is claimed.
 
 The central ACCEPTANCE event is appended to
-[implementation_record.log](../implementation_record.log).
+[implementation_record.log](implementation_record.log).
 T4.15 explicit provider sets is READY for a separately authorized start;
 this acceptance does not start it. No broader phase acceptance, commit or push.
 
@@ -1876,7 +1876,7 @@ execution is claimed. The proposed kernel entropy-provenance checklist remains
 outside the accepted implementation mandate.
 
 The central ACCEPTANCE event is appended to
-[implementation_record.log](../implementation_record.log).
+[implementation_record.log](implementation_record.log).
 T4.16 feature selection is READY for a separately authorized start; this
 acceptance does not start it or accept a broader phase. Source and lockfiles
 are unchanged by this documentation-only recording. No commit or push.
@@ -2009,7 +2009,7 @@ GitHub-hosted CI/SARIF. Production startup remains intentionally fail-closed.
 No new kernel entropy-provenance prerequisite is introduced.
 
 The central ACCEPTANCE event is appended to
-[implementation_record.log](../implementation_record.log).
+[implementation_record.log](implementation_record.log).
 T4.17 is READY for separately authorized implementation and remains NOT STARTED.
 This acceptance does not start it or accept a broader phase. Recording changes
 documentation only; source, lockfile, prior technical-note sections and accepted
@@ -2101,7 +2101,7 @@ attestation or migration-qualification evidence.
 TDX supplies architectural software precedent for capability separation,
 provider ownership and fail-closed interfaces. It does not specify these SNP
 wire types, Rust features or AMD command semantics. The accepted
-[Firmware ABI 1.59 / ARG v1.20 addendum](task4/q162-arg-v120-command-addendum.md#current-p02-addendum-2026-11-02)
+[Firmware ABI 1.59 / ARG v1.20 addendum (removed)](master-execution-plan.md#removed-task4-documentation)
 remains the AMD authority for REPORT_ID/VMPL/REPORT_DATA, Venice history and
 firmware outcome handling. The removed `MSG_VERIFY_REPORT` is not restored.
 The V6 migration-data/ETCB overlap remains unresolved; controlled fixture
@@ -2187,7 +2187,7 @@ rerun the relevant T4.17-T4.19 gates. No physical layout is guessed and no new
 kernel entropy-provenance prerequisite is introduced.
 
 The central ACCEPTANCE event is appended to
-[implementation_record.log](../implementation_record.log).
+[implementation_record.log](implementation_record.log).
 T4.18 is READY for separately authorized implementation and remains NOT STARTED.
 This acceptance does not start it or approve a broader phase.
 Recording changes documentation only; source, lockfile, prior technical-note
@@ -2645,19 +2645,19 @@ not a reproducible committed implementation tree. No push is authorized.
 
 Deliverables:
 
-- [Audit and freeze record](task4/task4-freeze.md), including exact present
+- [Audit and freeze record (removed)](master-execution-plan.md#removed-task4-documentation), including exact present
   availability, accepted policy/profile authority and qualification exclusions.
-- [Consumer-readiness matrix](task4/consumer-readiness-matrix.md), covering
+- [Consumer-readiness matrix (removed)](master-execution-plan.md#removed-task4-documentation), covering
   AAS1A/AAS1A-M, every Task5-14, R4.1-R4.7, P2.1/P2.2 and H5.0-H5.7.
-- Four corrected [ownership](task4/rust-type-provider-diagram.md),
-  [composition](task4/provider-set-diagram.md),
-  [feature](task4/feature-selection-diagram.md) and
-  [sequence](task4/sequence-diagrams.md) diagrams.
-- [Freeze inventory](task4/freeze-inventory.json):470 audited non-document
+- Four corrected [ownership (removed)](master-execution-plan.md#removed-task4-documentation),
+  [composition (removed)](master-execution-plan.md#removed-task4-documentation),
+  [feature (removed)](master-execution-plan.md#removed-task4-documentation) and
+  [sequence (removed)](master-execution-plan.md#removed-task4-documentation) diagrams.
+- [Freeze inventory (removed)](master-execution-plan.md#removed-task4-documentation):470 audited non-document
   input hashes and submodule revisions, all57 accepted feature/API gate results,
   all three inherited deferred-verifier rows and separate
-  [emulator](task4/image-content/SnpEmuAzure.json) /
-  [production](task4/image-content/SnpHardware.json) accepted ELF manifests,
+  [emulator (removed)](master-execution-plan.md#removed-task4-documentation) /
+  [production (removed)](master-execution-plan.md#removed-task4-documentation) accepted ELF manifests,
   including complete resolved normal/build dependency inventories.
 
 The audit reconciles active stale V1 handoffs with the already accepted
@@ -2710,7 +2710,7 @@ The user explicitly stated:
 
 > I accept T4.20 within its documented bounded scope and exclusions.
 
-This accepts the [Task4 audit/freeze](task4/task4-freeze.md), corrected diagrams,
+This accepts the [Task4 audit/freeze (removed)](master-execution-plan.md#removed-task4-documentation), corrected diagrams,
 consumer-readiness/feature matrices, source-hash record and separate accepted
 ELF/dependency inventories within section33's exact bounds. The existing
 documentation-only freeze commit is
@@ -2768,7 +2768,7 @@ Implemented current names:
 | `InterNodeTwoProcessMigration` | `run_snp_inter_node_two_process_migration.sh`; existing WFR/controller and two-MA workflow |
 | `LocalMaHandoffTwoProcess` | Reserved Phase4 local old/new-MA workflow; no current executable runner to rename or activate |
 
-The [scenario guide](../snp-migration-scenarios.md) documents exact canonical
+The [scenario guide](snp-migration-scenarios.md) documents exact canonical
 environment variables, output/evidence names and aliases. The old script paths
 are thin executable delegates and old environment variables remain fallbacks;
 nonempty canonical values win. Positional arguments, role/start-mode flags,
@@ -2883,7 +2883,7 @@ require explicit kernel/QEMU/OVMF identities and expected hashes. Neither needs
 a VM-harness checkout or accepts arbitrary feature/composition overrides.
 Private staging is validated before atomic Linux no-clobber publication;
 failed construction cannot publish partial output or replace an existing root.
-The [bundle guide](../snp-bundles.md) records usage, ownership and limits.
+The [bundle guide](snp-bundles.md) records usage, ownership and limits.
 
 The external harness consumes the validated manifest and retains only VM
 topology/lifecycle, platform launch configuration, host orchestration and
@@ -3082,7 +3082,7 @@ still fail explicitly without fixture fallback.
 ### Preservation and executable validation
 
 Local evidence root:
-[`target/task5/20261106T190311Z/`](../../target/task5/20261106T190311Z/).
+[`target/task5/20261106T190311Z/`](../../target/task5/20261106T190311Z).
 The machine-readable [validation receipt](../../target/task5/20261106T190311Z/validation.json)
 records hashes, source identity, exact validation command references, failures,
 bundle identities, process cleanup and review disposition.
@@ -3205,3 +3205,30 @@ effects, advance PA rows, qualify IGVM/ADO/hardware/resume, activate local
 handoff or reactivate Task12. Phase3 remains open. Task6 is next pending,
 **NOT STARTED**, and requires separate authorization. No push is authorized
 or performed.
+
+## 41. SNP documentation consolidation
+
+On 2026-11-06, the user requested the following documentation-only changes
+and confirmed `doc/snp`, rather than `snp/doc`, as the bundle-guide destination:
+
+- The working master plan, including its previously uncommitted IGVM/order
+  amendments, is now [master-execution-plan.md](master-execution-plan.md).
+- The [bundle guide](snp-bundles.md), [emulator notes](snp-emu.md),
+  [migration scenarios](snp-migration-scenarios.md) and
+  [production-readiness ledger](snp-production-readiness.md) are alongside it.
+- The entire former `doc/snp/task4` directory was deleted, including its
+  15 documents/inventory files. No replacement archive was created.
+
+Relative navigation was rebased for the new locations. Links to the deleted
+Task4 documents are explicitly marked removed and lead to the
+[removal notice](master-execution-plan.md#removed-task4-documentation), which
+explains how to inspect the last committed copies in Git history at `280b8eb`.
+Historical execution-log entries and narrative snapshot paths retain their
+original meanings; link maintenance does not relabel old acceptance evidence.
+
+No runtime, ABI, provider, feature or qualification changes are made. Accepted
+contracts and remaining task obligations are not revoked by documentation
+removal. Task6 remains NOT STARTED; no implementation, commit or push is
+authorized by this reorganization. Local relocation/link/source-preservation
+checks are recorded in
+`target/snp-doc-relocation/20261106T215703Z/validation.json`.

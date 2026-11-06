@@ -292,7 +292,7 @@ bash sh_script/test/run_snp_inter_node_two_process_migration.sh \
 ```
 
 Run sequentially against the same frozen executables. For immutable VM inputs,
-use the [bundle producer](../doc/snp-bundles.md); the harness does not build
+use the [bundle producer](../doc/snp/snp-bundles.md); the harness does not build
 MigTD. SNP requires neither `MIGTD_POLICY_FILE` nor `MIGTD_ROOT_CA_FILE`.
 WFR and autostart use the same SNP host-request handler. Autostart is a testing
 trigger, not authorization; successful PID1 completion remains resident.

@@ -1,7 +1,7 @@
 ## AMD SEV-SNP Emulation (SnpEmu)
 
 **Command-contract update (2026-11-02; original correction 2026-10-24):** the
-[Q162 current Firmware ABI 1.59 / ARG v1.20 addendum](snp/task4/q162-arg-v120-command-addendum.md#current-p02-addendum-2026-11-02)
+[Q162 current Firmware ABI 1.59 / ARG v1.20 addendum (removed)](master-execution-plan.md#removed-task4-documentation)
 supersedes removed-command assumptions in older Venice/Technical Notes flows.
 `MSG_VERIFY_REPORT` is not a current hardware operation. The phase records
 below retain their historical context; current verification is software
@@ -41,13 +41,13 @@ remains downstream. No automatic emulator fallback is permitted.
 **Historical TAV dependency (2026-11-04; superseded by T4.16):** PAL and the emulator's test dependency
 use `tav-1.0.7` with `default-features = false` and `crypto_pure_rust`.
 TAV 1.0.8 removed that backend, so it is not a compatible replacement.
-The [local crypto patch](../deps/tav-crypto/README.md) retains that legacy
+The [local crypto patch](../../deps/tav-crypto/README.md) retains that legacy
 feature name but replaces RSA public signature verification with the existing
 patched ring, including native code/assembly. It is not strictly pure Rust.
 X.509/path policy and RustCrypto ECDSA remain unchanged; the affected `rsa`
 crate is removed rather than waived. The user explicitly approved this
 maintained patch. Its tests are included in `cargo xtask lib-test`.
-The [workspace lockfile](../Cargo.lock) selects `crypto-bigint 0.7.10`,
+The [workspace lockfile](../../Cargo.lock) selects `crypto-bigint 0.7.10`,
 `elliptic-curve 0.14.3`, `ecdsa 0.17.0`, and `p256`/`p384`/`p521 0.14.0`.
 The shared helpers are `subtle 2.6.1` and `hybrid-array 0.4.15`.
 Use `--locked` for reproducible builds: `pkcs1 0.8.0-rc.4` matches TAV

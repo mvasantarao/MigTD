@@ -56,7 +56,7 @@ environment-only interface and implicit external paths are retired.
 
 ## Frozen v1 contract and publication
 
-Both builders use [the same schema](../schemas/snp-ma-bundle-manifest-v1.json).
+Both builders use [the same schema](../../schemas/snp-ma-bundle-manifest-v1.json).
 They select exactly `--no-default-features --features SnpEmuAzure` or
 `--no-default-features --features SnpHardware`, respectively. Neither accepts
 extra features or a composition override. Compiler-wrapper/bootstrap overrides

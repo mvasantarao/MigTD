@@ -67,7 +67,7 @@ the accepted working implementation.
 independent authoritative firmware-state emulation. There is no current
 executable local-handoff runner to rename or claim as implemented.
 Inter-node source/destination conformance tests are not local handoff.
-The [frozen consumer matrix](snp/task4/consumer-readiness-matrix.md) retains
+The [frozen consumer matrix (removed)](master-execution-plan.md#removed-task4-documentation) retains
 the R4.1-R4.7 implementation and qualification obligations.
 
 ## Validation

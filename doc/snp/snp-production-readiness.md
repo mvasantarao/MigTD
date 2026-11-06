@@ -8,12 +8,12 @@ evidence and ownership remain maintained through dated log entries, not frozen
 against future updates. Publication and production qualification remain open.
 
 This is the P0.9E index required by the
-[canonical execution plan](q162-revised-master-execution-plan.md#p09e-production-readiness-tracking).
+[canonical execution plan](master-execution-plan.md#p09e-production-readiness-tracking).
 Execution and acceptance remain append-only in
 [implementation_record.log](implementation_record.log).
 
 Current secret requirements are superseded by
-[T4.14-PRE direct-random V2](snp/task4/t4.14-pre-direct-random.md).
+[T4.14-PRE direct-random V2 (removed)](master-execution-plan.md#removed-task4-documentation).
 Source random32 delivery/acceptance and independent outgoing random32 handoff
 replace contributions/HKDF/application HMAC, without relaxing any production
 qualification. Relevant amendment regressions and full local CI command parity
@@ -67,7 +67,7 @@ Common-claims policy coverage is the unchanged identity projection, not
 full common-claims admission or caller activation. The actual AAS Version 6
 adapter and composed-claims qualification remain AAS1A-M obligations.
 Evidence: `target/t4.17-interface-conformance/20261105T162233Z/`;
-the [coverage register](snp/approval-decision-technical-note.md#26-t417-interface-and-provider-conformance)
+the [coverage register](approval-decision-technical-note.md#26-t417-interface-and-provider-conformance)
 distinguishes real crypto, controlled interfaces and downstream qualification.
 The eight generated fixtures were restored byte-for-byte. No readiness row
 is qualified. The current T4.18 disposition is recorded below.
@@ -82,7 +82,7 @@ SDK/TPM tests and strict checks pass. The registered-library rerun uses
 `RUST_TEST_THREADS=1` because of pre-existing cross-module global logging
 interference; the parallel failure and existing ignored tests are retained,
 not waived or represented as passes. See
-[technical-note section 28](snp/approval-decision-technical-note.md#28-sdk-8774be3-update-and-regression).
+[technical-note section 28](approval-decision-technical-note.md#28-sdk-8774be3-update-and-regression).
 No readiness row or production adapter is qualified.
 
 ### T4.18 caller integration
@@ -110,10 +110,10 @@ All eight generated fixtures were restored, and prior accepted evidence,
 lockfile, frozen corpora and phase order remain unchanged.
 
 Evidence: `target/t4.18-caller-integration/20261105T182016Z/`;
-see [technical-note section 29](snp/approval-decision-technical-note.md#29-t418-caller-integration).
+see [technical-note section 29](approval-decision-technical-note.md#29-t418-caller-integration).
 No readiness row, hardware/RNG/deployment, AAS or hosted-CI qualification is
 claimed. Acceptance is recorded in
-[technical-note section 30](snp/approval-decision-technical-note.md#30-t418-bounded-completion-acceptance)
+[technical-note section 30](approval-decision-technical-note.md#30-t418-bounded-completion-acceptance)
 and the central log; existing exclusions remain unchanged.
 T4.19 was separately authorized; its current bounded disposition is below.
 No broader acceptance, commit or push.
@@ -138,21 +138,21 @@ contents; P2.2 still owns versioned/qualified bundles. The real public AMD ARK
 is not classified as a synthetic fixture root.
 
 Evidence: `target/t4.19-task4-regression/20261105T194540Z/`;
-see [technical-note section 31](snp/approval-decision-technical-note.md#31-t419-task-4-regression)
+see [technical-note section 31](approval-decision-technical-note.md#31-t419-task-4-regression)
 for exact coverage, tool controls, repaired attempts and deferred AAS1A-M tests.
 Existing serial-test, ignored-test and legacy lint limitations remain explicit.
 Eight generated fixtures were restored and prior accepted evidence is preserved.
 No readiness row, production transport/state/effect, hardware/RNG/deployment,
 full Task 3 or hosted-CI qualification is claimed. Bounded acceptance is recorded
-in [technical-note section 32](snp/approval-decision-technical-note.md#32-t419-bounded-completion-acceptance)
+in [technical-note section 32](approval-decision-technical-note.md#32-t419-bounded-completion-acceptance)
 and the central log; existing exclusions remain unchanged.
 T4.20 is DONE - ACCEPTED AND FROZEN within its documented bounded
 documentation-freeze scope and exclusions at `2026-11-06T00:32:02.025Z`;
 conditions: None. See the
-[bounded acceptance record](snp/approval-decision-technical-note.md#34-t420-bounded-completion-acceptance),
-[audit/freeze](snp/task4/task4-freeze.md),
-[consumer matrix](snp/task4/consumer-readiness-matrix.md) and
-[source/feature/dependency/image inventory](snp/task4/freeze-inventory.json).
+[bounded acceptance record](approval-decision-technical-note.md#34-t420-bounded-completion-acceptance),
+[audit/freeze (removed)](master-execution-plan.md#removed-task4-documentation),
+[consumer matrix (removed)](master-execution-plan.md#removed-task4-documentation) and
+[source/feature/dependency/image inventory (removed)](master-execution-plan.md#removed-task4-documentation).
 The user authorized a documentation-only commit, not an implementation commit
 or push. Exact audited worktree inputs are hash-identified; the documentation
 commit alone cannot reproduce them. Accepted T4.19 regression/ELF evidence is
@@ -171,12 +171,12 @@ scope and exclusions at `2026-11-06T00:47:34.984Z`; conditions: None.
 The separate commit is
 `1dbb3e6bf8e9f3666d9a5ead2dbb6e66b6d15481`; prior implementation and acceptance
 changes remain uncommitted. See the [scenario guide](snp-migration-scenarios.md)
-and [technical-note section35](snp/approval-decision-technical-note.md#35-p21-descriptive-migration-scenario-terminology).
+and [technical-note section35](approval-decision-technical-note.md#35-p21-descriptive-migration-scenario-terminology).
 Eight naming tests pass in each working/index snapshot and four sequential
 canonical/compatibility runs pass on the same accepted frozen ELF/controller
 (12 zero process exits). This is not common V6/V2 or local-handoff/production
 qualification. No PA row advances. Explicit acceptance is recorded in
-[technical-note section36](snp/approval-decision-technical-note.md#36-p21-bounded-completion-acceptance).
+[technical-note section36](approval-decision-technical-note.md#36-p21-bounded-completion-acceptance).
 At P2.1 acceptance, P2.2 was READY for separate authorization, NOT STARTED.
 That acceptance reran no tests/builds and made no new commit or push.
 P2.2 is DONE - ACCEPTED AND FROZEN within its documented scope and exclusions at
@@ -194,9 +194,9 @@ Both actual VMs also complete the legacy workflow using the fresh emulator
 bundle. Actual old/new VM parity and the explicitly approved obsolete assertion
 change do not grant migration qualification. Nested source was moved intact
 to its approved session archive. See
-[technical-note section37](snp/approval-decision-technical-note.md#37-p22-atomic-artifact-producer-and-bundle-consumer).
+[technical-note section37](approval-decision-technical-note.md#37-p22-atomic-artifact-producer-and-bundle-consumer).
 Explicit bounded acceptance and Phase2 closure are recorded in
-[technical-note section38](snp/approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure).
+[technical-note section38](approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure).
 Remaining relocation changes are committed in the harness as
 `4a10dafd9125457616d09589f618cef1d3ff9e68` and MigTD as
 `af17a246a2ec6117e0872b63e7d750e7dbe71165`. No PA row or production
@@ -207,9 +207,9 @@ This commit persists implementation and acceptance. SNP-owned legacy adapters pr
 successful captured-fixture compatibility without TDX platform behavior.
 Fresh bundles, canonical runners and actual two-VM compatibility pass; these
 remain migration-unqualified and do not activate common V6/V2 or production
-effects. See [technical-note section39](snp/approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending)
+effects. See [technical-note section39](approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending)
 and local `target/task5/20261106T190311Z/validation.json`. Explicit acceptance
-is recorded in [technical-note section40](snp/approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization);
+is recorded in [technical-note section40](approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization);
 acceptance itself reruns no runtime tests and grants no broader qualification.
 No push or Task6 start is authorized. Historical validation/commit snapshots
 remain unchanged.
@@ -384,7 +384,7 @@ pending.
 #### PA-007 T4.12 OHCL/BASE host-control integration actions
 
 Added 2026-11-04. These actions track production dependencies of
-[T4.12](q162-revised-master-execution-plan.md#t412-host-control-and-ma-binding-interfaces);
+[T4.12](master-execution-plan.md#t412-host-control-and-ma-binding-interfaces);
 they do not start or accept T4.12. The accountable tracking owner remains the
 PA-007 owner. BASE, OHCL kernel and OpenHCL/MigTD userspace authorities must
 approve their respective interfaces; named external contacts remain pending.
@@ -465,12 +465,12 @@ unchanged recovery identity and verified persisted state. Dependencies:
 Current-scope clarification, 2026-11-04: hardware effect/persistence
 qualification is distinct from the fresh inter-node purpose-3 attestation
 exchange. That exchange and its readiness gate remain
-[deferred by the canonical plan](q162-revised-master-execution-plan.md#current-scope-override-fresh-post-install-attestation-deferred);
+[deferred by the canonical plan](master-execution-plan.md#current-scope-override-fresh-post-install-attestation-deferred);
 the actions below do not reactivate it. Firmware completion is not a claim of
 independently attested persistence.
 
 T4.11 now supplies the bounded
-[`SnpMigrationKeyInstaller` interface](../src/pal/src/snp/migration_install.rs)
+[`SnpMigrationKeyInstaller` interface](../../src/pal/src/snp/migration_install.rs)
 with exact typed operands, correlated outcomes and an unavailable provider.
 Its recording/failure tests qualify logical boundary behavior only; they do
 not close PA-008, supply the hardware adapter or authorize a retry. The legacy
@@ -518,7 +518,7 @@ resolve the Firmware ABI 1.59 / ARG v1.20 Version 6 ETCB/MIGRATION_DATA overlap
 and valid-bit conflict. An authoritative document/erratum/selector/version and
 its acceptance link are still absent.
 
-Evidence: the [canonical blocker](q162-revised-master-execution-plan.md)
+Evidence: the [canonical blocker](master-execution-plan.md)
 remains open; fixture supplement contracts do not resolve physical layout.
 Still required: authoritative resolution, exact citations, independent
 production-profile parser vectors, accepted/pinned AAS parser/adapter and
@@ -579,13 +579,13 @@ external-provider, production and tracking gates; the selected repository
 tracker now supplies the tracking mechanism and accountable owner, not
 qualification or closure of any PA requirement above.
 
-[ma_policy.rs](../src/pal/src/snp/ma_policy.rs) implements the exact 280-byte
+[ma_policy.rs](../../src/pal/src/snp/ma_policy.rs) implements the exact 280-byte
 identity input and 320-byte allowlist, actual P-384/SHA-384 allowlist signature
 verification, operation-bound sealed approvals, current-platform comparison
 and atomic sequence-control flow. The fixed profile has no dummy SVN; ordered
 claims use a separate typed profile and signed contract.
 
-[ma_policy_tests.rs](../src/pal/src/snp/ma_policy_tests.rs) uses real generated
+[ma_policy_tests.rs](../../src/pal/src/snp/ma_policy_tests.rs) uses real generated
 P-384 signing keys, independently generated digest vectors and explicitly
 test-only report/schema/PKI/store adapters. These tests are contract/control-flow
 evidence, not acceptance evidence for the production requirements above.
@@ -598,18 +598,18 @@ verification entry point also rejects production authorization profiles.
 
 The user selected a custom versioned SNP collateral format and requested
 P0.9A2/B2/C2 contract implementation with fixture verification on 2026-11-03.
-The [inline contract](q162-revised-master-execution-plan.md#p09a2-orderedreleasev1-mapolicy-endorsement)
+The [inline contract](master-execution-plan.md#p09a2-orderedreleasev1-mapolicy-endorsement)
 replaces the open CoRIM-or-equivalent choice. This is not a requirement to
 convert to CoRIM later; changing formats would require an explicit versioned
 decision.
 
-[ordered_collateral.rs](../src/pal/src/snp/ordered_collateral.rs) implements
+[ordered_collateral.rs](../../src/pal/src/snp/ordered_collateral.rs) implements
 bounded canonical publisher snapshots, purpose-separated historical records,
 real P-384 signatures, immutable identity/SVN mapping, monotonic release status,
 sequence/epoch conflict rejection and current tenant/history-bound ordered
 admission. Fixed wire bytes and SNP-specific platform/report checks are retained.
 
-[ordered_collateral_tests.rs](../src/pal/src/snp/ordered_collateral_tests.rs)
+[ordered_collateral_tests.rs](../../src/pal/src/snp/ordered_collateral_tests.rs)
 uses separate explicitly pinned test-only release/historical keys and model
 trust/history/state providers. They do not qualify production PKI, root-update
 administration, durability or real hardware history.
@@ -625,7 +625,7 @@ not authorize a next milestone or live production admission.
 ### E-03
 
 **P0.9D consumer/provider contract evidence.** The
-[inline D handoff](q162-revised-master-execution-plan.md#p09d-freeze-gates-and-consumer-dependencies)
+[inline D handoff](master-execution-plan.md#p09d-freeze-gates-and-consumer-dependencies)
 was accepted at 2026-11-03T16:13:49Z as
 `P0.9D-ConsumerContractsV1-2026-11-03`, conditions: None.
 Three sealed-contract compile-fail doctests passed; fixed/ordered source hashes

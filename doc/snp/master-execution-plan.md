@@ -4,6 +4,26 @@ Status: Accepted canonical implementation plan; bounded Phase 0 provider gate re
 
 Last reconciled: 2026-11-05
 
+## Removed Task4 documentation
+
+On 2026-11-06, the user requested removal of the entire `doc/snp/task4`
+directory, including its frozen addenda, diagrams and inventory snapshots.
+Links marked **removed** now point to this notice rather than missing files.
+The last committed copies remain in Git history at
+`280b8eb69e25e6f66128994baee6bd06cb2dd608`; for example:
+
+```bash
+git show 280b8eb:doc/snp/task4/t4.14-pre-direct-random.md
+git show 280b8eb:doc/snp/task4/consumer-readiness-matrix.md
+git ls-tree -r --name-only 280b8eb -- doc/snp/task4
+```
+
+This is documentation removal, not revocation or reapproval of accepted
+contracts, completion of deferred obligations, or production qualification.
+The task identifiers, prerequisites and remaining Phase3-Phase5 work below
+remain in force. Historical execution-log entries retain their original paths
+and snapshot meanings; active navigation uses the reorganized SNP documents.
+
 ## Current-scope amendment: T4.14-PRE direct-random secrets
 
 Status: bounded V2 infrastructure implemented; relevant regressions and full
@@ -42,7 +62,7 @@ implementation was accepted at 2026-11-05T03:02:37.597Z.
 No runtime/production/hardware qualification is implied.
 
 Exact active contracts, historical disposition and implementation:
-[T4.14-PRE direct-random amendment](snp/task4/t4.14-pre-direct-random.md).
+[T4.14-PRE direct-random amendment (removed)](master-execution-plan.md#removed-task4-documentation).
 
 ## Current-scope override: fresh post-install attestation deferred
 
@@ -407,7 +427,7 @@ Status: DONE; APPROVED AND FROZEN on 2026-11-02
 Freeze identifier: `P0.2-CurrentAbi159Arg120-2026-11-02`.
 
 Deliverable:
-[current Firmware ABI 1.59 / ARG v1.20 addendum](snp/task4/q162-arg-v120-command-addendum.md#current-p02-addendum-2026-11-02).
+[current Firmware ABI 1.59 / ARG v1.20 addendum (removed)](master-execution-plan.md#removed-task4-documentation).
 Execution evidence: `doc/implementation_record.log`, Phase 0 / P0.2.
 The freeze is documentation-only; it does not implement firmware adapters,
 enable production parsing of conflicting fields, or close PA-009.
@@ -487,7 +507,7 @@ current ABI command/report addendum
 ## P0.3 Complete `REPORT_DATA` validation
 
 Active inter-node update: purposes6/7 and the nonsecret V2 binding/preimages
-are specified in [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md).
+are specified in [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation).
 The full64 REPORT_DATA rule and local purposes4/5 remain. Contribution-purpose
 and confirmation definitions below preserve historical V1 contracts only.
 
@@ -501,7 +521,7 @@ retained and no additional conditions. Implementation freeze:
 `P0.3-ContractConformance-2026-11-02`. Execution evidence is in
 `doc/implementation_record.log`, Phase 0 / P0.3. The original contract approval
 remains unchanged. See the
-[current Step 7 addendum](snp/task4/p0.3-step7-addendum.md#current-p03-conformance-addendum-2026-11-02).
+[current Step 7 addendum (removed)](master-execution-plan.md#removed-task4-documentation).
 
 Execution qualification boundary: current codec/binding-helper conformance and
 legacy-backend regressions do not qualify the future common `SnpReportVerifier`
@@ -962,7 +982,7 @@ Acceptance:
 
 ### P0.4 implementation and frozen vectors
 
-The [Venice codec and history helpers](../src/pal/src/snp/migration_data.rs)
+The [Venice codec and history helpers](../../src/pal/src/snp/migration_data.rs)
 encode TCB as `[FMC, TEE, SNP, zero[5]]` per Firmware ABI 1.59 section 2.3,
 Table 3. Milan/Genoa and Turin TCB layouts must not be used for Venice.
 ETCB component bytes are, in order:
@@ -977,7 +997,7 @@ projection into the 14-byte history slot. All component values are unsigned
 byte SVNs, not a single little-endian integer to compare. Mitigation vectors
 are little-endian u64 values combined by bitwise AND.
 
-The [tenant-policy descriptor](../src/pal/src/snp/tenant_policy_context.rs)
+The [tenant-policy descriptor](../../src/pal/src/snp/tenant_policy_context.rs)
 uses TCB profile `Venice = 0x03` with ETCB projection `VeniceV1 = 0x02`;
 mixed old/new profile pairs and envelope/descriptor TCB disagreements fail.
 Historical 16-byte descriptors retain their original allocations, but the
@@ -1153,7 +1173,7 @@ This is a digest/contract vector, not a signed Version 6 provider fixture.
 ## P0.6 Freeze zero-bound tenant-report operation binding
 
 Active supersession: use the325-byte V2 authorization and purposes6/7 in
-[T4.14-PRE](snp/task4/t4.14-pre-direct-random.md), not commitment fields or
+[T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation), not commitment fields or
 the421-byte V1 preimage. Tenant/source-MA association, both-role proof
 requirements and durable replay/current-state rules remain. The V1 acceptance
 and validation record below is historical, not replacement validation.
@@ -1249,7 +1269,7 @@ the later purpose-2 tenant record for initial identity verification.
 
 Exact byte layouts, bootstrap delivery, existing-opcode purpose-2 ordering and
 replay semantics are recorded in the current P0.6 section of the
-[Task 3 addendum](snp/task4/p0.5-contribution-wire-addendum.md#current-p06-host-push-authorization-and-replay-addendum-2026-11-02).
+[Task 3 addendum (removed)](master-execution-plan.md#removed-task4-documentation).
 The historical numbering in that file is not the current phase status.
 
 Implemented surfaces:
@@ -1309,7 +1329,7 @@ record and local evidence under `target/p0.6-validation/20261102T221846Z/`.
 ## P0.7 Freeze secret-contribution key establishment
 
 HISTORICAL V1 SECRET CONTRACT: superseded for active use by
-[T4.14-PRE](snp/task4/t4.14-pre-direct-random.md). The selected protocol uses
+[T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation). The selected protocol uses
 one source-generated random32 MSK and protected acceptance, with no bilateral
 contribution or commitment verifier. Historical implementation is test-only.
 The acceptance/results below remain true for their original bounded scope.
@@ -1414,7 +1434,7 @@ protocol, and no full repository CI or hardware qualification is claimed.
 ## P0.8 Freeze reciprocal confirmation and installation result
 
 HISTORICAL V1 CONFIRMATION CONTRACT: application HMAC confirmation is removed
-from the active protocol by [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md).
+from the active protocol by [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation).
 Protected acceptance is not key-possession proof; both correlated firmware
 outcomes remain mandatory. Fresh persisted-state purpose3 remains deferred.
 The V1 acceptance, codecs and state tests below remain historical only.
@@ -1594,7 +1614,7 @@ evaluation. Identity approval and release ranking are responsibilities within
 that model, not competing identity systems.
 
 The planned logical entity names follow the existing
-[TDX collateral types](../src/policy/src/v2/servtd_collateral.rs):
+[TDX collateral types](../../src/policy/src/v2/servtd_collateral.rs):
 
 | TDX entity | SNP entity | Responsibility |
 |---|---|---|
@@ -1604,19 +1624,19 @@ The planned logical entity names follow the existing
 | `VerifiedServtdCollateral` | `VerifiedMaPolicyCollateral` | Profile-specific verified result, consumed alongside signed policy |
 
 These are logical responsibilities, not a requirement for duplicate signed
-documents. [ma_policy.rs](../src/pal/src/snp/ma_policy.rs) defines a typed
+documents. [ma_policy.rs](../../src/pal/src/snp/ma_policy.rs) defines a typed
 `MaPolicyCollateral` bundle with fixed and ordered variants.
-[ordered_collateral.rs](../src/pal/src/snp/ordered_collateral.rs) implements
+[ordered_collateral.rs](../../src/pal/src/snp/ordered_collateral.rs) implements
 `MaPolicyTcbMapping` inside a signed publisher snapshot. The fixed adapter
 `MaPolicyIdentity` remains the allowlist authorization component;
 `MaPolicyIdentityInputV1` below remains the exact input used to compute the
 identity it authorizes. Naming the two responsibilities does not create two
 different MA/Policy fingerprints.
 
-As in [TDX VerifiedPolicy](../src/policy/src/v2/policy.rs), verify policy and
+As in [TDX VerifiedPolicy](../../src/policy/src/v2/policy.rs), verify policy and
 the required collateral signatures before evaluation, then retain verified
 policy/collateral for authentication as
-[MigTD policy initialization](../src/migtd/src/mig_policy.rs) does.
+[MigTD policy initialization](../../src/migtd/src/mig_policy.rs) does.
 Tasks 7 and 9 consume those verified results rather than host-supplied
 identity/approval metadata.
 
@@ -2187,8 +2207,8 @@ P0.9A2/B2/C2: P0.9-OrderedCollateralV1-2026-11-03
 
 #### Verified inputs, outputs and profile dispatch
 
-The API authority is [ma_policy.rs](../src/pal/src/snp/ma_policy.rs) and
-[ordered_collateral.rs](../src/pal/src/snp/ordered_collateral.rs).
+The API authority is [ma_policy.rs](../../src/pal/src/snp/ma_policy.rs) and
+[ordered_collateral.rs](../../src/pal/src/snp/ordered_collateral.rs).
 `MaPolicyCollateral` is a typed but unverified transport/container value.
 Decoded `FixedReleaseCollateralV1`, `MaReleaseEndorsementV1`,
 `InitialMaAuthorizationV1`, policy bytes, chains and host metadata are not
@@ -2435,7 +2455,7 @@ no firmware build or runtime regression; none is claimed. Evidence:
 
 HISTORICAL V1 CRYPTO RECIPE: bilateral commitments, HKDF and PRK-derived HMACs
 below are superseded, not active requirements. Preserve their original corpus
-and test-only references. [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md)
+and test-only references. [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation)
 defines the325/703-byte V2 nonsecret preimages and new independent
 `direct_random_v2.txt` corpus; no KDF or application confirmation key exists.
 
@@ -2723,14 +2743,14 @@ Vector acceptance was pending at validation; the user subsequently accepted
 and froze this bounded evidence at `2026-11-03T22:45:46Z`.
 Recipe approval or vector acceptance does not activate runtime cryptography.
 
-The independent [Python oracle](../sh_script/test/p010_vectors.py) regenerates
+The independent [Python oracle](../../sh_script/test/p010_vectors.py) regenerates
 137 exact named corpus entries. Default invocation checks the committed
-[public fixture corpus](../src/pal/src/snp/test_data/p010_vectors.txt) without
+[public fixture corpus](../../src/pal/src/snp/test_data/p010_vectors.txt) without
 changing it. Deterministic fixture certificates/signatures use Python
 `cryptography` with `ecdsa_deterministic`/`deterministic_signing` support
 (validated with 50.0.1); no dependency installation or production key was used.
 Public fixed fixture private scalars are explicitly TEST ONLY.
-The [Rust reference matrix](../src/pal/src/snp/crypto_vectors.rs) is included
+The [Rust reference matrix](../../src/pal/src/snp/crypto_vectors.rs) is included
 only inside `#[cfg(test)]` MA-policy tests, not in the live verifier path.
 
 ```bash
@@ -2792,7 +2812,7 @@ binary, live EMU scenario, full CI, hardware test, commit or push is claimed.
 
 ## P0.11 Freeze local handoff and recovery contracts
 
-Active recipe supersession: [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md)
+Active recipe supersession: [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation)
 replaces seed/HKDF generation below with direct independent outgoing random32.
 The32-byte operand, protected transfer, operation/slot lifecycle, cleanup,
 authority clarification and incoming-only recovery remain. Historical recipe
@@ -3017,16 +3037,16 @@ the token/attributes through TDX calls. Host orchestration is a separate plane.
 
 Direct reference surfaces:
 
-- [session.rs](../src/migtd/src/migration/session.rs), `parse_request`: bounded VMM
+- [session.rs](../../src/migtd/src/migration/session.rs), `parse_request`: bounded VMM
   `StartRebinding` decoding and dispatch, not coordinator identity verification.
-- [rebinding.rs](../src/migtd/src/migration/rebinding.rs), `start_rebinding`: initial-policy
+- [rebinding.rs](../../src/migtd/src/migration/rebinding.rs), `start_rebinding`: initial-policy
   binding checks where applicable, peer transport and old/new preparation.
-- [mig_policy.rs](../src/migtd/src/mig_policy.rs), `authenticate_rebinding_new` and
+- [mig_policy.rs](../../src/migtd/src/mig_policy.rs), `authenticate_rebinding_new` and
   `authenticate_rebinding_old`: authenticated peer policy/evidence appraisal.
-- [spdm_req.rs](../src/migtd/src/spdm/spdm_req.rs) and
-  [spdm_rsp.rs](../src/migtd/src/spdm/spdm_rsp.rs): rebind TDREPORT/TH1
+- [spdm_req.rs](../../src/migtd/src/spdm/spdm_req.rs) and
+  [spdm_rsp.rs](../../src/migtd/src/spdm/spdm_rsp.rs): rebind TDREPORT/TH1
   checks, token exchange and replacement token/attribute preparation.
-- [rebinding.rs](../src/migtd/src/migration/rebinding.rs), `approve_rebinding`: old MigTD's
+- [rebinding.rs](../../src/migtd/src/migration/rebinding.rs), `approve_rebinding`: old MigTD's
   binding-handle/target-TD/token approval; `create_rebind_token`: trusted random
   generation. The RA-TLS alternative retains peer authentication/token flow.
 
@@ -3366,7 +3386,7 @@ The common request also gains `GuestRequestedTenant` with independently
 supplied expected VMPL and all 64 expected REPORT_DATA bytes, for fixture/
 emulator verification only. The existing two request meanings and active
 host-zero V1 path are unchanged. Implementation:
-[snp_report.rs](../src/pal/src/snp_report.rs). Public requests borrow immutable
+[snp_report.rs](../../src/pal/src/snp_report.rs). Public requests borrow immutable
 evidence/collateral; this Rust ownership choice changes no wire format.
 The user explicitly approved both additions with no conditions before coding.
 Neither addition qualifies the AAS adapter or production parser.
@@ -3828,11 +3848,11 @@ host request / typed operation
 ```
 
 Concrete precedents are bounded request decoding in
-[parse_request](../src/migtd/src/migration/session.rs#L349), orchestration in
-[exchange_msk](../src/migtd/src/migration/session.rs#L1103) and
-[start_rebinding](../src/migtd/src/migration/rebinding.rs#L74), feature-selected
-[transport setup/shutdown](../src/migtd/src/migration/transport.rs#L9), and
-[request-correlated status](../src/migtd/src/migration/session.rs#L731).
+[parse_request](../../src/migtd/src/migration/session.rs#L349), orchestration in
+[exchange_msk](../../src/migtd/src/migration/session.rs#L1103) and
+[start_rebinding](../../src/migtd/src/migration/rebinding.rs#L74), feature-selected
+[transport setup/shutdown](../../src/migtd/src/migration/transport.rs#L9), and
+[request-correlated status](../../src/migtd/src/migration/session.rs#L731).
 These are functions and code-path boundaries, not an existing universal TDX
 provider-trait framework. SNP should make the equivalent seams explicit with
 the smallest useful typed provider APIs; do not introduce a generic plugin
@@ -3859,10 +3879,10 @@ controls. Uncovered authority needs an explicitly approved additional mechanism
 or denial; the TDX comparison does not remove an SNP provider check.
 
 TDX policy initialization verifies policy before exposing
-[VERIFIED_POLICY](../src/migtd/src/mig_policy.rs#L95). Rebind peer policy/report
+[VERIFIED_POLICY](../../src/migtd/src/mig_policy.rs#L95). Rebind peer policy/report
 appraisal precedes role-specific TH1 checks and failure tears down the SPDM
-session in the [requester](../src/migtd/src/spdm/spdm_req.rs#L1303) and
-[responder](../src/migtd/src/spdm/spdm_rsp.rs#L1198). Model SNP similarly:
+session in the [requester](../../src/migtd/src/spdm/spdm_req.rs#L1303) and
+[responder](../../src/migtd/src/spdm/spdm_rsp.rs#L1198). Model SNP similarly:
 raw delivery -> cryptographic receipt -> policy/operation admission ->
 authorized effect. Do not promote cached or decoded evidence straight to an
 installation capability.
@@ -3876,12 +3896,12 @@ freeze, or production qualification.
 
 Sources checked:
 
-- The accepted [P0.2 current ABI addendum](snp/task4/q162-arg-v120-command-addendum.md#current-p02-addendum-2026-11-02)
+- The accepted [P0.2 current ABI addendum (removed)](master-execution-plan.md#removed-task4-documentation)
   for Firmware ABI 1.59 and ARG ABI v1.20, and the accepted P0.3-P0.12A1
   contracts in this canonical plan. The original ABI PDFs are not reopened,
   copied or published by this reconciliation.
 - The user-specified local
-  [Technical Notes](<../../../Docs/AMD SEV SNP Venice Live Migration – Technical Notes.docx>):
+  [Technical Notes](<../../../../Docs/AMD SEV SNP Venice Live Migration – Technical Notes.docx>):
   introductory TDX/SNP comparison, networking and lifecycle discussion;
   Q132-Q168 implementation/evidence/key/policy workstreams; and Q169-Q183
   Venice, rebind, common-verifier, layout and authorization refinements.
@@ -4013,7 +4033,7 @@ BASE-pushed SNP tenant-report/supplement receipt required here.
 
 Model `TenantEvidenceSource` as consumption/validation of evidence already
 pushed by BASE, not an MA-triggered report-acquisition service. Reuse the
-[P0.5 request, identity and correlation types](../src/pal/src/tenant_identity.rs#L13).
+[P0.5 request, identity and correlation types](../../src/pal/src/tenant_identity.rs#L13).
 BASE retains report acquisition and managed-handle/GCTX mapping; the MA owns
 verification and an immutable operation-bound result. The hardware tenant
 source is not the local `/dev/sev-guest` MA-report acquisition provider.
@@ -4038,16 +4058,16 @@ requirement or blind use of an MA-specific verifier request. Unsupported
 production classifications fail closed.
 
 Preserve the stage boundary: evidence receipt/correlation precedes purpose-1
-MA proofs; the [authorization context](../src/pal/src/snp/tenant_authorization.rs#L110)
+MA proofs; the [authorization context](../../src/pal/src/snp/tenant_authorization.rs#L110)
 then supplies the verified replay binding for
-[reservation](../src/pal/src/tenant_replay.rs#L333). Purpose-2 proofs and
-[current-firmware validation](../src/pal/src/tenant_replay.rs#L356) precede
+[reservation](../../src/pal/src/tenant_replay.rs#L333). Purpose-2 proofs and
+[current-firmware validation](../../src/pal/src/tenant_replay.rs#L356) precede
 authorization. T4.9 defines this handoff, not a fabricated pre-proof
 authorization digest; T4.12/later runtime tasks own final scheduling.
 
 ### T4.10 model - a narrow platform key/secret seam
 
-TDX precedent: [read_msk](../src/migtd/src/migration/session.rs#L1292)
+TDX precedent: [read_msk](../../src/migtd/src/migration/session.rs#L1292)
 reads module-owned MIG_ENC_KEY through the binding handle and target TD UUID.
 SNP should similarly isolate platform-specific key/secret operations behind a
 typed provider, with explicit role/operation scope and unavailable outcomes.
@@ -4057,7 +4077,7 @@ KDF remains application-level SNP state, not an emulated TDX MIG_ENC_KEY read.
 
 ### T4.11 model - effects behind an installer boundary
 
-TDX precedent: [write_msk](../src/migtd/src/migration/session.rs#L1307)
+TDX precedent: [write_msk](../../src/migtd/src/migration/session.rs#L1307)
 writes the peer migration key through target-bound module operations.
 Model SNP installation as one typed request to the selected installer using
 the existing verified tenant, role, session, MSK32 and VeniceV1 history64.
@@ -4074,8 +4094,8 @@ installer returns failure.
 
 ### T4.12 model - one correlated control owner, separate binding effects
 
-TDX precedent: [typed host dispatch](../src/migtd/src/migration/session.rs#L349),
-[status reporting](../src/migtd/src/migration/session.rs#L731), and distinct
+TDX precedent: [typed host dispatch](../../src/migtd/src/migration/session.rs#L349),
+[status reporting](../../src/migtd/src/migration/session.rs#L731), and distinct
 migration/rebinding entry paths. Use one retained operation context for
 prepare/cancel/abort/query/status, not separate uncorrelated identities for
 delivery, peer exchange and installation. Request acceptance is not approval
@@ -4092,7 +4112,7 @@ Restart must recover authenticated metadata/outcomes or fail/abort; no empty
 journal, lost-secret reconstruction or replacement live SPDM session.
 
 For binding effects, TDX writes a rebind accept token/attributes and performs
-[target-bound approval](../src/migtd/src/migration/rebinding.rs#L439).
+[target-bound approval](../../src/migtd/src/migration/rebinding.rs#L439).
 SNP uses P0.11's binding manager, protected secret sink, authoritative current
 state and exact planned/recovery contracts instead. Do not substitute TDX
 tokens for the SNP operation-bound random32 secret or relax incoming-only recovery, effect-scope,
@@ -4102,7 +4122,7 @@ intent, not authoritative completion.
 
 ### T4.13 model - feature-selected transport, purpose-specific secure session
 
-TDX precedent: [transport alias/setup/close](../src/migtd/src/migration/transport.rs#L9),
+TDX precedent: [transport alias/setup/close](../../src/migtd/src/migration/transport.rs#L9),
 source/destination secure-channel exchange and separate migration/rebind paths.
 Define a narrow factory/session interface with explicit request correlation,
 roles, verified policy/session context, allowed messages, timeout and abort.
@@ -4112,14 +4132,14 @@ typed `InterNodeMigrationPeerSession`/`LocalMaHandoffPeerSession` isolation.
 Preserve those two SNP types and reject crossed messages. Transport selection
 does not establish trust; peer evidence binds to the actual current SPDM TH1.
 TDX migration quote and rebind TDREPORT helpers are distinct
-[evidence paths](../src/migtd/src/spdm/mod.rs#L302); SNP retains its own
+[evidence paths](../../src/migtd/src/spdm/mod.rs#L302); SNP retains its own
 frozen purpose/role/algorithm contexts and cannot reuse TDX offsets/labels.
 Only later runtime tasks activate the complete SNP VDM exchange.
 
 ### T4.14 model - standard primitives, operation-owned secret lifetime
 
-TDX precedent: [SystemRandom token generation](../src/migtd/src/migration/rebinding.rs#L475)
-and [ZeroizeOnDrop migration keys](../src/migtd/src/migration/data.rs#L206).
+TDX precedent: [SystemRandom token generation](../../src/migtd/src/migration/rebinding.rs#L475)
+and [ZeroizeOnDrop migration keys](../../src/migtd/src/migration/data.rs#L206).
 Use standard approved crypto/RNG services and narrow owned secret wrappers,
 not host-provided seeds or another configurable cryptographic recipe.
 
@@ -4134,8 +4154,8 @@ Deterministic randomness remains an explicitly isolated test provider.
 
 ### T4.15 model - explicit platform compositions, shared orchestration
 
-TDX precedent: the [Cargo feature graph](../src/migtd/Cargo.toml#L75) and
-distinct [bare-metal/AzCVMEmu entry points](../src/migtd/src/bin/migtd/main.rs#L5)
+TDX precedent: the [Cargo feature graph](../../src/migtd/Cargo.toml#L75) and
+distinct [bare-metal/AzCVMEmu entry points](../../src/migtd/src/bin/migtd/main.rs#L5)
 select platform/runtime capabilities. Model the four accepted compositions as
 selections of providers around shared orchestration, not four independent
 protocol implementations.
@@ -4194,8 +4214,8 @@ Do not require later verified runtime results to accept earlier interface tests.
 
 ### T4.19 model - preserve the reference paths and prove isolation
 
-TDX precedent: [firmware build variants](../.github/workflows/main.yml#L21) and
-[AzCVMEmu migration/rebind scenarios](../.github/workflows/integration-emu.yml#L24)
+TDX precedent: [firmware build variants](../../.github/workflows/main.yml#L21) and
+[AzCVMEmu migration/rebind scenarios](../../.github/workflows/integration-emu.yml#L24)
 exercise separate platform/protocol paths. Use those existing paths as
 regression references, alongside the specified SNP provider/compile tests.
 Code that affects shared boundary behavior must run relevant actual emulator
@@ -4306,9 +4326,9 @@ closed.
 ### Approved T4.9 implementation contract
 
 Implementation:
-[tenant_source.rs](../src/pal/src/snp/tenant_source.rs),
-[common verifier contract](../src/pal/src/snp_report.rs), and
-[interface tests](../src/pal/src/snp/tenant_source/tests.rs).
+[tenant_source.rs](../../src/pal/src/snp/tenant_source.rs),
+[common verifier contract](../../src/pal/src/snp_report.rs), and
+[interface tests](../../src/pal/src/snp/tenant_source/tests.rs).
 
 - `TenantEvidencePackage` owns already BASE-pushed base report, optional
   authenticated emulator supplement/signature and canonical collateral set.
@@ -4627,7 +4647,7 @@ remain open. Implementation acceptance is separate from contract approval.
 
 ## T4.12 Host control and MA binding interfaces
 
-Active amendment: [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md) replaces
+Active amendment: [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation) replaces
 the V1 HMAC sequence below with `InstallExchangeSequenceV2` and private
 protected-acceptance receipts. Host entry additionally checks the exact
 authorization digest/local role; correlated local and peer firmware effects,
@@ -4651,9 +4671,9 @@ deployment storage and hardware qualification remain downstream gates.
 ### T4.12 approved bounded implementation contract
 
 The additive implementation is in
-[`host_control`](../src/pal/src/snp/host_control.rs),
-[`control_exchange`](../src/pal/src/snp/control_exchange.rs) and
-[`binding_manager`](../src/pal/src/snp/binding_manager.rs).
+[`host_control`](../../src/pal/src/snp/host_control.rs),
+[`control_exchange`](../../src/pal/src/snp/control_exchange.rs) and
+[`binding_manager`](../../src/pal/src/snp/binding_manager.rs).
 Legacy TDX-shaped TCP/runtime behavior remains unchanged and is not an adapter
 to these contracts.
 
@@ -4836,7 +4856,7 @@ implementation maps managed handles to GCTX addresses and firmware commands.
 
 ## T4.13 Peer-channel boundary
 
-Active amendment: [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md) retains
+Active amendment: [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation) retains
 the purpose-separated owner/backend lifecycle but selects purposes6/7 and
 opcodes0x30-0x35; old0x26-0x2D are rejected. Only successful promoted peer
 I/O can mint `ProtectedInstallRecordV2`. The original acceptance below is
@@ -4880,7 +4900,7 @@ purpose. Messages from one session type are rejected in the other.
 
 ### Approved T4.13 bounded implementation
 
-The [PAL peer boundary](../src/pal/src/snp/peer_channel.rs) supplies:
+The [PAL peer boundary](../../src/pal/src/snp/peer_channel.rs) supplies:
 
 1. `PeerTransportFactory`/`PeerSession` trusted adapter contracts and
    `UnavailablePeerTransportFactoryV1`; there is no production connection,
@@ -4934,7 +4954,7 @@ deferred. No T4.14, commit or push is authorized.
 Production obligations are tracked under
 [PA-007 T4.13](snp-production-readiness.md#pa-007-t413-peer-channel-qualification-actions).
 TDX precedent and application-design choices are explained in the
-[technical note](snp/approval-decision-technical-note.md#10-t413-purpose-separated-peer-channel-boundary).
+[technical note](approval-decision-technical-note.md#10-t413-purpose-separated-peer-channel-boundary).
 
 ### T4.13 validation evidence
 
@@ -4988,7 +5008,7 @@ V2 context, once-only generation/retry authority, move-only/redacted owners,
 secure transfer and complete success/failure/uncertain-effect cleanup.
 
 Completion: `T4.14-RandomSecretServices-2026-11-05`.
-The shared [random service](../src/pal/src/random.rs) supplies `RandomSource`,
+The shared [random service](../../src/pal/src/random.rs) supplies `RandomSource`,
 explicit unavailable behavior and a ring `SystemRandomSource` under PAL's
 `system-random` capability. That capability alone does not enable SNP/TAV,
 OpenSSL or Azure attestation. `snp-emu` selects it without changing the
@@ -5121,7 +5141,7 @@ runtime fallback to any emulator provider.
 
 Bounded implementation:
 
-- [Composition contracts](../src/pal/src/composition.rs) describe all four
+- [Composition contracts](../../src/pal/src/composition.rs) describe all four
   platform/mode/provider-family selections without changing TDX entry points,
   transports or Cargo feature inheritance.
 - Sealed SNP composition types own private provider selections. The emulator
@@ -5394,17 +5414,17 @@ Rebuilt musl Stage A/B pass with the frozen historical host controller.
 The eight generated policy/chain fixtures were restored byte-for-byte.
 Evidence and the executed requirement register are preserved under
 `target/t4.17-interface-conformance/20261105T162233Z/`.
-See [technical-note section 26](snp/approval-decision-technical-note.md#26-t417-interface-and-provider-conformance)
+See [technical-note section 26](approval-decision-technical-note.md#26-t417-interface-and-provider-conformance)
 for test mappings and downstream obligations. Failed development attempts
 remain recorded. No production/AAS/layout/RNG/hardware or hosted-CI
 qualification is claimed. Bounded acceptance is recorded in
-[technical-note section 27](snp/approval-decision-technical-note.md#27-t417-bounded-completion-acceptance)
+[technical-note section 27](approval-decision-technical-note.md#27-t417-bounded-completion-acceptance)
 and the central log; see the current T4.18 disposition below.
 
 Post-acceptance maintenance at `2026-11-05T18:01:29.016Z` separately validated
 SDK/azure-tpm 0.2.0 at `8774be30f452060c56372d34ccbe34c3d3f3c577`,
 preserving the native backend and all other lockfile package records.
-The [maintenance record](snp/approval-decision-technical-note.md#28-sdk-8774be3-update-and-regression)
+The [maintenance record](approval-decision-technical-note.md#28-sdk-8774be3-update-and-regression)
 records the full rerun, serial library-test invocation and existing exclusions.
 Accepted T4.17 artifacts are immutable; this does not start T4.18.
 
@@ -5491,12 +5511,12 @@ the exact repository/CI formatter passes. Existing SNP legacy lint warnings and
 the serial registered-test limitation are not claimed fixed.
 
 Evidence: `target/t4.18-caller-integration/20261105T182016Z/`.
-See [technical-note section 29](snp/approval-decision-technical-note.md#29-t418-caller-integration)
+See [technical-note section 29](approval-decision-technical-note.md#29-t418-caller-integration)
 for the caller register, tests and exclusions. Earlier acceptance/evidence,
 the SDK pin/lockfile, both frozen corpora and the 37-step order are preserved.
 The eight regenerated Azure fixtures were restored byte-for-byte.
 Bounded acceptance is recorded in
-[technical-note section 30](snp/approval-decision-technical-note.md#30-t418-bounded-completion-acceptance)
+[technical-note section 30](approval-decision-technical-note.md#30-t418-bounded-completion-acceptance)
 and the central log. Existing exclusions and limitations remain unchanged.
 No full Task 3 exchange, AAS/layout/production qualification or broader
 acceptance is implied; the separately authorized T4.19 disposition is below.
@@ -5561,7 +5581,7 @@ Evidence: `target/t4.19-task4-regression/20261105T194540Z/validation-manifest.js
 Separate inventories: `image-inventories/SnpEmuAzure/manifest.json` and
 `image-inventories/SnpHardware/manifest.json` within that evidence directory.
 These are not P2.2 bundles or a versioned deployment schema.
-See [technical-note section 31](snp/approval-decision-technical-note.md#31-t419-task-4-regression)
+See [technical-note section 31](approval-decision-technical-note.md#31-t419-task-4-regression)
 for the coverage, retained failed attempts and deferred executable verifier
 obligations. Common AAS V6/layout and actual composed-claims tests remain
 deferred to AAS1A-M, not reported passed.
@@ -5571,7 +5591,7 @@ files, prior accepted evidence, lockfile, both frozen corpora, HEAD/submodules,
 37-step order and historical log/note prefixes are preserved.
 No full Task 3 activation, production/readiness-row or hardware/RNG/deployment/
 hosted-CI qualification is implied. Bounded acceptance is recorded in
-[technical-note section 32](snp/approval-decision-technical-note.md#32-t419-bounded-completion-acceptance)
+[technical-note section 32](approval-decision-technical-note.md#32-t419-bounded-completion-acceptance)
 and the central log. Existing exclusions and deferred obligations remain
 unchanged. T4.20 is READY for separate authorization, NOT STARTED.
 No broader acceptance, commit or push.
@@ -5613,10 +5633,10 @@ Status: DONE - ACCEPTED AND FROZEN within the documented bounded scope and
 exclusions at `2026-11-06T00:32:02.025Z`; conditions: None.
 Authorized at `2026-11-05T23:50:40.311Z`.
 Freeze identifier: `T4.20-Task4Freeze-2026-11-05`.
-The [audit/freeze record](snp/task4/task4-freeze.md),
-[consumer-readiness matrix](snp/task4/consumer-readiness-matrix.md),
-[feature matrix](snp/task4/feature-selection-diagram.md) and
-[source/evidence inventory](snp/task4/freeze-inventory.json) record the exact
+The [audit/freeze record (removed)](master-execution-plan.md#removed-task4-documentation),
+[consumer-readiness matrix (removed)](master-execution-plan.md#removed-task4-documentation),
+[feature matrix (removed)](master-execution-plan.md#removed-task4-documentation) and
+[source/evidence inventory (removed)](master-execution-plan.md#removed-task4-documentation) record the exact
 bounded disposition and separate emulator/production ELF manifests.
 All four Task4 diagrams now distinguish actual selected ownership and
 unavailable services from downstream runtime requirements. Active stale V1
@@ -5760,7 +5780,7 @@ consumer commit is `efb0d48614d5a386a263058a9a8b1e3788a01ac3`.
 See technical-note section37 and
 `target/p2.2-artifact-production/20261106T004932Z/validation.json`.
 Explicit bounded P2.2 acceptance and Phase2 closure are recorded in
-[technical-note section38](snp/approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure)
+[technical-note section38](approval-decision-technical-note.md#38-p22-bounded-acceptance-and-phase2-closure)
 and the central execution log. Harness relocation commit:
 `4a10dafd9125457616d09589f618cef1d3ff9e68`; MigTD relocation commit:
 `af17a246a2ec6117e0872b63e7d750e7dbe71165`. Task5 has not started and requires
@@ -6012,12 +6032,12 @@ TDX-attestation warnings; no TDX dependency cleanup or lint waiver is included.
 
 Central record: `implementation_record.log`. Detailed boundaries, failed
 attempts, commands, local evidence and review disposition are in
-[technical-note section39](snp/approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending).
+[technical-note section39](approval-decision-technical-note.md#39-task5-snp-tdx-separation-review-pending).
 Local receipt: `target/task5/20261106T190311Z/validation.json`.
 Legacy compatibility remains migration-unqualified: captured-v5 evidence,
 inert wire placeholders and mock effects are not common V6/V2 or final admitted
 key/effect activation. Explicit acceptance and commit authorization are recorded
-in [technical-note section40](snp/approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization).
+in [technical-note section40](approval-decision-technical-note.md#40-task5-bounded-acceptance-and-commit-authorization).
 Acceptance records no new runtime tests and grants no broader qualification,
 push, PA advancement, Task6 start or Task12 reactivation.
 
@@ -6407,7 +6427,7 @@ work through the P0.9D ordered handoff.
 
 Status: READY after Task 9 and P0.10
 
-Consume [T4.14-PRE](snp/task4/t4.14-pre-direct-random.md) and its independent V2
+Consume [T4.14-PRE (removed)](master-execution-plan.md#removed-task4-documentation) and its independent V2
 vectors. Enforce current encrypted SPDM, verified purpose6/7 evidence,
 policy/history, durable replay and current firmware before key generation or
 delivery. No commitment, bilateral contribution, KDF or HMAC provider exists.
@@ -6591,6 +6611,161 @@ manifest-driven two-VM harness with no nested MigTD checkout
 Phase 2 artifact/launch harness parity record and completed-protocol qualification
 corrupt, missing, mismatched, and unsupported manifest negative tests
 ```
+
+### Task 14 SNP IGVM packaging and actual-image tests
+
+Planning amendment (2026-11-06), based on Technical Notes Q71-Q73,
+Q122-Q123 and Q125-Q126: the deployable SNP image is an OHCL/Linux IGVM,
+not the bare-metal TDX IGVM and not a generic host OS disk image.
+These are additional acceptance requirements for this task, not completed
+implementation or a new numbered execution step. P2.2's direct kernel/initramfs
+VM runs are preserved as bundle/harness evidence, not relabeled IGVM tests.
+
+#### Image contents, runtime profile and ownership
+
+The image-build integration must combine:
+
+```text
+pinned OHCL guest kernel
+declared initramfs/root filesystem containing the exact tested SnpEmuAzure ELF
+required userspace, startup configuration and explicitly fixture-only material
+approved loader/boot components and SNP launch/layout metadata
+    -> versioned SNP IGVM artifact
+```
+
+QEMU is an external test VMM, not an assumed payload inside this IGVM.
+OVMF belongs to the current QEMU test arrangement; do not assume that it is
+required inside the final IGVM. Record whether the selected IGVM launch path
+uses OVMF, another loader, or direct loading. The host kernel/KVM/SNP setup
+is a separate execution-platform dependency from the OHCL guest kernel.
+
+Freeze the exact image/runtime profile before implementing its recipe:
+
+- identify standalone MA guest versus full Underhill service integration,
+  Linux target ABI, MA executable path, PID1/service startup and role selection;
+- for the minimal MA-as-PID1 profile, identify the MA ELF at `/init`; if a
+  launcher or service is required instead, declare it and the actual MA path;
+- record platform compatibility, loader entry point, guest memory/page layout,
+  vCPU/VMSA requirements and the applicable execution/isolation configuration;
+- reconcile the notes' older VTL1/VTL2 descriptions against the selected
+  platform contract; Hyper-V VTL and AMD VMPL are not interchangeable;
+- pin any required Underhill userspace/service registration rather than
+  treating an OHCL kernel checkout as the complete Underhill runtime.
+
+Inventory and reuse the appropriate existing SNP-capable OpenHCL/IGVM tooling
+before adding a generator. Existing TDX `cargo image --image-format igvm`
+support does not establish support for this Linux/SNP payload. Changing only a
+TDX platform identifier is not an accepted implementation.
+
+Assign explicit repositories/owners for the kernel/runtime recipe, IGVM
+producer, launch integration and CI evidence. MigTD retains ownership of its
+composition-specific MA bundle and validation. The image-build integration
+consumes that bundle through an explicit artifact contract; the VM harness
+consumes the resulting image and owns launch, topology, lifecycle and results.
+Neither integration may contain a nested MigTD source checkout or independently
+select/rebuild the MA's Cargo features.
+
+#### Exact artifact handoff and deployment manifest
+
+Use the Q122-Q123 artifact-reuse model:
+
+```text
+build selected MA bundle -> publish immutable artifact and manifest digest
+    -> test that exact MA ELF
+    -> image builder downloads and validates the same artifact
+    -> package without changing the MA ELF
+    -> verify embedded ELF identity
+    -> publish final IGVM, deployment manifest and expected measurements
+    -> harness downloads, validates and boots that exact IGVM
+```
+
+Packaging must not rebuild, relink, strip, patch, run `objcopy` on, replace or
+change the features of the tested ELF. Any changed ELF is a different payload
+and requires its own tests and identity. Emulator ELF results do not qualify a
+separately built `SnpHardware` ELF.
+
+Reuse the validated bundle initramfs unchanged when it satisfies the selected
+profile. If additional runtime/configuration requires a different initramfs,
+produce a separately identified deployment artifact from declared inputs and
+the unchanged tested ELF. Do not modify/reseal the original P2.2 bundle or
+weaken its exact minimal-rootfs validation. After packaging, inspect the actual
+IGVM payload, recover/inspect its initramfs and compare the embedded MA bytes
+and SHA-256 with the published tested ELF. Inspection of an unused staging
+copy alone does not establish the final image's contents.
+
+Define a strict, versioned IGVM deployment manifest referencing the validated
+`snp-ma-bundle-manifest-v1` digest. Record at least:
+
+```text
+composition, image/runtime profile and fixture/production classification
+MigTD source commit, MA bundle artifact/run identity and manifest digest
+tested and embedded MA ELF paths, sizes and SHA-256 values
+OHCL repository, exact commit, tracked patches/diff identity and configuration
+kernel build command, toolchain, relevant environment and resulting kernel hash
+Underhill/userspace, loader and other packaged input revisions/configurations
+initramfs/rootfs recipe, file inventory, permissions and resulting hashes
+IGVM builder repository/commit/version, invocation and platform directives
+final IGVM path, size, SHA-256 and applicable signing identity
+measurement tool/version, inputs, algorithm and expected launch measurements
+SBOM and parent artifact/provenance references
+supported launch-consumer version/configuration and declared platform inputs
+```
+
+Local directory names and branch names are not immutable source identities.
+A matching kernel binary hash does not by itself establish the source revision
+or build recipe that produced it. Declare dirty patches and nondeterministic
+build/signing inputs; reproducible-build claims require actual comparison.
+The IGVM file hash, embedded ELF hash and launch measurement are distinct
+values. Document measured versus unmeasured inputs and the trust chain; file
+containment or a checksum alone does not prove measurement or authenticity.
+
+Do not silently extend the frozen strict bundle-v1 schema with IGVM fields.
+Use the separately versioned deployment manifest or obtain an explicit
+versioned bundle-contract change. Preserve prior bundles, validators, hashes
+and qualification records unchanged.
+
+#### CI, boot and negative acceptance tests
+
+CI stages must exchange immutable artifacts, not local workspace paths. Record
+producer repository/commit, pipeline/run/artifact identity, bundle and IGVM
+digests, trusted validator/manifest version, harness commit and environment.
+Test stages must download the final published image; no payload rebuild or
+substitution is permitted during test or promotion.
+
+Select and verify a launch consumer that actually supports the selected SNP
+IGVM profile. Record its repository, revision, invocation, firmware/loader and
+platform prerequisites. If support is missing, report the named dependency
+and fail explicitly; raw `-kernel`/`-initrd` launch is not an IGVM fallback.
+No Venice production firmware or production-layout resolution is required
+merely to qualify the explicitly fixture-backed emulator profile.
+
+Required tests:
+
+1. Validate image structure, selected SNP platform/profile, deployment manifest,
+   all artifact hashes and embedded-MA equality before launch.
+2. Reject truncated/malformed images, unsupported platform/launch directives,
+   wrong composition, substituted kernel/initramfs/ELF, stale manifest and
+   invalid signing/trust metadata under the selected profile.
+3. Demonstrate that packaging cannot silently rebuild or transform the MA,
+   introduce a different Cargo feature set, or select an undeclared payload.
+4. Boot the final IGVM through its supported loading path, observe early boot
+   and the actual MA entry point, and verify PID1/service and role configuration.
+5. Run both source and destination roles from the approved composition image;
+   verify external WFR, correlated terminal status and the completed Tasks 7-13
+   AAS V6/V2 workflow. Legacy captured-v5 completion does not satisfy this test.
+6. Retain the relevant direct-boot and standalone regressions as separate
+   layers; neither substitutes for the actual-image boot/integration test.
+7. Exercise unavailable providers, invalid evidence, timeout/cancel, boot or
+   process failure and cleanup. Reject success-shaped fallbacks and verify
+   failed verification cannot authorize key delivery or installation.
+8. Retain serial/console and controller logs, boot/measurement evidence,
+   sanitized results, exit statuses and resource-cleanup evidence. Prove no
+   task-owned VM, listener or deployment resource leaks remain.
+
+Completion evidence must distinguish artifact validation, successful IGVM
+boot, emulator protocol qualification and unavailable production dependencies.
+None of these emulator results establishes production measurements, real
+PSP/ARG effects, production deployment readiness or H5.7 hardware qualification.
 
 Allowed conclusion:
 
@@ -7636,6 +7811,128 @@ prove the production harness consumes only the validated bundle and declared
     external platform inputs
 ```
 
+### H5.7 production SNP IGVM and ADO deployment qualification
+
+Apply the [Task 14 IGVM artifact and test contract](#task-14-snp-igvm-packaging-and-actual-image-tests)
+to a separately built and validated `SnpHardware` image, using approved
+production kernel/runtime, collateral/trust, transport and effect providers.
+Task 14's fixture-backed IGVM is not a production image and must not be
+promoted or relabeled as one. Existing TDX IGVM tooling and successful direct
+kernel/initramfs tests do not establish production SNP IGVM readiness.
+
+#### Production build inputs and immutable image supply chain
+
+Before qualification, identify and accept the actual production IGVM producer,
+launch consumer and deployment owners/repositories. Reuse inspected existing
+mechanisms; add only demonstrated missing integration. Record the approved
+MA-as-PID1 or Underhill service profile and its actual entry point, runtime
+ABI, execution/isolation configuration, launch layout and startup mechanism.
+Resolve differences in older technical notes through the approved platform
+contract, not an inferred VTL/VMPL equivalence.
+
+Pin and retain:
+
+```text
+SnpHardware source commit, explicit features, Cargo.lock and tested MA ELF
+OHCL kernel repository/commit, configuration, approved patches and build inputs
+Underhill/userspace and loader inputs where required by the selected profile
+initramfs/rootfs contents, startup, production configuration and trust material
+IGVM tool repository/commit, launch directives and platform compatibility
+build agents/toolchains, native-library closure and exact commands/environment
+signing/endorsement authority, measurement recipe and expected identities
+```
+
+Kernel source pinning and existing OHCL/BASE installation/host-control work
+remain owned by PA-007/PA-008 and H5.1/H5.3; packaging does not invent a new
+ioctl, close an integration dependency or resolve the PA-009 layout conflict.
+A locally available kernel checkout, matching `bzImage`, or working nested
+host is not automatically an approved production build input.
+
+The image-build stage consumes the tested production MA artifact without
+rebuilding or transforming it. Verify the ELF extracted/inspected from the
+final image equals that tested artifact. Record separately the final signed
+IGVM digest, source MA bundle digest, kernel/initramfs/rootfs hashes, SBOM,
+deployment-manifest version and measurement/endorsement identities.
+Include packaged production userspace/native dependencies in the inventory;
+P2.2's explicitly bounded native inventory is not proof of a hermetic closure.
+
+Define which IGVM pages, configuration, MA bytes and boot dependencies are
+measured or transitively authenticated. Calculate expected measurements using
+the pinned recipe and compare them with authenticated observations from the
+actual deployed launch. An IGVM checksum is not a SNP launch measurement,
+and containing the MA in an image does not alone authenticate its execution.
+Qualify the complete measured/endorsed boot chain and production policy
+approval; no fixture root, debug/test bypass or unmeasured alternate MA may
+satisfy this gate.
+
+#### ADO build, deployment and promotion contract
+
+Make the repository/pipeline relationship explicit:
+
+```text
+pinned kernel/runtime and MigTD builds
+    -> tested immutable SnpHardware bundle
+    -> production IGVM assembly, identity checks, measurement and signing
+    -> publish final IGVM + versioned deployment manifest + SBOM/provenance
+    -> deployment job downloads and authenticates exact approved artifacts
+    -> supported-host provisioning/configuration and actual IGVM launch
+    -> functional, hardware, reliability and performance qualification
+    -> approval-gated promotion of the same final bytes
+```
+
+Record ADO repository/resource references, pipeline/run/artifact IDs, artifact
+retention, authorized service connections and accountable approval owners.
+Do not depend on this VM's absolute paths or branch tips. The platform harness
+consumes the published image/manifest and records its own commit; it does not
+clone a nested MigTD tree or choose a replacement MA build.
+
+Provisioning must declare the supported hardware/VM configuration, host
+kernel/hypervisor, actual firmware/ARG versions, required device/transport
+interfaces, networking, permissions and runtime configuration. Verify those
+capabilities before launch; SKU labels and installed source trees are not
+hardware evidence. For an IGVMAgent/host-API launch, pin and test that actual
+integration. For a QEMU-based qualification layer, pin QEMU/OVMF and any
+external host dependencies separately; they are not assumed IGVM contents.
+
+Keep signing/deployment credentials outside source, images and logs. Promote
+the exact final signed image across development/canary/preproduction/production
+rings under explicit approvals. Do not rebuild, replace the payload or re-sign
+into different bytes while claiming to promote the already-qualified image.
+Retain previous approved artifacts and a tested rollback/reconciliation
+procedure. Rollback must not weaken current policy, revocation, MA identity
+or durable-state floors.
+
+#### Actual-image qualification and release evidence
+
+Run the required H5.7 hardware scenarios against the published production
+IGVM, not a separately booted kernel/initramfs or an independently rebuilt ELF:
+
+- verify manifest/signature/authenticity, final image identity, embedded MA
+  identity, launch measurements and approved deployment configuration;
+- boot both roles and verify actual MA startup, host-control/WFR, peer
+  transport, production AAS claims and correlated firmware outcomes;
+- execute the required real installation, handoff/recovery, composite-evidence
+  and relying-party allow/deny tests after their existing prerequisites;
+- reject image, kernel, initramfs, MA, configuration, trust or measurement
+  substitution; reject fixture/emulator material and unsupported launch
+  profiles before authorization or effects;
+- inject boot failure, MA crash/hang, PSP/BASE unavailability, timeout,
+  transport failure, restart and partial/unknown effects; preserve typed
+  failures, deadlines, zeroization and effects reconciliation;
+- qualify deployment cancellation, watchdog behavior, cleanup, rollback and
+  repeated deployment without leaked VMs, listeners, secrets or resources;
+- retain performance/resource/soak results and production diagnostics without
+  raw MSKs, private keys or other secrets.
+
+The release receipt must bind image/bundle digests, kernel/runtime/tool and
+MA commits, signing/measurement identities, actual hardware/firmware and host
+configuration, harness revision, ADO runs, test results, approval and rollback
+artifact references. Distinguish build success, image boot, deployment success,
+protocol success and each hardware/authorization qualification result.
+Neither packaging nor a successful boot advances a PA row by itself.
+Task12/purpose3 remains deferred; these image requirements do not restore
+fresh post-install attestation or change the accepted success/state contracts.
+
 Production and emulator bundle builders are separate. Neither builder may
 overwrite, relabel, or reuse the other composition's manifest or qualification
 record.
@@ -7800,73 +8097,51 @@ user acceptance
 
 # Exact Execution Order
 
+Remaining work only, in execution order. Completed and accepted steps are
+omitted from this day-to-day view; their scope, exclusions and evidence remain
+in the task sections above and the central execution log. Display numbers below
+are remaining-work positions, not changes to task identifiers or prerequisites.
+
 **Next pending step:** Task 6, NOT STARTED; separate authorization is required.
 Task5 is accepted within its documented separation scope at
 `2026-11-06T20:30:41.102Z`, with its implementation commit authorized.
 Phase3 remains open. No Task6 execution or push is authorized by this acceptance.
 
-Execute in this order:
-
-Current-scope exception: entry 25 is deferred, not a dependency for entry 26
-or later milestones. Its numbered slot is retained to preserve the canonical
-37-entry ordering and historical traceability. All other prerequisites remain.
-Within entry13, T4.14-PRE must complete and be accepted before T4.14 starts.
-Entry7/8 historical V1 freezes are superseded by that amendment, not redone as
-untracked steps. The numbered37-entry sequence is unchanged.
-
 ```text
-1.  P0.1  Baseline the active MigTD worktree.
-2.  P0.2  Freeze Firmware ABI 1.59 and ARG ABI v1.20 commands/reports.
-3.  P0.3  Complete 64-byte REPORT_DATA validation.
-4.  P0.4  Freeze VeniceV1 history and vectors.
-5.  P0.5  Freeze host-push tenant evidence and identity lifecycle.
-6.  P0.6  Freeze zero-bound additional binding and replay behavior.
-7.  P0.7  Freeze key establishment; historical V1 superseded by T4.14-PRE.
-8.  P0.8  Freeze acceptance/outcome contracts; V1 superseded by T4.14-PRE.
-9.  P0.9  Freeze MA/Policy identity, forward policy, and collateral binding.
-10. P0.11 Freeze local handoff/recovery contracts and policies.
-11. P0.12A/P0.12A1 Freeze the SNP report-verifier contract, owned leaf types,
-    AAS adapter boundary, and non-disruptive future TDX/common-TEE boundary.
-12. P0.10 Produce migration cryptographic golden vectors against all frozen
-    inputs, including handoff/recovery and the emulator supplement.
-13. T4.9-T4.20 Complete and freeze Task 4 provider architecture and interface
-    tests; record executable AAS conformance obligations for AAS1A-M.
-14. P2.1  Complete terminology and composition cleanup.
-15. P2.2  Make MigTD an atomic artifact producer and convert vm_enclave to a
-    bundle-only consumer; validate builds and harness parity without claiming
-    migration qualification.
-16. Task 5 Remove active TDX behavior from SNP.
-17. Task 6 Build Version 6 signed evidence fixtures.
-18. AAS1A Complete accepted AAS Version 6 local report verification.
-19. AAS1A-M Integrate the shared AAS verifier into SnpEmuAzure and
+1.  Task 6 Build Version 6 signed evidence fixtures.
+2.  AAS1A Complete accepted AAS Version 6 local report verification.
+3.  AAS1A-M Integrate the shared AAS verifier into SnpEmuAzure and
     SnpHardware; close deferred executable verifier-conformance obligations.
-20. Task 7 Verify host-pushed tenant identity before V2 session-bound MA
+4.  Task 7 Verify host-pushed tenant identity before V2 session-bound MA
     evidence, then activate MA evidence, policy, and collateral.
-21. Task 8 Correlate tenant-to-MA binding and exchange fresh purpose-0x07 MA
+5.  Task 8 Correlate tenant-to-MA binding and exchange fresh purpose-0x07 MA
     evidence before accepting tenant authorization.
-22. Task 9 Implement VeniceV1 Microsoft policy.
-23. Task 10 Generate/deliver one source random32 key and accept securely.
-24. Task 11 Install migration information.
-25. Task 12 DEFERRED: verify persisted post-install state; not a current gate.
-26. Task 13 Complete integration and failure testing.
-27. Task 14 Qualify the inter-node migration emulator.
-28. R4.1 Build the authoritative firmware binding-state emulator.
-29. R4.2 Build the two-local-Rust-process handoff model.
-30. R4.3 Implement planned handoff.
-31. R4.4 Complete handoff failure, retry, and crash tests.
-32. R4.5 Implement and test recovery mode.
-33. R4.6 Test active migration behavior during local handoff.
-34. R4.7 Qualify the local rebind emulator.
-35. H5.0-H5.5 Freeze production authorization contracts, resolve the AMD layout
+6.  Task 9 Implement VeniceV1 Microsoft policy.
+7.  Task 10 Generate/deliver one source random32 key and accept securely.
+8.  Task 11 Install migration information.
+9.  Task 13 Complete integration and failure testing.
+10. Task 14 Qualify the inter-node migration emulator, including SNP IGVM
+    packaging, exact embedded-MA identity and actual-image boot tests.
+11. R4.1 Build the authoritative firmware binding-state emulator.
+12. R4.2 Build the two-local-Rust-process handoff model.
+13. R4.3 Implement planned handoff.
+14. R4.4 Complete handoff failure, retry, and crash tests.
+15. R4.5 Implement and test recovery mode.
+16. R4.6 Test active migration behavior during local handoff.
+17. R4.7 Qualify the local rebind emulator.
+18. H5.0-H5.5 Freeze production authorization contracts, resolve the AMD layout
     blocker, complete and pin the production AAS parser/adapter, then complete
     BASE, collateral, installation, bounded replay, and rebind integration.
-36. P0.12B/AAS1B/H5.6 Complete production relying-party evidence and
+19. P0.12B/AAS1B/H5.6 Complete production relying-party evidence and
     composite AAS integration.
-37. H5.7 Perform production-image, hardware, and end-to-end qualification.
+20. H5.7 Qualify the production SNP IGVM, ADO deployment/promotion, hardware
+    and end-to-end behavior.
 ```
 
-Implementation may begin after this plan is accepted and P0.1 records the
-current worktree. Production replay-state qualification and real firmware
-rebind availability do not block the migration or local-rebind emulator
-milestones, but every production provider must fail closed until its Phase 5
-integration is complete.
+**Deferred, outside the active execution order:** Task 12, fresh post-install
+persisted-state verification. It requires separate reactivation and is not a
+prerequisite for Task 13 or later current-scope milestones.
+
+Production replay-state qualification and real firmware rebind availability
+do not block the migration or local-rebind emulator milestones. Every
+production provider must fail closed until its Phase 5 integration is complete.

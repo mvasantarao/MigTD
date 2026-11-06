@@ -5815,3 +5815,50 @@ Next:Task6 NOT STARTED;separate authorization required;Phase3 remains open.
 Exclude:push,new runtime/provider activation,common V6/V2/final-key admission,
   production effects,IGVM/ADO/hardware/resume qualification,local handoff,
   Task12 reactivation or broader phase closure.
+
+SNP documentation consolidation - USER REQUESTED
+Request UTC:2026-11-06T21:57:03.852Z.
+Confirmation:bundle guide destination is doc/snp;delete the entire task4
+  directory and contents,updating active references to explain removal.
+Moves:doc/q162-revised-master-execution-plan.md ->
+  doc/snp/master-execution-plan.md;doc/snp-bundles.md,doc/snp-emu.md,
+  doc/snp-migration-scenarios.md and doc/snp-production-readiness.md ->
+  same basenames under doc/snp.
+Removal:all15 files under former doc/snp/task4;no replacement archive created.
+Navigation:relative links rebased;deleted Task4 links marked removed and
+  directed to the master-plan removal notice with Git-history instructions.
+Preservation:working master-plan IGVM/order amendments retained;earlier
+  execution-log entries and narrative historical paths unchanged;non-document
+  source hashes and inherited submodule state preserved.
+Record:doc/snp/approval-decision-technical-note.md section41;
+  target/snp-doc-relocation/20261106T215703Z/validation.json.
+Scope:documentation only;no runtime/ABI/provider/feature/qualification change,
+  contract revocation,acceptance reapproval,Task6 start,commit or push.
+
+SNP log consolidation - USER REQUESTED
+Request UTC:2026-11-06T22:07:15.080Z.
+Moves:doc/implementation_record.log -> doc/snp/implementation_record.log;
+  snpemu_dest.log -> doc/snp/snpemu_dest.log.
+Canonical plan:doc/snp/master-execution-plan.md.
+Preservation:central historical prefix unchanged;destination fixture log
+  archived byte-for-byte;active Markdown links updated for the new locations.
+Git ignore:explicit exceptions retain both documentation logs while leaving
+  other generated runtime logs ignored. Existing runner output settings are
+  unchanged;moving the historical destination log does not redirect execution.
+Record:target/snp-doc-relocation/20261106T220715Z/validation.json.
+Scope:log/documentation organization only;no runtime/provider/qualification
+  changes,Task6 start,commit or push.
+
+SNP documentation/log reorganization - COMMIT AUTHORIZED
+User authorization UTC:2026-11-06T22:14:34.209Z.
+Request:commit all documentation/log reorganization since Task5 commit 280b8eb.
+Scope:move the master plan and four SNP guides into doc/snp;remove the entire
+  Task4 documentation directory;move both historical logs;update navigation
+  and narrow Git-ignore rules;retain the current IGVM/execution-order planning
+  amendments in the master plan.
+Excluded:ignored doc/snp/snp-ma-igvm.md,generated runtime outputs,and existing
+  dirty deps/linux-sgx and deps/td-shim submodule contents.
+Validation:documentation links and preserved log bytes checked;Git whitespace
+  and staged-scope checks required before commit. No runtime source changes.
+Boundary:local documentation commit only;no push,Task6 execution,upstream
+  integration,or advancement of production qualification.
