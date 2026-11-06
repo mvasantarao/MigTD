@@ -26,6 +26,9 @@ The SNP-specific preparation mode verifies the pinned, pre-patched ring
 checkout without resetting/cleaning it or reapplying patches. It does not run
 the legacy firmware preparation sequence. The builder repeats this check.
 Do not replace the patched ring with crates.io ring.
+The frozen, deterministic PUBLIC TEST ONLY P0.10 corpus is a tracked input to
+the image-isolation oracle; generating an ignored local corpus is not a build
+prerequisite. Its synthetic roots remain forbidden in production images.
 
 Supply **all** kernel, QEMU and OVMF paths, human-readable version/build
 identities and approved expected SHA-256 values explicitly. No home-directory,

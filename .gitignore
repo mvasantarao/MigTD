@@ -21,6 +21,7 @@ fat*.img
 test_data
 !src/pal/src/snp/test_data/
 src/pal/src/snp/test_data/*
+!src/pal/src/snp/test_data/p010_vectors.txt
 !src/pal/src/snp/test_data/direct_random_v2.txt
 !deps/tav-crypto/src/test_data/
 !deps/tav-crypto/src/test_data/*
