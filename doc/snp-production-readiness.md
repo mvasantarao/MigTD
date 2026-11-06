@@ -179,15 +179,23 @@ qualification. No PA row advances. Explicit acceptance is recorded in
 [technical-note section36](snp/approval-decision-technical-note.md#36-p21-bounded-completion-acceptance).
 At P2.1 acceptance, P2.2 was READY for separate authorization, NOT STARTED.
 That acceptance reran no tests/builds and made no new commit or push.
-P2.2 is now IN_PROGRESS under separate authorization at
+P2.2 is now IMPLEMENTED and validated, pending explicit user acceptance, under
+separate authorization at
 `2026-11-06T00:49:32.416Z`. The user subsequently authorized the separate accepted
 prerequisite baseline commit `5d6a4ad302d2c5b17a8a80d11286657559ad126d`;
 the external consumer conversion is `700e22aae1bcf09aff7d591cffc5ea6a39b4169c`.
-The [bundle contract](snp-bundles.md) is implemented, with final fresh-checkout
-validation pending. Actual old/new VM runs and the explicitly approved obsolete
-assertion change do not grant migration qualification. Nested source was moved
-intact to its approved session archive. No PA row, acceptance or Phase2 gate
-advances; historical validation/commit snapshots remain unchanged.
+The [bundle contract](snp-bundles.md) now passes both fresh-checkout builds,
+24 targeted unit tests and19 real-bundle controls at source commit
+`bb1a2fccb2e42062378d4ef454718b6a1b5eadd5`. The first fresh build exposed an
+ignored corpus dependency; the existing137-entry PUBLIC TEST ONLY P0.10 corpus
+was independently verified and tracked without changing its bytes.
+Both actual VMs also complete the legacy workflow using the fresh emulator
+bundle. Actual old/new VM parity and the explicitly approved obsolete assertion
+change do not grant migration qualification. Nested source was moved intact
+to its approved session archive. See
+[technical-note section37](snp/approval-decision-technical-note.md#37-p22-atomic-artifact-producer-and-bundle-consumer).
+No PA row, acceptance or Phase2 gate advances; Task5 has not started and
+historical validation/commit snapshots remain unchanged.
 
 Statuses are `DESIGN_REQUIRED`, `EXTERNAL_DEPENDENCY`, `READY`, `IN_PROGRESS`,
 `IMPLEMENTED`, `QUALIFIED`, or `BLOCKED`. Implementation/model tests are not

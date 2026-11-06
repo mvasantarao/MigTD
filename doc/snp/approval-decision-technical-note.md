@@ -2864,3 +2864,117 @@ historical snapshots; their acceptance-pending fields are superseded by this
 explicit record, not silently rewritten. No tests/builds are rerun, no fresh
 runtime result claimed and no new commit or push made. Exact checks and hashes
 are recorded in `recording-verification.json`.
+
+## 37. P2.2 atomic artifact producer and bundle consumer
+
+Status: **IMPLEMENTED AND VALIDATED; PENDING EXPLICIT USER ACCEPTANCE**.
+Authorization: `2026-11-06T00:49:32.416Z`, following bounded P2.1 acceptance.
+The user separately approved the prerequisite commit, consumer conversion,
+documented obsolete-assertion deviation and intact nested-source relocation.
+This record grants neither P2.2 acceptance nor Phase2 closure.
+
+### Ownership, contract and publication
+
+MigTD now owns the [v1 bundle schema](../../schemas/snp-ma-bundle-manifest-v1.json),
+fixed-composition builders, static musl MA/controller packaging, deterministic
+minimal initramfs, image rules, checksums, source/lock/AAS provenance,
+Rust/native inventory, CycloneDX SBOM and standalone validation. Both builders
+require explicit kernel/QEMU/OVMF identities and expected hashes. Neither needs
+a VM-harness checkout or accepts arbitrary feature/composition overrides.
+Private staging is validated before atomic Linux no-clobber publication;
+failed construction cannot publish partial output or replace an existing root.
+The [bundle guide](../snp-bundles.md) records usage, ownership and limits.
+
+The external harness consumes the validated manifest and retains only VM
+topology/lifecycle, platform launch configuration, host orchestration and
+results/log collection. It does not compile MigTD or select verifier/provider
+composition. The frozen MigTD-owned consumer contract rejects corrupt,
+unsupported and contradictory bundles before launch and retains failure
+records. The formerly active15 files have an explicit ownership disposition.
+Nested MigTD source was moved intact to the approved session archive; all413
+tracked hashes and the original Git objects remain preserved. No source/cache
+contents were deleted. No active nested MigTD gitlink/declaration remains.
+
+### Commits and genuine fresh-source proof
+
+- Separately authorized accepted prerequisites:
+  `5d6a4ad302d2c5b17a8a80d11286657559ad126d`. All523 pre-P2.2 baseline regular
+  file hashes were verified in its staged tree; P2.2 changes were excluded.
+- MigTD tooling:
+  `8cd88edcf4eafa7ed8eb9ede7fec7777d61c51ce`.
+- Frozen-input correction and exact fresh tested source:
+  `bb1a2fccb2e42062378d4ef454718b6a1b5eadd5`.
+- External consumer:
+  `700e22aae1bcf09aff7d591cffc5ea6a39b4169c`, followed by
+  `efb0d48614d5a386a263058a9a8b1e3788a01ac3`.
+
+A genuine fresh MigTD clone initialized declared submodules from their
+configured remote URLs and passed nondestructive SNP preparation. Its first
+emulator attempt exposed an undeclared generated input: the old image oracle
+read an ignored P0.10 corpus. That attempt failed without publication. The
+existing74107-byte **PUBLIC TEST ONLY** corpus passed its committed independent
+oracle:137 exact entries and cryptographic negatives. It is now tracked
+unchanged, with a specific ignore exception, rather than silently borrowed or
+regenerated from the original workspace. All five existing forbidden asset
+fingerprints and their frozen policy digest are unchanged.
+
+At the correction commit, both fresh-checkout compositions build and validate
+using only declared tooling, ordinary Cargo caches and explicit external
+artifact inputs. Final roots are `validated-emulator/` and
+`validated-production/` under the evidence directory. Each has a separate
+manifest, checksums, build/dependency/SBOM records and classification.
+The production-shaped MA actually exits2 with
+`HostControl(ProviderUnavailable)` and no emulator fallback.
+
+### Tests, actual VM parity and approved deviation
+
+- Fresh checkout:24 targeted unit tests pass (9 schema/archive/publication,
+  7 inherited inventory,8 runner compatibility).
+- Fresh real bundles:19 integration methods pass, including every artifact
+  corruption, all five resealed fixture/root injections, malformed JSON,
+  contradictory provider/schema/SBOM/provenance records, non-ELF controller,
+  composition-override attempts and consumer rejection/failure reporting.
+- ShellCheck passes for changed shell surfaces; `cargo fmt -- --check` passes.
+  No new Rust runtime logic changed. Full Rust/TDX CI is not rerun or relabeled;
+  the preceding accepted T4.19 evidence remains inherited.
+
+The preserved old harness and new consumer used the **same initial bundle**.
+Both booted both guests, returned both successful compatibility StartMigration
+ACKs and reached both PID1 resident-completion markers. The old harness then
+exited1 solely at its obsolete `MSG_VERIFY_REPORT` prerequisite; the new
+manifest-driven consumer exited0. The stale `MSG_KEY_REQ` expectation is also
+retired. The user explicitly approved this disclosed assertion deviation:
+final exit statuses are not claimed identical, and no common V6/V2 protocol
+was substituted or falsely treated as implemented.
+
+Additionally, the final **fresh-source emulator bundle** completed the actual
+two-VM compatibility workflow with the new consumer. Both controller ACKs and
+both guest completions were observed; all four owned processes exited0 at
+cleanup. No topology listeners or task-owned processes remain. This is a real
+VM run, not `--validate-only` or a mock successful migration.
+
+### Evidence, preservation and exclusions
+
+Evidence: `target/p2.2-artifact-production/20261106T004932Z/`.
+`commands.json` retains exact commands, environment overrides, times, exits and
+log hashes, including failed attempts. `parity.json` compares the initial
+old/new runs and approved deviation. `validation.json` identifies both final
+bundle manifests and the fresh VM result. `recording-verification.json` covers
+the untouched baseline, all1604 historical evidence files,413 relocated nested
+tracked files, exact37-step sequence and historical note/log prefixes.
+Initial draft bundles remain historical snapshots with their own embedded
+contract; final claims use the fresh validated bundles, not those drafts.
+Existing generated submodule changes/native outputs are preserved, not reset
+or included in the commits. A documentation-only completion commit follows
+the exact tested source without changing tooling, schema, runtime sources or
+declared external inputs. Bundle provenance retains the exact tested commit.
+
+Classification remains **Build-validated/migration-unqualified**. The common
+V6 verifiers, live TH1/V2 path, local handoff and unavailable production
+effects remain excluded. System randomness is selected, not qualified.
+The native inventory is explicitly not a hermetic compiler/CRT/system closure;
+external kernel/QEMU/OVMF hashes identify rather than requalify those inputs.
+Integrity hashes are not authenticity. No Task14, firmware/persistence,
+production/RNG/deployment/hardware/page-migration/resume qualification or PA
+advancement is claimed. Task12/purpose3 stays deferred; Task5 has not started.
+No push is made. P2.2 awaits explicit bounded acceptance.

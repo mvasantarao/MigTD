@@ -5742,15 +5742,24 @@ production qualification,P2.2 start,new commit or push is implied.
 
 ## P2.2 Make MigTD an atomic artifact producer
 
-Status: IMPLEMENTED; final fresh-checkout validation IN PROGRESS. Authorized at
+Status: IMPLEMENTED AND VALIDATED; PENDING EXPLICIT USER ACCEPTANCE. Authorized at
 `2026-11-06T00:49:32.416Z`, following bounded P2.1 acceptance. The user subsequently
 authorized a separate accepted-prerequisite commit
 `5d6a4ad302d2c5b17a8a80d11286657559ad126d` to enable fresh-HEAD validation.
 The separately reviewable external bundle-consumer conversion is committed as
 `700e22aae1bcf09aff7d591cffc5ea6a39b4169c`. After actual old/new VM runs, the user
 approved the documented stale-assertion deviation and moving nested source
-intact to the session archive. No P2.2 acceptance or Phase2 gate closure is
-inferred. The bounded T4.20 prerequisite remains accepted.
+intact to the session archive. Tooling commit
+`8cd88edcf4eafa7ed8eb9ede7fec7777d61c51ce` and frozen-input correction
+`bb1a2fccb2e42062378d4ef454718b6a1b5eadd5` now reproduce both bundles from a
+fresh checkout with remotely initialized declared submodules. All24 targeted
+unit and19 real-bundle tests pass there; the fresh emulator bundle also
+completes the legacy compatibility workflow on both actual VMs. The final
+consumer commit is `efb0d48614d5a386a263058a9a8b1e3788a01ac3`.
+See technical-note section37 and
+`target/p2.2-artifact-production/20261106T004932Z/validation.json`.
+No P2.2 acceptance or Phase2 gate closure is inferred; Task5 has not started.
+The bounded T4.20 prerequisite remains accepted.
 
 Implementation and usage: [SNP bundle contract](snp-bundles.md). Current bundles
 are build-validated/migration-unqualified; common V6/V2 activation and Task14

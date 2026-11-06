@@ -5562,3 +5562,43 @@ Old harness then exited1 solely at obsolete MSG_VERIFY_REPORT prerequisite;
   not hidden as identical final exit codes or common V6/V2 qualification.
 All four new run processes exited0 after cleanup;no topology listeners remain.
 Final fresh-checkout builds and completion recording remain pending.
+
+P2.2 completion - IMPLEMENTED AND VALIDATED; EXPLICIT ACCEPTANCE PENDING
+Authorization:2026-11-06T00:49:32.416Z;user request:"Implement P2.2".
+Prerequisite commit:5d6a4ad302d2c5b17a8a80d11286657559ad126d.
+MigTD tooling commit:8cd88edcf4eafa7ed8eb9ede7fec7777d61c51ce.
+Frozen-input correction/tested source:
+  bb1a2fccb2e42062378d4ef454718b6a1b5eadd5.
+External consumer commits:700e22aae1bcf09aff7d591cffc5ea6a39b4169c
+  and efb0d48614d5a386a263058a9a8b1e3788a01ac3.
+Implemented:strict shared v1 schema,explicit inputs,static musl MA/controller,
+  deterministic minimal initramfs,source/lock/AAS/dependency/SBOM provenance,
+  provider/availability classification,image isolation,atomic no-clobber
+  publication,standalone validation,and bundle-only VM lifecycle consumer.
+Fresh checkout:declared submodules initialized from their remote URLs;
+  nondestructive SNP preparation and both composition builds passed using
+  declared toolchain,Cargo cache and explicit kernel/QEMU/OVMF identities.
+The first fresh build failed without publishing output:an ignored P0.10 corpus
+  was required by the image oracle. The existing74107-byte PUBLIC TEST ONLY
+  corpus passed its independent137-entry deterministic/negative oracle and
+  is now tracked unchanged. No borrowed workspace fixture or new crypto input.
+Fresh controls:24 unit tests and19 real-bundle methods pass,including all
+  artifact corruptions,all five synthetic/captured asset injections,manifest/
+  provider/schema/SBOM tampering and prelaunch consumer failure reporting.
+Fresh emulator bundle:both actual VMs complete the legacy compatibility
+  workflow,both controllers receive successful StartMigration ACKs,both guests
+  reach resident completion,and all four task-owned processes exit0 at cleanup.
+Production-shaped bundle:actual exit2,HostControl(ProviderUnavailable);
+  no emulator fallback. This is expected fail-closed behavior,not qualification.
+ShellCheck and cargo fmt pass;full Rust/TDX CI and accepted T4.19 evidence are
+  inherited,not rerun or relabeled. No new Rust runtime implementation change.
+Evidence:target/p2.2-artifact-production/20261106T004932Z/validation.json,
+  parity.json,recording-verification.json,commands.json and preserved logs.
+All37 canonical steps,historical note/log prefixes,accepted evidence and
+  archived nested tracked source remain preserved. Existing native build
+  outputs and generated submodule changes are not reset,cleaned or committed.
+Limits:Build-validated/migration-unqualified only;native inventory is not a
+  hermetic CRT/system closure;external inputs are identified,not requalified.
+No common V6/V2 activation,local handoff,production/RNG/effect/page-migration
+  qualification,PA advancement,Task12 reactivation,Task5 start or push.
+P2.2 awaits explicit bounded acceptance;Phase2 remains open until then.
