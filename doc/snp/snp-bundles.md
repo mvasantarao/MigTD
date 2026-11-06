@@ -96,6 +96,10 @@ replace it merely by recomputing its manifest hashes.
 
 ## Consumers and qualification limits
 
+For current standalone autostart, WFR/controller and two-VM PID1 commands, use
+the [SNP MA execution guide](snp-emu.md#current-execution-guide) and
+[canonical scenario runners](snp-migration-scenarios.md).
+
 The independent VM/platform consumer is
 `git@github.com:mvasantarao/snp-ma-vm-harness.git`, locally checked out at
 `/home/murthy/repos/snp-ma-vm-harness`. It owns platform build instructions and
@@ -174,9 +178,15 @@ Neither build success nor matching failures grants migration qualification.
 
 ## Tests and transition ownership
 
+Shared fixture-fingerprint, dependency and ELF-isolation rules live in
+[image_content.py](../../tools/snp/image_content.py), with
+[image-content controls](../../tests/snp/feature-matrix/test_image_content.py)
+discovered alongside the contract vectors. The former provisional Task 4
+inventory command is retired; use the bundle builders above for current
+artifact construction, inventory and validation.
+
 ```bash
 python3 -m unittest discover -s tests/snp/feature-matrix -v
-python3 -m unittest discover -s sh_script/test -p test_snp_task4_inventory.py -v
 python3 tests/snp/integration/test_bundles.py \
   --emulator /declared/emulator --production /declared/production \
   --consumer /declared/consumer \

@@ -2,8 +2,12 @@
 
 The canonical names are `SingleProcessMigration`,
 `InterNodeTwoProcessMigration`, and `LocalMaHandoffTwoProcess`.
-These names replace historical Stage A/B and ambiguous local old/new labels
+These names replace earlier scenario and ambiguous local old/new labels
 without changing migration behavior, process arguments, protocol or trust.
+
+For preparation, standalone execution and the two-VM PID1/WFR mechanism, start
+with the [current SNP MA execution guide](snp-emu.md#current-execution-guide).
+The names identify scenarios/runners, not different MA executables.
 
 ## Current captured-fixture compatibility runners
 
@@ -44,22 +48,21 @@ Explicit evidence paths and manifest field names are unchanged.
 | `MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_PEER_ADDRESS` | `127.0.0.1:19503` |
 | `MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_TIMEOUT_SECONDS` | `90` |
 
-### Compatibility and historical records
+### Historical records and compatibility
 
-The old `run_snp_unified_stage_a.sh` and `run_snp_unified_stage_b.sh` paths are
-thin executable aliases to the canonical runners. They forward all arguments
-and exit status; output uses the canonical scenario name.
-The corresponding `MIGTD_STAGE_A_*` / `MIGTD_STAGE_B_*` environment variables
-remain fallback aliases for the same suffixes in the table. A nonempty
-canonical variable wins; empty/unset canonical values retain the old fallback
-and default behavior. New automation should use canonical paths and variables.
+The obsolete script wrappers have been removed; only the canonical runners
+above are supported. Fallback environment aliases remain available for
+existing automation. New runs must use the canonical paths and variables above.
+A nonempty canonical variable wins over its compatibility fallback; empty/unset
+canonical values retain fallback and default behavior.
 
 Historical execution logs, hashes, commits, frozen addenda, inventory manifests
-and validation summaries retain their original names and bytes. A historical
-filename/hash does not describe the current compatibility wrapper's contents.
-The rename-only commit deliberately excludes pre-existing uncommitted
-implementation and acceptance changes; it is not a reproducible snapshot of
-the accepted working implementation.
+and validation summaries retain their original names and bytes. References to
+removed script wrappers in those records describe past executions, not current
+entry points.
+Use a bundle built from the accepted Task 5 SNP-separated implementation or
+later; historical rename-only snapshots are not substitutes for that
+implementation.
 
 ## Local handoff is a different scenario
 
@@ -67,19 +70,19 @@ the accepted working implementation.
 independent authoritative firmware-state emulation. There is no current
 executable local-handoff runner to rename or claim as implemented.
 Inter-node source/destination conformance tests are not local handoff.
-The [frozen consumer matrix (removed)](master-execution-plan.md#removed-task4-documentation) retains
-the R4.1-R4.7 implementation and qualification obligations.
+The [master plan](master-execution-plan.md) retains the R4.1-R4.7 implementation
+and qualification obligations; see its
+[removal notice](master-execution-plan.md#removed-task4-documentation)
+for the former frozen consumer matrix.
 
 ## Validation
 
 ```bash
 bash -n sh_script/test/run_snp_single_process_migration.sh \
-  sh_script/test/run_snp_inter_node_two_process_migration.sh \
-  sh_script/test/run_snp_unified_stage_a.sh \
-  sh_script/test/run_snp_unified_stage_b.sh
+  sh_script/test/run_snp_inter_node_two_process_migration.sh
 python3 -m unittest discover -s sh_script/test -p test_snp_migration_runners.py
 ```
 
-Naming/alias tests use deliberately failing processes, not successful
+Runner/environment tests use deliberately failing processes, not successful
 attestation or migration doubles. Actual captured-fixture scenario regressions
 remain separate from common V6, V2, local-handoff or production qualification.

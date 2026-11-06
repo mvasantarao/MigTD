@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-from image_content import dependency_inventory, fingerprints, sbom_components
+from image_content import dependency_inventory, fingerprints, fixture_needles, sbom_components
 from validate_bundle import (
     ARTIFACTS, NATIVE_SCOPE, QUALIFICATION, SCHEMA_NAME, file_hash, inspect_elf,
     legacy_contract, marker_contract, parse_initramfs, provider_contract,
@@ -74,12 +74,6 @@ def source_inventory():
         "files": {p: file_hash(ROOT / p) for p in paths},
         "submodules": submodules,
     }
-
-
-def fixture_index():
-    sys.path.insert(0, str(ROOT / "sh_script/test"))
-    from snp_task4_inventory import fixture_needles
-    return fingerprints(fixture_needles())
 
 
 def newc_entry(name, payload, mode, ino):
@@ -264,7 +258,7 @@ def publish(args, creation_command):
         (stage / paths["tree_log"]).write_text(tree)
         (stage / paths["tree_log"]).chmod(0o644)
         write_json(stage / paths["source_inventory"], source)
-        index = fixture_index()
+        index = fingerprints(fixture_needles())
         write_json(stage / paths["fixture_fingerprints"], index)
         image_report = inspect_elf(stage / paths["ma_elf"], args.composition == "SnpHardware", index)
         write_json(stage / paths["image_report"], image_report)

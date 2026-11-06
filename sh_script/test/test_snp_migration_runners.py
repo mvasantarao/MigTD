@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Naming/compatibility controls; failing doubles do not emulate migration."""
+"""Runner/environment controls; failing doubles do not emulate migration."""
 
 import os
 from pathlib import Path
@@ -34,8 +34,8 @@ sys.exit(7)
 
 
 class MigrationRunnerNames(unittest.TestCase):
-    def invoke(self, scenario, extra_env=None, alias=False, default_directory=False):
-        slug, name, old, controller = scenario
+    def invoke(self, scenario, extra_env=None, default_directory=False):
+        slug, _, _, controller = scenario
         with tempfile.TemporaryDirectory() as directory:
             cwd = Path(directory)
             executable = cwd / "failing-process"
@@ -48,9 +48,7 @@ class MigrationRunnerNames(unittest.TestCase):
                                        "MIGTD_INTER_NODE_TWO_PROCESS_MIGRATION_"))
             }
             env.update(extra_env or {})
-            path = (f"run_snp_unified_stage_{old.lower()}.sh" if alias
-                    else f"run_snp_{slug}.sh")
-            command = [str(RUNNERS / path), str(executable)]
+            command = [str(RUNNERS / f"run_snp_{slug}.sh"), str(executable)]
             if controller:
                 command.append(str(executable))
             evidence = cwd / ("snp-" + slug.replace("_", "-") + "-evidence")
@@ -90,10 +88,10 @@ class MigrationRunnerNames(unittest.TestCase):
                 })
                 self.assert_failure_record(result, values, scenario[1])
 
-    def test_compatibility_entry_points_forward_explicit_arguments(self):
+    def test_canonical_entry_points_accept_explicit_evidence_directories(self):
         for scenario in SCENARIOS:
             with self.subTest(scenario=scenario[1]):
-                result, values = self.invoke(scenario, alias=True)
+                result, values = self.invoke(scenario)
                 self.assert_failure_record(result, values, scenario[1])
 
     def test_canonical_environment_wins_over_legacy_alias(self):
@@ -111,14 +109,13 @@ class MigrationRunnerNames(unittest.TestCase):
 
     def test_legacy_environment_remains_supported(self):
         for scenario in SCENARIOS:
-            for alias in (False, True):
-                with self.subTest(scenario=scenario[1], alias=alias):
-                    result, values = self.invoke(scenario, {
-                        f"MIGTD_STAGE_{scenario[2]}_PEER_ADDRESS": "127.0.0.1:21902",
-                        f"MIGTD_STAGE_{scenario[2]}_TIMEOUT_SECONDS": "3",
-                    }, alias=alias)
-                    self.assert_failure_record(result, values, scenario[1])
-                    self.assertEqual(values["peer_address"], "127.0.0.1:21902")
+            with self.subTest(scenario=scenario[1]):
+                result, values = self.invoke(scenario, {
+                    f"MIGTD_STAGE_{scenario[2]}_PEER_ADDRESS": "127.0.0.1:21902",
+                    f"MIGTD_STAGE_{scenario[2]}_TIMEOUT_SECONDS": "3",
+                })
+                self.assert_failure_record(result, values, scenario[1])
+                self.assertEqual(values["peer_address"], "127.0.0.1:21902")
 
     def test_inter_node_host_environment_names_and_legacy_aliases(self):
         scenario = SCENARIOS[1]
@@ -162,19 +159,15 @@ class MigrationRunnerNames(unittest.TestCase):
         self.assertIn("must be distinct", result.stderr)
         self.assertEqual(values, {})
 
-    def test_usage_and_exit_status_forwarded_by_aliases(self):
-        for slug, _, old, _ in SCENARIOS:
-            canonical = subprocess.run(
-                [str(RUNNERS / f"run_snp_{slug}.sh")],
+    def test_canonical_usage_and_exit_status(self):
+        for slug, _, _, _ in SCENARIOS:
+            path = RUNNERS / f"run_snp_{slug}.sh"
+            result = subprocess.run(
+                [str(path)],
                 capture_output=True, text=True, check=False,
             )
-            alias = subprocess.run(
-                [str(RUNNERS / f"run_snp_unified_stage_{old.lower()}.sh")],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(canonical.returncode, 2)
-            self.assertEqual(alias.returncode, canonical.returncode)
-            self.assertEqual(alias.stderr, canonical.stderr)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(f"usage: {path}", result.stderr)
 
 
 if __name__ == "__main__":

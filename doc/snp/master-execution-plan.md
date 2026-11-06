@@ -2743,7 +2743,7 @@ Vector acceptance was pending at validation; the user subsequently accepted
 and froze this bounded evidence at `2026-11-03T22:45:46Z`.
 Recipe approval or vector acceptance does not activate runtime cryptography.
 
-The independent [Python oracle](../../sh_script/test/p010_vectors.py) regenerates
+The independent [Python oracle](../../sh_script/test/snp_crypto_vectors.py) regenerates
 137 exact named corpus entries. Default invocation checks the committed
 [public fixture corpus](../../src/pal/src/snp/test_data/p010_vectors.txt) without
 changing it. Deterministic fixture certificates/signatures use Python
@@ -2754,11 +2754,11 @@ The [Rust reference matrix](../../src/pal/src/snp/crypto_vectors.rs) is included
 only inside `#[cfg(test)]` MA-policy tests, not in the live verifier path.
 
 ```bash
-python3 sh_script/test/p010_vectors.py
+python3 sh_script/test/snp_crypto_vectors.py
 AS=nasm AR=llvm-ar CC=clang cargo test --locked --offline \
   -p pal --features snp-emu crypto_vectors
 # Deliberate corpus regeneration only; review before accepting changed vectors:
-python3 sh_script/test/p010_vectors.py --write
+python3 sh_script/test/snp_crypto_vectors.py --write
 ```
 
 | Contract/output group | Independent/reference evidence |
@@ -5747,6 +5747,11 @@ Rust/CLI symbols and CI contained no stage-letter scenario names to rename;
 existing process arguments/protocol/manifest fields are unchanged. Historical
 summaries, frozen addenda/manifests, note/log prefixes and exact37-step order
 are preserved.
+
+Subsequent cleanup (2026-11-06): the obsolete script-path aliases were removed
+at the user's request. Only the canonical runners remain; environment-variable
+fallbacks are unchanged. The validation below records the original rename
+acceptance, not a requirement to retain the removed wrappers.
 
 Validation: Bash syntax/ShellCheck on all four entry points; eight naming/alias
 tests on both the working tree and the independently reconstructed rename-only

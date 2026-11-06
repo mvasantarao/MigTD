@@ -1,14 +1,51 @@
 #!/usr/bin/env python3
-"""Negative and positive controls for the provisional image inventory gates."""
+"""Positive and negative controls for shared SNP image-isolation gates."""
 
+import hashlib
+import json
+from pathlib import Path
+import sys
 import unittest
+from unittest.mock import patch
 
-from snp_task4_inventory import (
-    FORBIDDEN_SYMBOLS, dependency_inventory, fixture_needles, scan_production,
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "tools/snp"))
+from image_content import (
+    FORBIDDEN_SYMBOLS, dependency_inventory, fingerprints, fixture_needles,
+    scan_production,
 )
+from validate_bundle import FIXTURE_INDEX_SHA256
 
 
-class InventoryTests(unittest.TestCase):
+class ImageContentTests(unittest.TestCase):
+    def test_fixture_index_matches_frozen_bundle_policy(self):
+        index = fingerprints(fixture_needles())
+        payload = (json.dumps(index, indent=2, sort_keys=True) + "\n").encode()
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), FIXTURE_INDEX_SHA256)
+
+    def test_missing_captured_fixture_is_rejected(self):
+        with patch("image_content.Path.read_bytes", side_effect=FileNotFoundError("missing fixture")):
+            with self.assertRaises(FileNotFoundError):
+                fixture_needles()
+
+    def test_empty_captured_fixture_is_rejected(self):
+        with patch("image_content.Path.read_bytes", return_value=b""):
+            with self.assertRaisesRegex(RuntimeError, "three captured fixture assets and two synthetic roots"):
+                fixture_needles()
+
+    def test_missing_synthetic_roots_are_rejected(self):
+        for vectors in ("", "root_der 00\n", "unrelated_root_der 00\n"):
+            with self.subTest(vectors=vectors):
+                with patch("image_content.Path.read_text", return_value=vectors):
+                    with self.assertRaisesRegex(RuntimeError, "three captured fixture assets and two synthetic roots"):
+                        fixture_needles()
+
+    def test_malformed_synthetic_root_is_rejected(self):
+        with patch("image_content.Path.read_text", return_value="root_der invalid-hex\n"):
+            with self.assertRaises(ValueError):
+                fixture_needles()
+
     def test_every_fixture_and_synthetic_root_is_rejected(self):
         needles = fixture_needles()
         self.assertEqual(len(needles), 5)

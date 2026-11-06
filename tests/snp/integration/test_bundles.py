@@ -14,9 +14,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools/snp"))
-sys.path.insert(0, str(ROOT / "sh_script/test"))
 from build_bundle import make_initramfs
-from snp_task4_inventory import fixture_needles
+from image_content import fixture_needles
 from validate_bundle import (
     ARTIFACTS, ValidationError, file_hash, parse_initramfs, read_json,
     validate_bundle as validate_bundle_contract,

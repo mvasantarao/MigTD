@@ -1,4 +1,93 @@
-## AMD SEV-SNP Emulation (SnpEmu)
+# Execute the SNP MigTD Migration Agent
+
+## Current execution guide
+
+Use the accepted Task 5 SNP-separated implementation, with an emulator bundle
+built as `SnpEmuAzure`. Follow [bundle preparation and construction](snp-bundles.md)
+first, or consume an approved, already validated bundle. Run the commands below
+from the MigTD repository root.
+
+The renamed items are **scenario runners, not different MA binaries**. Both
+standalone scenarios use the same frozen `bin/migtd` executable. The WFR scenario
+also uses the bundle's matching `bin/host_wfr_test` controller.
+
+| Execution mechanism | Current entry point | Processes and trigger |
+|---|---|---|
+| `SingleProcessMigration` | `run_snp_single_process_migration.sh` | Two standalone MA processes, source and destination; local autostart, no host controller |
+| `InterNodeTwoProcessMigration` | `run_snp_inter_node_two_process_migration.sh` | Two standalone MA processes plus two host-controller processes; external WFR requests |
+| Two-VM execution | External harness `run-emulator-e2e.sh --bundle DIR` | One MA as PID1 in each VM plus two host controllers; external WFR requests |
+| `LocalMaHandoffTwoProcess` | Not implemented | Reserved for the Phase 4 old/new-MA handoff; not inter-node migration |
+
+### Standalone autostart and WFR/controller execution
+
+```bash
+BUNDLE="$PWD/target/bundles/emulator"
+RUN_ROOT="$PWD/target/snp-execution/$(date -u +%Y%m%dT%H%M%SZ)"
+
+tools/snp/validate-bundle.sh --bundle "$BUNDLE"
+"$BUNDLE/bin/migtd" --help
+
+bash sh_script/test/run_snp_single_process_migration.sh \
+  "$BUNDLE/bin/migtd" \
+  "$RUN_ROOT/single-process-migration"
+
+bash sh_script/test/run_snp_inter_node_two_process_migration.sh \
+  "$BUNDLE/bin/migtd" \
+  "$BUNDLE/bin/host_wfr_test" \
+  "$RUN_ROOT/inter-node-two-process-migration"
+```
+
+Run sequentially against the same frozen executables. These runners do not
+build MigTD or change its feature selection. Neither `MIGTD_POLICY_FILE` nor
+`MIGTD_ROOT_CA_FILE` is required or loaded. Do not mix SNP features with the
+TDX-owned `main`, `spdm_attestation`, `policy_v2`, `vmcall-raw`,
+`test_disable_ra_and_accept_all` or `test_mock_report` features.
+
+Each evidence directory contains `manifest.txt`, `source.log` and
+`destination.log`; the WFR scenario additionally retains
+`source-controller.log` and `destination-controller.log`. A successful
+standalone run requires both MA exits to be zero; WFR also requires both
+controller exits to be zero. The runners check workflow/verification markers
+and executable hashes, not just exit status. See
+[scenario names, addresses and timeouts](snp-migration-scenarios.md).
+
+### Two-VM PID1/WFR execution
+
+Use the independent VM harness with the same validated emulator bundle.
+Install its declared Python dependencies and provide its required KVM/SNP
+platform and noninteractive `sudo` access as described in the
+[bundle consumer instructions](snp-bundles.md#consumers-and-qualification-limits).
+Set `HARNESS` to the actual independent checkout. The paths below match its
+documented local platform layout; relocated QEMU/OVMF bytes must match the
+bundle's approved hashes.
+
+```bash
+HARNESS=/home/murthy/repos/snp-ma-vm-harness
+"$HARNESS/run-emulator-e2e.sh" --bundle "$BUNDLE" \
+  --qemu "$HARNESS/.local/platform/qemu-9.2/build/qemu-system-x86_64" \
+  --ovmf "$HARNESS/.local/platform/edk2-amdsev/Build/AmdSev/RELEASE_GCC5/FV/OVMF.fd" \
+  --qemu-data "$HARNESS/.local/platform/qemu-9.2/pc-bios" \
+  --log-root "$RUN_ROOT/two-vm"
+```
+
+This harness boots the bundle's kernel/initramfs, orchestrates both WFR
+controllers and retains `result.json` plus logs in a fresh run directory.
+Successful PID1 MAs remain resident; the harness checks completion markers and
+controller ACKs before cleaning up its processes. Do not expect the guest MA
+to exit zero as in a standalone run. This is direct kernel/initramfs execution,
+not an IGVM boot or Task 14 qualification.
+
+### What current success establishes
+
+All three runnable mechanisms exercise **captured-fixture legacy compatibility**:
+captured-v5 SNP report/certificate verification and a key-only mock installer.
+They do not establish fresh V6/TH1 evidence, admitted V2 authorization/keys,
+real installation, local handoff or production migration qualification.
+Bundles remain **Build-validated/migration-unqualified**. `SnpHardware` is not
+an alternative working emulator: its current production startup fails explicitly
+with exit status 2 because required providers remain unavailable.
+
+## Feature selection and historical development reference
 
 **Command-contract update (2026-11-02; original correction 2026-10-24):** the
 [Q162 current Firmware ABI 1.59 / ARG v1.20 addendum (removed)](master-execution-plan.md#removed-task4-documentation)
@@ -35,8 +124,8 @@ The production binary deliberately exits with status 2 and a startup diagnostic:
 production services and the common AAS Version 6 claims/layout adapter remain
 unavailable. The working AAS captured-fixture verifier is not that adapter and
 cannot authenticate live Version 6 requests. This is feature isolation, not
-production activation or hardware/RNG qualification; T4.18 caller integration
-remains downstream. No automatic emulator fallback is permitted.
+production activation or hardware/RNG qualification. No automatic emulator
+fallback is permitted.
 
 **Historical TAV dependency (2026-11-04; superseded by T4.16):** PAL and the emulator's test dependency
 use `tav-1.0.7` with `default-features = false` and `crypto_pure_rust`.
@@ -130,7 +219,11 @@ ARK is no longer transmitted. TAV validates the chain against its pinned AMD Mil
 
 ---
 
-## Build and Test (SnpEmu)
+## Historical build and test commands (do not use for current execution)
+
+These commands predate the bundle interface and SNP/TDX separation. They are
+retained as development history, not current execution instructions. Use the
+bundle-based guide above instead.
 
 ```bash
 # Unit tests (no hardware required)
@@ -148,7 +241,7 @@ cargo build --locked -p migtd --features SnpEmu
 
 ---
 
-## Phase Roadmap
+## Historical phase roadmap
 
 | Phase | Scope | Status |
 |---|---|---|

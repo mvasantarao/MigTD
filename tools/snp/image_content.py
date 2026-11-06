@@ -1,6 +1,7 @@
-"""Shared dependency and ELF isolation rules, including Task 4 prior art."""
+"""Shared SNP dependency, fixture fingerprint and ELF isolation rules."""
 
 import hashlib
+from pathlib import Path
 
 
 FORBIDDEN_SYMBOLS = (
@@ -15,6 +16,21 @@ FORBIDDEN_FEATURES = {
     "SnpEmu", "SnpEmuAzure", "tdx-platform", "test_mock_report",
     "test_disable_ra_and_accept_all", "use-mock-quote",
 }
+
+
+def fixture_needles():
+    root = Path(__file__).resolve().parents[2]
+    directory = root / "src/snp_emu/src/fixture_data"
+    needles = {str(p.relative_to(root)): p.read_bytes()
+               for p in (directory / name for name in ("snp_report.bin", "vcek.der", "ask.der"))}
+    vectors = root / "src/pal/src/snp/test_data/p010_vectors.txt"
+    for line in vectors.read_text().splitlines():
+        fields = line.split()
+        if len(fields) == 2 and fields[0] in {"root_der", "unrelated_root_der"}:
+            needles[f"{vectors.relative_to(root)}:{fields[0]}"] = bytes.fromhex(fields[1])
+    if len(needles) != 5 or any(not value for value in needles.values()):
+        raise RuntimeError("expected three captured fixture assets and two synthetic roots")
+    return needles
 
 
 def scan_production(binary, symbols, needles):
