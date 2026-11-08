@@ -87,6 +87,17 @@ Bundles remain **Build-validated/migration-unqualified**. `SnpHardware` is not
 an alternative working emulator: its current production startup fails explicitly
 with exit status 2 because required providers remain unavailable.
 
+### CI build prerequisites
+
+SNP checks/tests require Rust 1.90 and `--no-default-features`; the Azure SDK
+dependencies do not support Rust 1.88. Existing TDX CI jobs retain Rust 1.88.
+The SNP feature-conformance job also checks AzCVMEmu compatibility. That selected
+TDX dependency graph still builds `tss-esapi-sys`, so the combined CI job needs
+`libtss2-dev` and `pkg-config` even with mock/skip-RA runtime behavior.
+This is a build dependency, not a requirement for a physical TPM during tests
+or a TPM provider added to SNP. Failed conformance commands print their captured
+diagnostics, and CI archives the conformance logs even after failure.
+
 ## Feature selection and historical development reference
 
 **Command-contract update (2026-11-02; original correction 2026-10-24):** the

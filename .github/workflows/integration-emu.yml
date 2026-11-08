@@ -386,19 +386,20 @@ jobs:
       - name: Setup build environment
         uses: ./.github/actions/setup-build-environment
         with:
+          rust-toolchain: '1.90.0'
           install-tpm-tools: 'false'
           install-jq: 'false'
 
       - name: Check SNP fixture-only build (cargo check)
         run: |
           echo "Checking migtd with snp_fixture_only + SnpEmu features..."
-          cargo check -p migtd --features "snp_fixture_only,SnpEmu"
+          cargo check --locked -p migtd --no-default-features --features "snp_fixture_only,SnpEmu"
           echo "cargo check passed"
 
       - name: Run SNP unit tests (fixture-only)
         run: |
           echo "Running migtd unit tests with snp_fixture_only + SnpEmu features..."
-          cargo test -p migtd --features "snp_fixture_only,SnpEmu" -- --test-threads=1
+          cargo test --locked -p migtd --no-default-features --features "snp_fixture_only,SnpEmu" -- --test-threads=1
           echo "cargo test passed"
 
       - name: Record fixture checksums
@@ -436,7 +437,7 @@ jobs:
         uses: ./.github/actions/setup-build-environment
         with:
           rust-toolchain: '1.90.0'
-          install-tpm-tools: 'false'
+          install-tpm-tools: 'true'
           install-jq: 'false'
 
       - name: Install musl compiler and target
@@ -449,7 +450,7 @@ jobs:
         run: |
           AS=nasm AR=llvm-ar CC=x86_64-linux-musl-gcc \
             RUSTFLAGS='-A dangerous-implicit-autorefs' \
-            cargo build -p migtd --bin migtd --no-default-features \
+            cargo build --locked -p migtd --bin migtd --no-default-features \
               --features SnpEmuAzure \
               --target x86_64-unknown-linux-musl --release
 
@@ -461,3 +462,12 @@ jobs:
         run: |
           cargo fetch --locked
           python3 sh_script/test/snp_feature_conformance.py
+
+      - name: Upload SNP feature conformance logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snp-feature-conformance-${{ github.run_id }}
+          path: target/snp-feature-conformance/
+          retention-days: 90
+          if-no-files-found: warn

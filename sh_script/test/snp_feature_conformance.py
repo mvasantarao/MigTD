@@ -30,7 +30,7 @@ def main():
             passed = passed and diagnostic in text
         results.append({"name": name, "exit_code": result.returncode, "passed": passed})
         if not passed:
-            raise RuntimeError(f"{name} failed; see {args.output_dir / f'{name}.log'}")
+            raise RuntimeError(f"{name} failed; see {args.output_dir / f'{name}.log'}\n{text}")
         return result.stdout
 
     try:

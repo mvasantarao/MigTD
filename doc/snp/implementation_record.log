@@ -5952,3 +5952,25 @@ Preservation:canonical runners,crypto-oracle bytes,and frozen corpus unchanged;
 Excluded:pre-existing dirty deps/linux-sgx and deps/td-shim contents;ignored
   doc/snp/snp-ma-igvm.md and generated runtime outputs.
 Boundary:local commit only;no push,Task6 execution or upstream integration.
+
+SNP GitHub CI prerequisites and failure diagnostics - FIX AND RETRY REQUESTED
+User request UTC:2026-11-08T21:50:28.039Z.
+Observed CI:fixture job selected Rust1.88 despite Azure SDK Rust1.90 MSRV;
+  conformance job stopped at AzCVMEmu compatibility without exposing its log.
+Fixture correction:Rust1.90.0,locked Cargo commands,and no default TDX features.
+Compatibility prerequisites:the selected AzCVMEmu dependency graph includes
+  tss-esapi-sys through az-cvm-vtpm;CI had disabled TPM build-library installation.
+  Reproduced tss2-sys build failure with pkg-config metadata withheld;normal
+  compatibility check passes with system libraries present. Prior CI compiler
+  diagnostic was not retained,so exact identity with that failure is unproven.
+Correction:enable existing libtss2-dev/pkg-config setup for the combined SNP/
+  AzCVMEmu conformance job;preserve runtime/provider/dependency feature meanings.
+Diagnostics:failed conformance commands include captured output in their error;
+  workflow archives conformance logs with always-upload behavior.
+Local validation:corrected fixture check/tests PASS,48 SNP tests;all77
+  compile/dependency/API checks PASS;failure-output/log/results retention
+  control PASS;all existing TDX emulation job definitions byte-identical.
+Boundary:CI setup/diagnostics/docs only;no Cargo manifest/lockfile,Rust/TDX
+  runtime,submodule,qualification,Task6 or Microsoft upstream changes.
+User requested retry authorizes publishing the targeted fix;PR remains draft
+  and unmerged. Remote CI success must be observed separately.
