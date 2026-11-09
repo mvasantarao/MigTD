@@ -5974,3 +5974,91 @@ Boundary:CI setup/diagnostics/docs only;no Cargo manifest/lockfile,Rust/TDX
   runtime,submodule,qualification,Task6 or Microsoft upstream changes.
 User requested retry authorizes publishing the targeted fix;PR remains draft
   and unmerged. Remote CI success must be observed separately.
+
+Task6 - START
+User authorization UTC:2026-11-09T16:11:43.900Z.
+Execution start UTC:2026-11-09T16:12:10Z.
+Baseline HEAD:d1d568f3e73adeecc864581ae10c381fcb743b3a.
+Prerequisites:Task5,P0.9A1,P0.9C1,P0.9D accepted.
+Scope:deterministic synthetic Venice V6 report/certificate/supplement and
+  fixed-release authorization fixtures;explicit public test-only private-key
+  recipe;independent structural/cryptographic/semantic negative checks.
+Destination:src/snp_emu/src/fixture_data/venice_v6_synthetic/.
+Planning baseline:19 saved report binaries,7 positive bundles,31 negative
+  case families,6 public test signing-key roles;measured output controls counts.
+Preservation:parent captured V5 report and3 DER certificates,P0.10 corpus,
+  direct-random V2 corpus,existing runtime/TDX behavior and dirty submodules.
+Existing local changes:master-plan fixture-location requirement;pre-existing
+  deps/linux-sgx untracked content and deps/td-shim modifications.
+Boundary:no optional VLEK,production AMD identity/binding claim,common verifier
+  activation,Tasks7+,hardware effects,Task12 reactivation,commit or push.
+Synthetic certificate profile remains explicit fixture PKI;native AAS product/
+  TCB/HWID verification and production-layout qualification are downstream.
+
+Task6 - IMPLEMENTED AND LOCALLY VALIDATED;AWAITING USER ACCEPTANCE
+Validation date UTC:2026-11-09;final checks observed at2026-11-09T16:33:00Z.
+Baseline HEAD unchanged:d1d568f3e73adeecc864581ae10c381fcb743b3a.
+Assets:src/snp_emu/src/fixture_data/venice_v6_synthetic/.
+Measured:100 files;19 report binaries;6 certificates;6 public test signing-key
+  recipe roles;7 positive cases using6 distinct reports;31 negative cases;
+  38 total cases across19 coverage groups;optional VLEK excluded.
+Manifest SHA256:cae7545cbeb5d9fad218dc4b83977b8cfef5cb985848e4d88ccddb5fbc1b5940.
+Validation:generator check-only and independent oracle PASS;two independent
+  generations match;37 Python tests PASS;433 PAL unit tests and26 doctests PASS;
+  strict targeted Clippy PASS;SnpEmuAzure check PASS;standard fmt and whitespace
+  PASS;existing P0.10 and V2 oracles PASS;all100 assets Git-eligible.
+Preserved:parent captured report/three DER certificates;P0.10 and V2 corpora;
+  frozen five-entry image-fingerprint index;inherited submodule dirt.
+CI:SNP contract checks wired;SNP-only integration PAL tests added;other two
+  integration workflow job definitions,including TDX matrix,byte-identical.
+Evidence:target/task6-v6/20261109T161210Z/;commands and boundaries in
+  doc/snp/approval-decision-technical-note.md section42.
+Exploratory fmt --all encountered pre-existing dependency formatting;standard
+  repository fmt passes;no vendor formatting or dependency warnings changed.
+Qualification:generic Task6FixtureP384V1 fixture certificates,not native AMD
+  Venice product/TCB/HWID verification;production-root/SnpHardware negatives
+  model fixture-profile rejection,not deployed common-provider execution.
+Boundary:no acceptance/DONE,staging,commit,push,remote CI/full TDX matrix,
+  AAS1A/AAS1A-M execution,Tasks7+,runtime activation,hardware qualification,
+  readiness advancement or Task12 reactivation.
+
+Task6 - README CLARIFICATION
+Date UTC:2026-11-09;user requested explicit verification instructions.
+Generator-emitted README now distinguishes pip dependency installation,
+  read-only byte comparison,and explicit --write regeneration.
+Changed assets:README and manifest metadata only;all evidence assets and
+  preserved-source hashes unchanged.
+Current manifest SHA256:6a6aeed694ba343791bc1f6db49af30f44c70ca681a430056f5f3e6a278967bf.
+Validation:generator check PASS;independent oracle PASS;37 Python tests PASS.
+Boundary:acceptance,commit/publication and qualification status unchanged.
+
+Task6 - DONE;ACCEPTED WITHIN DOCUMENTED SYNTHETIC FIXTURE BOUNDS
+User acceptance UTC:2026-11-09T16:59:36.591Z.
+Exact user statement:"I formally accept Task 6 implementation within bounds."
+Scope:implementation,README clarification and local validation documented in
+  doc/snp/approval-decision-technical-note.md sections42-43.
+Accepted manifest SHA256:6a6aeed694ba343791bc1f6db49af30f44c70ca681a430056f5f3e6a278967bf.
+Measured:100 files;19 reports;6 certificates;6 public test signing-key recipe
+  roles;7 positive and31 negative cases across19 coverage groups.
+Accepted local evidence:37 Python tests;433 PAL unit tests;26 doctests;
+  previously recorded lint,format,composition and reproducibility checks.
+Acceptance recording reruns no runtime tests;historical entries remain intact.
+Plan:Task6 DONE within bounds;AAS1A next pending,subject to its prerequisites
+  and separate execution authorization;Phase3 remains open.
+Boundary:fixture-only PKI/policy/time/state;no native AMD/AAS or common
+  production-provider qualification,no end-to-end V6 or hardware migration.
+No staging,commit,push,downstream execution,runtime activation,readiness
+  advancement or Task12 reactivation authorized or performed by this acceptance.
+
+Task6 - COMMIT AUTHORIZED
+User authorization UTC:2026-11-09T22:27:48.335Z.
+Exact user statement:"commit Task 6 code".
+Scope:accepted implementation,100-file fixture package,Rust/Python tests,
+  dependency pin,CI wiring,Git eligibility and directly related documentation.
+Precommit validation:deterministic package comparison PASS;independent oracle
+  PASS;37 Python tests PASS;accepted manifest hash unchanged.
+Prior433 PAL unit tests,26 doctests,lint and composition results retained.
+Inherited deps/linux-sgx and deps/td-shim dirt excluded.
+Staged whitespace check identified a raw signature misclassified as text;
+  scoped binary Git attributes preserve fixture bytes and disable text diffs.
+Boundary:no push,downstream execution,runtime activation or qualification change.

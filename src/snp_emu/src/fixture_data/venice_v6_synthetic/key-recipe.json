@@ -1,0 +1,21 @@
+{
+  "certificate_profile": "Task6FixtureP384V1",
+  "certificate_validity_unix_seconds": [
+    10,
+    200
+  ],
+  "classification": "PUBLIC TEST ONLY PRIVATE KEY RECIPE; NOT SECRETS",
+  "curve": "secp384r1",
+  "derivation": "derive_private_key(integer_scalar)",
+  "eku": "1.3.6.1.4.1.55555.162.1",
+  "keys": {
+    "ark": 1,
+    "ask": 2,
+    "authorization": 4,
+    "unrelated-root": 6,
+    "vcek": 3,
+    "wrong-purpose": 5
+  },
+  "production_trust": false,
+  "verification_time_unix_seconds": 100
+}

@@ -50,6 +50,9 @@ mod golden_vectors;
 #[cfg(test)]
 mod property_tests;
 
+#[cfg(test)]
+mod v6_fixture_tests;
+
 #[cfg(feature = "snp-linux-hardware")]
 pub mod hardware;
 

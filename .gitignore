@@ -3,6 +3,7 @@
 # Cargo Junk
 target/
 *.bin
+!/src/snp_emu/src/fixture_data/venice_v6_synthetic/**/*.bin
 *.o
 *.obj
 

@@ -6,12 +6,22 @@ on:
       - tools/snp/**
       - schemas/snp-ma-bundle-manifest-v1.json
       - tests/snp/**
+      - src/snp_emu/src/fixture_data/**
+      - sh_script/test/snp_v6_*.py
+      - sh_script/test/snp_crypto_vectors.py
+      - sh_script/test/direct_random_vectors.py
+      - sh_script/test/requirements-snp-v6.txt
       - .github/workflows/snp-bundle-contract.yml
   pull_request:
     paths:
       - tools/snp/**
       - schemas/snp-ma-bundle-manifest-v1.json
       - tests/snp/**
+      - src/snp_emu/src/fixture_data/**
+      - sh_script/test/snp_v6_*.py
+      - sh_script/test/snp_crypto_vectors.py
+      - sh_script/test/direct_random_vectors.py
+      - sh_script/test/requirements-snp-v6.txt
       - .github/workflows/snp-bundle-contract.yml
   workflow_dispatch:
 
@@ -26,5 +36,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -r tools/snp/requirements.txt
-      - run: python -m unittest discover -s tests/snp/feature-matrix -v
+      - run: python -m pip install -r tools/snp/requirements.txt -r sh_script/test/requirements-snp-v6.txt
+      - run: python -B sh_script/test/snp_v6_fixtures.py
+      - run: python -B sh_script/test/snp_v6_verify.py
+      - run: python -B sh_script/test/snp_crypto_vectors.py
+      - run: python -B sh_script/test/direct_random_vectors.py
+      - run: python -B -m unittest discover -s tests/snp/feature-matrix -v

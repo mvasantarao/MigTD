@@ -3232,3 +3232,175 @@ removal. Task6 remains NOT STARTED; no implementation, commit or push is
 authorized by this reorganization. Local relocation/link/source-preservation
 checks are recorded in
 `target/snp-doc-relocation/20261106T215703Z/validation.json`.
+
+## 42. Task6 synthetic V6 fixture implementation and local validation
+
+Status: **IMPLEMENTED AND LOCALLY VALIDATED; AWAITING USER ACCEPTANCE**.
+The user authorized execution with “Start execution of Task 6” at
+`2026-11-09T16:11:43.900Z`. This record does not grant acceptance, commit,
+publication or downstream activation.
+
+### Saved assets and preservation
+
+The wholly synthetic package is saved in
+[`venice_v6_synthetic/`](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/).
+Its [manifest](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/manifest.json)
+and [case catalogue](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/case-catalogue.json)
+record 100 files, 19 report binaries, six certificates, six public test-only
+private-key recipe roles, seven positive cases and 31 negative cases across
+19 coverage groups. The seven positives use six distinct report binaries.
+Optional VLEK is excluded. No reports or keys were extracted from hardware.
+Private signing material is reproducible public test data, never a secret.
+
+The package contains V2 session/authorization contexts, all64 REPORT_DATA
+bindings, tenant history transitions, signed 220-byte supplements, fixed-release
+allowlists, canonical identity input and four saved V2 MA envelopes.
+Manifest metadata includes the frozen domain-separated certificate-chain hash,
+authorization root ID, identity digest and per-file SHA256/SHA384.
+Default generation is check-only; `--write` is explicit. Undeclared files,
+symlinks, duplicate JSON keys, mismatched hashes and negative-case error
+categories are checked. A narrowly scoped root ignore exception and regression
+test ensure every generated binary can be checked into Git without force-add.
+
+The existing captured V5 report and three parent DER certificates, P0.10
+corpus, direct-random V2 corpus and five-entry image-fingerprint index remain
+unchanged. The fixture ARK reuses the already indexed synthetic root:
+`bbdd2ccc508d8fc4d2a3c4ce8bafcbb6883ed3fdaa06058d84a7ced487f33f17`.
+Initial validation manifest SHA256 (before the README clarification below):
+`cae7545cbeb5d9fad218dc4b83977b8cfef5cb985848e4d88ccddb5fbc1b5940`.
+
+### Verification and CI wiring
+
+The independent Python oracle does not import the generator or its signing
+helpers. It checks report/certificate/supplement signatures, exact layouts,
+reserved bytes, full REPORT_DATA, context reconstruction, componentwise floors,
+history, allowlist signature/status/time/sequence, package membership and
+specific rejection categories. Rust tests consume the saved bytes through
+existing codecs and the test-only real-signature/fixed-policy admission bridge.
+No live provider implementation was introduced.
+
+Local results on 2026-11-09:
+
+| Check | Result |
+|---|---|
+| Default generator, independent oracle and independent regeneration | PASS; 100 files, 38 cases |
+| Python contract/image/fixture discovery | 37 passed |
+| PAL `snp-emu` unit tests | 433 passed |
+| PAL doctests | 26 passed |
+| Targeted strict PAL Clippy | PASS |
+| `SnpEmuAzure` composition check | PASS |
+| Standard repository format and whitespace checks | PASS |
+| Existing P0.10 and direct-random V2 oracles | PASS |
+| Package Git eligibility | PASS; no ignored assets |
+
+Commands:
+
+```bash
+python3 -B sh_script/test/snp_v6_fixtures.py
+python3 -B sh_script/test/snp_v6_verify.py
+python3 -B -m unittest discover -s tests/snp/feature-matrix -v
+python3 -B sh_script/test/snp_crypto_vectors.py
+python3 -B sh_script/test/direct_random_vectors.py
+cargo +1.90.0 fmt -- --check
+git diff --check
+AS=nasm AR=llvm-ar CC=clang CARGO_BUILD_JOBS=2 \
+  cargo +1.90.0 test --locked -p pal --no-default-features --features snp-emu -- --test-threads=1
+AS=nasm AR=llvm-ar CC=clang CARGO_BUILD_JOBS=2 \
+  cargo +1.90.0 clippy --locked -p pal --no-default-features --features snp-emu --all-targets -- -D warnings
+AS=nasm AR=llvm-ar CC=clang CARGO_BUILD_JOBS=2 \
+  cargo +1.90.0 check --locked -p migtd --no-default-features --features SnpEmuAzure
+```
+
+Python discovery used the existing isolated interpreter at
+`/home/murthy/repos/snp-ma-merge-review/MigTD/target/snp-bundle-tools/bin/python`,
+with cryptography50.0.1 and jsonschema4.23.0. The new dependency file pins
+cryptography50.0.1. Non-destructive `preparation.sh --snp-bundle` passed.
+Raw evidence is retained in `target/task6-v6/20261109T161210Z/`.
+An exploratory `cargo fmt --all -- --check` encountered existing dependency
+formatting differences; no dependency formatting was changed. The standard
+repository format command passes. Existing Cargo/ring warnings were preserved.
+
+The SNP contract workflow now runs the package check, independent oracle,
+historical oracles and Python tests. The SNP-only integration fixture job runs
+PAL reference tests and retains the manifest checksum. The other two job
+definitions in that workflow, including the TDX emulation matrix, are
+byte-identical to HEAD. Remote CI and the full TDX image/runtime matrix were
+not run for this fixture-only task.
+
+### Qualification boundaries and stop
+
+`Task6FixtureP384V1` is generic fixture PKI, without AMD product/TCB/HWID
+extensions. Zero CPUID/CHIP_ID are synthetic placeholders. Native AAS Venice
+certificate binding is not qualified. The existing `{"test_only":true}` policy
+model and fixed verification time are not production policy, time, revocation
+or persistent sequence-state providers. Reusing the fixture VCEK across roles
+does not qualify multichip operation.
+
+Production-root and `SnpHardware` catalogue negatives exercise explicit
+fixture-profile rejection in the independent oracle, not a deployed common
+production provider. The ABI author-digest wording inconsistency is documented
+in the package; the accepted author-key convention is retained. Production
+ETCB/MIGRATION_DATA interpretation and approved policy/trusted-state obligations
+remain deferred under their existing gates.
+
+All changes remain uncommitted. Baseline HEAD remains
+`d1d568f3e73adeecc864581ae10c381fcb743b3a`; inherited submodule dirt is preserved.
+No acceptance/DONE, push, AAS1A/AAS1A-M execution, Tasks7+, common V6/V2 live
+admission, production key installation, hardware migration qualification,
+readiness advancement or Task12 reactivation is claimed.
+
+### README clarification
+
+On 2026-11-09, the user requested clearer verification instructions. The
+generator now emits explicit dependency-install, read-only verification and
+file-writing regeneration commands, without the ambiguous "unaccepted/new set"
+wording. Regeneration changed only README content and manifest metadata; all
+evidence assets and preservation hashes remained unchanged. The generator
+check, independent oracle and all 37 Python tests pass again.
+
+Current manifest SHA256:
+`6a6aeed694ba343791bc1f6db49af30f44c70ca681a430056f5f3e6a278967bf`.
+Acceptance and commit/publication status are unchanged.
+
+## 43. Task6 bounded acceptance
+
+Status: **DONE - ACCEPTED within the documented synthetic fixture bounds** at
+`2026-11-09T16:59:36.591Z`. The user explicitly stated:
+
+> I formally accept Task 6 implementation within bounds.
+
+Acceptance covers the implementation, README clarification and local validation
+recorded in section42: 100 saved files, 19 reports, six certificates, six public
+test signing-key recipe roles, seven positive and 31 negative cases across
+19 coverage groups; 37 Python tests, 433 PAL unit tests and 26 doctests, with
+the recorded formatting, lint, composition and reproducibility checks.
+The accepted manifest SHA256 is
+`6a6aeed694ba343791bc1f6db49af30f44c70ca681a430056f5f3e6a278967bf`.
+Section42 and the earlier central-log entries retain their pre-acceptance
+snapshot meaning. Acceptance recording itself reruns no runtime tests.
+
+All section42 qualification limits remain: generic fixture PKI and test
+policy/time/state are not native AMD/AAS Venice binding or production providers;
+production-root and SnpHardware negatives model fixture-profile rejection,
+not deployed common-provider qualification. No end-to-end V6 migration,
+hardware migration, production key installation or full remote CI result is
+accepted or inferred.
+
+The plan now lists AAS1A as the next pending step, subject to its prerequisites
+and separate execution authorization. Phase3 remains open. This acceptance
+authorizes no staging, commit, push, AAS1A/AAS1A-M execution, Tasks7+, runtime
+activation, readiness advancement or Task12 reactivation.
+
+### Task6 commit authorization
+
+At `2026-11-09T22:27:48.335Z`, the user requested:
+
+> commit Task 6 code
+
+This authorizes committing the accepted Task6 implementation, fixtures, tests,
+CI wiring and directly related documentation, including the bounded acceptance
+record. Before staging, deterministic package comparison, the independent
+oracle and all 37 Python tests passed again. The accepted manifest hash is
+unchanged. Prior Rust validation remains recorded in section42.
+Inherited submodule dirt is excluded. No push, downstream execution, runtime
+activation or expanded qualification is authorized.

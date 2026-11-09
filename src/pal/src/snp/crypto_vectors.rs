@@ -656,6 +656,15 @@ fn fixed_verify(
     allowlist: &FixedReleaseAllowlistV1,
     now: u64,
 ) -> Result<VerifiedMaPolicyCollateral, MaPolicyErrorV1> {
+    fixed_verify_context(evidence, allowlist, now, &context(SnpMaRoleV1::Source))
+}
+
+fn fixed_verify_context(
+    evidence: &SnpMaEvidenceV1,
+    allowlist: &FixedReleaseAllowlistV1,
+    now: u64,
+    expected_context: &ReportDataContextV1,
+) -> Result<VerifiedMaPolicyCollateral, MaPolicyErrorV1> {
     let clock = TestClock(Cell::new(now));
     let policy = VerifiedLmPolicyV1::verify(
         &TestPolicy,
@@ -670,7 +679,7 @@ fn fixed_verify(
         &MaPolicyVerificationRequestV1 {
             evidence,
             report_collateral: &collateral,
-            expected_context: &context(SnpMaRoleV1::Source),
+            expected_context,
             selected_identity: &selected,
             expected_vmpl: 0,
             report_trust: SnpVerifierTrust::PinnedMilanArkTest,
@@ -690,6 +699,76 @@ fn fixed_verify(
             store: &mut TestStore::default(),
         },
     )
+}
+
+#[test]
+fn task6_saved_v2_reports_use_real_fixture_crypto_and_fixed_admission() {
+    macro_rules! saved {
+        ($name:literal) => {
+            include_bytes!(concat!(
+                "../../../snp_emu/src/fixture_data/venice_v6_synthetic/",
+                $name
+            ))
+        };
+    }
+    let allowlist =
+        FixedReleaseAllowlistV1::decode_exact(saved!("allowlists/approved.bin")).unwrap();
+    let records: &[(&[u8], &[u8])] = &[
+        (
+            saved!("envelopes/source_session_v2.bin"),
+            saved!("bindings/source_session_v2.bin"),
+        ),
+        (
+            saved!("envelopes/destination_session_v2.bin"),
+            saved!("bindings/destination_session_v2.bin"),
+        ),
+        (
+            saved!("envelopes/source_authorization_v2.bin"),
+            saved!("bindings/source_authorization_v2.bin"),
+        ),
+        (
+            saved!("envelopes/destination_authorization_v2.bin"),
+            saved!("bindings/destination_authorization_v2.bin"),
+        ),
+    ];
+    for (record, local_context) in records {
+        let evidence = SnpMaEvidenceV1::decode_exact(record).unwrap();
+        let expected = ReportDataContextV1::decode_exact(local_context).unwrap();
+        fixed_verify_context(&evidence, &allowlist, 100, &expected).unwrap();
+        assert!(fixed_verify_context(&evidence, &allowlist, 180, &expected).is_err());
+    }
+    let original =
+        SnpMaEvidenceV1::decode_exact(saved!("envelopes/source_session_v2.bin")).unwrap();
+    let expected =
+        ReportDataContextV1::decode_exact(saved!("bindings/source_session_v2.bin")).unwrap();
+    let mutations: &[&[u8; 1184]] = &[
+        saved!("reports/changed_measurement.bin"),
+        saved!("reports/changed_guest_svn.bin"),
+        saved!("reports/changed_family.bin"),
+        saved!("reports/changed_image.bin"),
+        saved!("reports/changed_id_key.bin"),
+        saved!("reports/changed_author_key.bin"),
+        saved!("reports/changed_host_data.bin"),
+        saved!("reports/changed_guest_policy.bin"),
+        saved!("reports/arg_below_floor.bin"),
+    ];
+    for report in mutations {
+        assert!(verify_report_signature(report, &vector("vcek_sec1")));
+        let mut changed = original.clone();
+        changed.ma_report = **report;
+        assert!(fixed_verify_context(&changed, &allowlist, 100, &expected).is_err());
+    }
+    let mismatch =
+        FixedReleaseAllowlistV1::decode_exact(saved!("allowlists/identity-mismatch.bin")).unwrap();
+    assert!(fixed_verify_context(&original, &mismatch, 100, &expected).is_err());
+    let invalid =
+        FixedReleaseAllowlistV1::decode_exact(saved!("allowlists/bad-signature.bin")).unwrap();
+    assert!(fixed_verify_context(&original, &invalid, 100, &expected).is_err());
+    let status = saved!("allowlists/non-approved.bin");
+    signature::UnparsedPublicKey::new(&signature::ECDSA_P384_SHA384_FIXED, vector("signer_sec1"))
+        .verify(&status[..224], &status[224..])
+        .unwrap();
+    assert!(FixedReleaseAllowlistV1::decode_exact(status).is_err());
 }
 
 #[test]

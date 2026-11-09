@@ -402,11 +402,15 @@ jobs:
           cargo test --locked -p migtd --no-default-features --features "snp_fixture_only,SnpEmu" -- --test-threads=1
           echo "cargo test passed"
 
+      - name: Run PAL fixture contract tests
+        run: cargo test --locked -p pal --no-default-features --features "snp-emu" -- --test-threads=1
+
       - name: Record fixture checksums
         run: |
           echo "=== SNP fixture file checksums ==="
           sha256sum src/snp_emu/src/fixture_data/*.bin \
                     src/snp_emu/src/fixture_data/*.der \
+                    src/snp_emu/src/fixture_data/venice_v6_synthetic/manifest.json \
                     | tee fixture_checksums.txt
           echo "Fixture provenance recorded"
 

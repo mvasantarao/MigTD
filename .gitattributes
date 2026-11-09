@@ -1,0 +1,3 @@
+/src/snp_emu/src/fixture_data/venice_v6_synthetic/**/*.bin binary
+/src/snp_emu/src/fixture_data/venice_v6_synthetic/**/*.der binary
+/src/snp_emu/src/fixture_data/venice_v6_synthetic/**/*.sig binary

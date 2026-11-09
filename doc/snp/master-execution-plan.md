@@ -6048,7 +6048,25 @@ push, PA advancement, Task6 start or Task12 reactivation.
 
 ## Task 6 - Build signed Version 6 evidence fixtures
 
-Status: READY after Task 5, P0.9A1, P0.9C1, and P0.9D
+Status: DONE - ACCEPTED within the documented synthetic fixture bounds at
+2026-11-09T16:59:36.591Z.
+Execution authorized on 2026-11-09T16:11:43.900Z; validation recorded 2026-11-09.
+Prerequisites Task 5, P0.9A1, P0.9C1, and P0.9D are accepted.
+Scope: synthetic VCEK fixtures and validation only; optional VLEK is excluded.
+Commit/publication, AAS1A/AAS1A-M and runtime activation remain separate.
+
+Persist the generated fixture assets under
+[`src/snp_emu/src/fixture_data/venice_v6_synthetic/`](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/).
+This dedicated subdirectory contains the synthetic Venice Version 6 reports,
+fixture ARK/ASK/VCEK certificates, signed supplements, authorization collateral,
+and deterministic manifests and hashes. Commit these assets with the accepted
+Task 6 implementation.
+
+These fixtures are generated entirely synthetically using public test-only
+signing keys. They are not extracted from Milan, Genoa, Turin, or Venice
+hardware. Preserve the existing captured `snp_report.bin`, `ark.der`, `ask.der`,
+and `vcek.der` in the parent directory unchanged. The `.der` files are
+certificates containing public keys, not private signing-key files.
 
 Produce:
 
@@ -6107,10 +6125,35 @@ fixture evidence submitted to SnpHardware
 
 Synthetic roots remain fixture-only.
 
+The saved package contains **100 files: 19 report binaries, six certificates,
+six public test-only private-key recipe roles, seven positive cases and
+31 negative cases across 19 coverage groups**. The seven positives share six
+distinct report binaries. See its [manifest](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/manifest.json),
+[case catalogue](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/case-catalogue.json)
+and [fixture scope](../../src/snp_emu/src/fixture_data/venice_v6_synthetic/README.md).
+
+Local validation passes: 37 Python tests, 433 PAL unit tests, 26 doctests,
+targeted strict Clippy, SNP composition check, standard repository formatting,
+deterministic regeneration and the existing P0.10/V2 oracles. All generated
+assets are eligible for Git; no files are staged or committed by Task6.
+Commands, preservation evidence and qualification limits are recorded in
+[technical-note section42](approval-decision-technical-note.md#42-task6-synthetic-v6-fixture-implementation-and-local-validation)
+and the central [execution log](implementation_record.log).
+
+The generic P-384 certificate profile is explicitly `Task6FixtureP384V1`,
+not native AMD Venice product/TCB/HWID certificate qualification. Production
+root and `SnpHardware` negatives model fixture-profile rejection; they do not
+demonstrate execution of the downstream common production verifier. Bounded
+user acceptance is recorded in
+[technical-note section43](approval-decision-technical-note.md#43-task6-bounded-acceptance).
+AAS integration, common V6/V2
+runtime activation, hardware qualification and Task12 remain separate.
+
 Ordered-release custom collateral/SVN/history/lifecycle unit fixtures already
 exist under accepted P0.9A2-P0.9C2. Full report/chain and deployment lifecycle
-fixtures remain Task 6/Phase 5 qualification work as applicable; those unit
-fixtures do not qualify real certificate rotation or production history.
+fixtures now have the Task6 signed synthetic report/chain inputs; deployment
+lifecycle qualification remains Phase 5 work. Neither set qualifies real
+certificate rotation or production history.
 
 ## AAS1A - Extend AAS for Version 6 local SNP report verification
 
@@ -8063,7 +8106,7 @@ There is no old/new SPDM and no handoff secret in this sequence.
 
 # Required execution record for every step
 
-The centralized execution-status record is `doc/implementation_record.log`.
+The centralized execution-status record is `doc/snp/implementation_record.log`.
 All phase gates and step execution records are appended to this one
 version-controlled file. The master plan remains the contract and ordering
 authority; the log records actual execution and acceptance evidence.
@@ -8107,39 +8150,40 @@ omitted from this day-to-day view; their scope, exclusions and evidence remain
 in the task sections above and the central execution log. Display numbers below
 are remaining-work positions, not changes to task identifiers or prerequisites.
 
-**Next pending step:** Task 6, NOT STARTED; separate authorization is required.
-Task5 is accepted within its documented separation scope at
-`2026-11-06T20:30:41.102Z`, with its implementation commit authorized.
-Phase3 remains open. No Task6 execution or push is authorized by this acceptance.
+**Next pending step:** AAS1A; execution requires separate authorization and its
+listed prerequisites. Task6 is accepted within its documented synthetic fixture
+bounds at `2026-11-09T16:59:36.591Z`. Task6 commit is authorized at
+`2026-11-09T22:27:48.335Z`; push/publication is not authorized.
+Phase3 remains open. This acceptance authorizes no downstream execution,
+runtime activation or push.
 
 ```text
-1.  Task 6 Build Version 6 signed evidence fixtures.
-2.  AAS1A Complete accepted AAS Version 6 local report verification.
-3.  AAS1A-M Integrate the shared AAS verifier into SnpEmuAzure and
+1.  AAS1A Complete accepted AAS Version 6 local report verification.
+2.  AAS1A-M Integrate the shared AAS verifier into SnpEmuAzure and
     SnpHardware; close deferred executable verifier-conformance obligations.
-4.  Task 7 Verify host-pushed tenant identity before V2 session-bound MA
+3.  Task 7 Verify host-pushed tenant identity before V2 session-bound MA
     evidence, then activate MA evidence, policy, and collateral.
-5.  Task 8 Correlate tenant-to-MA binding and exchange fresh purpose-0x07 MA
+4.  Task 8 Correlate tenant-to-MA binding and exchange fresh purpose-0x07 MA
     evidence before accepting tenant authorization.
-6.  Task 9 Implement VeniceV1 Microsoft policy.
-7.  Task 10 Generate/deliver one source random32 key and accept securely.
-8.  Task 11 Install migration information.
-9.  Task 13 Complete integration and failure testing.
-10. Task 14 Qualify the inter-node migration emulator, including SNP IGVM
+5.  Task 9 Implement VeniceV1 Microsoft policy.
+6.  Task 10 Generate/deliver one source random32 key and accept securely.
+7.  Task 11 Install migration information.
+8.  Task 13 Complete integration and failure testing.
+9.  Task 14 Qualify the inter-node migration emulator, including SNP IGVM
     packaging, exact embedded-MA identity and actual-image boot tests.
-11. R4.1 Build the authoritative firmware binding-state emulator.
-12. R4.2 Build the two-local-Rust-process handoff model.
-13. R4.3 Implement planned handoff.
-14. R4.4 Complete handoff failure, retry, and crash tests.
-15. R4.5 Implement and test recovery mode.
-16. R4.6 Test active migration behavior during local handoff.
-17. R4.7 Qualify the local rebind emulator.
-18. H5.0-H5.5 Freeze production authorization contracts, resolve the AMD layout
+10. R4.1 Build the authoritative firmware binding-state emulator.
+11. R4.2 Build the two-local-Rust-process handoff model.
+12. R4.3 Implement planned handoff.
+13. R4.4 Complete handoff failure, retry, and crash tests.
+14. R4.5 Implement and test recovery mode.
+15. R4.6 Test active migration behavior during local handoff.
+16. R4.7 Qualify the local rebind emulator.
+17. H5.0-H5.5 Freeze production authorization contracts, resolve the AMD layout
     blocker, complete and pin the production AAS parser/adapter, then complete
     BASE, collateral, installation, bounded replay, and rebind integration.
-19. P0.12B/AAS1B/H5.6 Complete production relying-party evidence and
+18. P0.12B/AAS1B/H5.6 Complete production relying-party evidence and
     composite AAS integration.
-20. H5.7 Qualify the production SNP IGVM, ADO deployment/promotion, hardware
+19. H5.7 Qualify the production SNP IGVM, ADO deployment/promotion, hardware
     and end-to-end behavior.
 ```
 
