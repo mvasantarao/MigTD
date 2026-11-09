@@ -26,3 +26,4 @@ td-payload-emu = { path = "../../../deps/td-shim-AzCVMEmu/td-payload-emu", optio
 vmcall-raw = ["td-shim-interface"]
 fuzz = []
 AzCVMEmu = ["tdx-tdcall-emu", "td-payload-emu"]
+SnpEmu = ["tdx-tdcall-emu", "td-payload-emu"]

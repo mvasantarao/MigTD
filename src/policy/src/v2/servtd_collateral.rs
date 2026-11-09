@@ -172,8 +172,8 @@ impl Measurements {
             mrtd: bytes_to_hex_string(mrtd),
             rtmr0: bytes_to_hex_string(rtmr0),
             rtmr1: bytes_to_hex_string(rtmr1),
-            rtmr2: rtmr2.map(|b| bytes_to_hex_string(b)),
-            rtmr3: rtmr3.map(|b| bytes_to_hex_string(b)),
+            rtmr2: rtmr2.map(bytes_to_hex_string),
+            rtmr3: rtmr3.map(bytes_to_hex_string),
         }
     }
 

@@ -38,7 +38,7 @@ pub fn get_quote_igvm(td_report: &[u8]) -> Result<Vec<u8>, Error> {
         version: 1,
         status: 0,
         in_len: td_report.len() as u32,
-        out_len: quote_size as u32,
+        out_len: quote_size,
         _data: [],
     };
 
@@ -82,7 +82,7 @@ pub fn get_quote_igvm(td_report: &[u8]) -> Result<Vec<u8>, Error> {
     let get_quote_blob_ptr = get_quote_blob.as_mut_ptr() as *mut c_void;
     // Verify alignment for ServtdTdxQuoteHdr access
     debug_assert!(
-        (get_quote_blob_ptr as usize) % core::mem::align_of::<ServtdTdxQuoteHdr>() == 0,
+        (get_quote_blob_ptr as usize).is_multiple_of(core::mem::align_of::<ServtdTdxQuoteHdr>()),
         "get_quote_blob buffer not properly aligned for ServtdTdxQuoteHdr"
     );
     let servtd_get_quote_ret =

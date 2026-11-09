@@ -63,7 +63,7 @@ pub fn set_policy_data(data: &[u8]) -> bool {
         }
 
         let policy_size_ptr = ptr::addr_of_mut!(POLICY_SIZE);
-        (*policy_buffer_ptr)[..data.len()].copy_from_slice(data);
+        (&mut (*policy_buffer_ptr))[..data.len()].copy_from_slice(data);
         *policy_size_ptr = data.len();
     }
     POLICY_INITIALIZED.store(true, Ordering::SeqCst);
@@ -79,7 +79,7 @@ pub fn set_root_ca_data(data: &[u8]) -> bool {
         }
 
         let root_ca_size_ptr = ptr::addr_of_mut!(ROOT_CA_SIZE);
-        (*root_ca_buffer_ptr)[..data.len()].copy_from_slice(data);
+        (&mut (*root_ca_buffer_ptr))[..data.len()].copy_from_slice(data);
         *root_ca_size_ptr = data.len();
     }
     ROOT_CA_INITIALIZED.store(true, Ordering::SeqCst);
@@ -95,7 +95,7 @@ pub fn set_policy_issuer_chain_data(data: &[u8]) -> bool {
         }
 
         let chain_size_ptr = ptr::addr_of_mut!(POLICY_ISSUER_CHAIN_SIZE);
-        (*chain_buffer_ptr)[..data.len()].copy_from_slice(data);
+        (&mut (*chain_buffer_ptr))[..data.len()].copy_from_slice(data);
         *chain_size_ptr = data.len();
     }
     POLICY_ISSUER_CHAIN_INITIALIZED.store(true, Ordering::SeqCst);
@@ -177,19 +177,21 @@ pub fn get_file_from_fv(
         unsafe {
             let policy_buffer_ptr = ptr::addr_of!(POLICY_BUFFER);
             let policy_size_ptr = ptr::addr_of!(POLICY_SIZE);
-            Some(&(*policy_buffer_ptr)[..*policy_size_ptr])
+            Some(&(&(*policy_buffer_ptr))[..*policy_size_ptr])
         }
     } else if file_name == MIGTD_ROOT_CA_FFS_GUID && ROOT_CA_INITIALIZED.load(Ordering::SeqCst) {
         unsafe {
             let root_ca_buffer_ptr = ptr::addr_of!(ROOT_CA_BUFFER);
             let root_ca_size_ptr = ptr::addr_of!(ROOT_CA_SIZE);
-            Some(&(*root_ca_buffer_ptr)[..*root_ca_size_ptr])
+            Some(&(&(*root_ca_buffer_ptr))[..*root_ca_size_ptr])
         }
-    } else if file_name == MIGTD_POLICY_ISSUER_CHAIN_FFS_GUID && POLICY_ISSUER_CHAIN_INITIALIZED.load(Ordering::SeqCst) {
+    } else if file_name == MIGTD_POLICY_ISSUER_CHAIN_FFS_GUID
+        && POLICY_ISSUER_CHAIN_INITIALIZED.load(Ordering::SeqCst)
+    {
         unsafe {
             let chain_buffer_ptr = ptr::addr_of!(POLICY_ISSUER_CHAIN_BUFFER);
             let chain_size_ptr = ptr::addr_of!(POLICY_ISSUER_CHAIN_SIZE);
-            Some(&(*chain_buffer_ptr)[..*chain_size_ptr])
+            Some(&(&(*chain_buffer_ptr))[..*chain_size_ptr])
         }
     } else {
         None

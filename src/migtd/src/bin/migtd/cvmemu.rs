@@ -23,7 +23,7 @@ use tdx_tdcall_emu::tdx_emu::{set_emulated_start_migration, set_emulated_start_r
 use tdx_tdcall_emu::{init_tcp_emulation_with_mode, start_tcp_server_sync, TcpEmulationMode};
 
 // Import shared functions from main.rs
-use crate::{basic_info, do_measurements};
+use super::{basic_info, do_measurements};
 
 /// AzCVMEmu entry point - standard Rust main function
 pub fn main() {

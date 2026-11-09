@@ -31,17 +31,14 @@ pub async fn generate_policy(for_production: bool) -> Result<Vec<u8>> {
         },
         policy: platform_policy
             .into_iter()
-            .map(|p| PolicyTypes::Platform(p))
+            .map(PolicyTypes::Platform)
             .collect(),
     };
 
     mig_policy.policy.push(PolicyTypes::Qe(qe_identity));
-    mig_policy.policy.append(
-        &mut tdx_module
-            .into_iter()
-            .map(|t| PolicyTypes::TdxModule(t))
-            .collect(),
-    );
+    mig_policy
+        .policy
+        .append(&mut tdx_module.into_iter().map(PolicyTypes::TdxModule).collect());
     mig_policy.policy.push(PolicyTypes::Migtd(migtd));
 
     let mut data = Vec::new();

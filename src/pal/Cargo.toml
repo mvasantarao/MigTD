@@ -1,0 +1,37 @@
+[package]
+name = "pal"
+version = "0.1.0"
+license = "BSD-2-Clause-Patent"
+edition = "2021"
+
+[features]
+default = []
+std = []
+snp-core = ["std", "system-random"]
+snp = ["snp-core"]
+snp-emu = ["snp-core", "snp-fixture", "snp-state-emulator", "snp-mock-installation", "snp-mock-rebind", "snp-aas-verify"]
+snp-fixture = ["snp-core"]
+snp-state-emulator = ["snp-fixture"]
+snp-mock-installation = ["snp-fixture"]
+snp-mock-rebind = ["snp-fixture"]
+snp-linux-hardware = ["snp-core"]
+# Selects Linux MA acquisition, not qualified collateral, V6 verification or effects.
+snp-production = ["snp-linux-hardware", "snp-aas-verify"]
+snp-aas-verify = ["snp-core", "dep:azure-guest-attestation-sdk", "dep:base64", "dep:openssl"]
+system-random = ["dep:ring"]
+snp_fixture_only = ["snp-fixture"]
+azure-snp-verify = ["snp-aas-verify"]
+tdx = []
+
+[dependencies]
+zerocopy = { version = "0.8", features = ["derive"] }
+codec = { path = "../../deps/spdm-rs/codec" }
+log = "0.4"
+zeroize = { version = "1.5.0", default-features = false, features = ["alloc"] }
+ring = { path = "../../deps/td-shim/library/ring", default-features = false, features = ["alloc", "less-safe-getrandom-custom-or-rdrand"], optional = true }
+base64 = { version = "0.22", optional = true }
+azure-guest-attestation-sdk = { git = "https://github.com/Azure/azure-guest-attestation-sdk", rev = "8774be30f452060c56372d34ccbe34c3d3f3c577", default-features = false, features = ["verify", "native"], optional = true }
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+
+[dev-dependencies]
+crypto = { path = "../crypto" }

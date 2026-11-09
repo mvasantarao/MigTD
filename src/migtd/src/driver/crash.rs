@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg(feature = "vmcall-raw")]
-
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, Ordering};
 use raw_cpuid::{CpuId, CpuIdReader, CpuIdReaderNative, CpuIdResult};
@@ -57,7 +55,7 @@ pub fn update_guest_crash_reg_report(errorcode: u64, crash_message: Vec<u8>) {
         unsafe {
             // Error Code
             msr_crash_p0.write(errorcode);
-            if crash_message.len() > 0 && crash_message.len() < PAGE_SIZE {
+            if !crash_message.is_empty() && crash_message.len() < PAGE_SIZE {
                 let data_buffer = match alloc_shared_pages(1) {
                     Some(addr) => addr,
                     None => {

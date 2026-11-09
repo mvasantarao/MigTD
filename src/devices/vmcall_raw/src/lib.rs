@@ -7,14 +7,14 @@
 extern crate alloc;
 
 // Re-export TDX dependencies conditionally to avoid feature gates throughout the code
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 extern crate td_payload;
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
 extern crate tdx_tdcall;
 
-#[cfg(feature = "AzCVMEmu")]
+#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
 extern crate td_payload_emu as td_payload;
-#[cfg(feature = "AzCVMEmu")]
+#[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
 extern crate tdx_tdcall_emu as tdx_tdcall;
 
 use core::fmt::{self, Display};
@@ -114,16 +114,16 @@ pub struct VmcallRawAddr {
 impl VmcallRawAddr {
     pub fn new(mid: u64) -> Self {
         VmcallRawAddr {
-            transport_context: mid as u64,
+            transport_context: mid,
         }
     }
 
     pub fn transport_context(&self) -> u64 {
-        self.transport_context as u64
+        self.transport_context
     }
 
     pub fn set_transport_context(&mut self, mid: u64) {
-        self.transport_context = mid as u64;
+        self.transport_context = mid;
     }
 }
 

@@ -449,9 +449,9 @@ mod v2 {
             .map_err(|_| PolicyError::HashCalculation)?;
 
         let mut validity = true;
-        validity &= &tdx_report.report_mac.tee_tcb_info_hash == tee_tcb_info_hash.as_slice();
+        validity &= tdx_report.report_mac.tee_tcb_info_hash == tee_tcb_info_hash.as_slice();
         validity &= tdx_report.report_mac.tee_info_hash != [0; 48];
-        validity &= &tdx_report.report_mac.tee_info_hash == tdinfo_hash.as_slice();
+        validity &= tdx_report.report_mac.tee_info_hash == tdinfo_hash.as_slice();
 
         if !validity {
             return Err(PolicyError::InvalidTdReport);
@@ -543,6 +543,7 @@ mod v2 {
         )
     }
 
+    #[cfg(test)]
     fn get_rtmrs_from_tdinfo(
         td_info: &TdInfo,
     ) -> Result<[[u8; SHA384_DIGEST_SIZE]; 4], PolicyError> {
@@ -1036,6 +1037,7 @@ mod v2 {
     // Build a 512-byte TDINFO_STRUCT with the supplied MROWNER bytes and an
     // MROWNERCONFIG whose first 4 LE bytes encode `svn` and trailing 44 are
     // zero (the well-formed shape defined by GHCI 1.5).
+    #[cfg(test)]
     fn make_init_tdinfo(mrowner: &[u8; 48], svn: u32) -> [u8; 512] {
         let mut bytes = [0u8; 512];
         bytes[112..160].copy_from_slice(mrowner); // mrowner
@@ -1045,6 +1047,7 @@ mod v2 {
         bytes
     }
 
+    #[cfg(test)]
     fn make_peer_mrownerconfig(svn: u32) -> [u8; 48] {
         let mut buf = [0u8; 48];
         buf[..4].copy_from_slice(&svn.to_le_bytes());
@@ -1145,6 +1148,7 @@ mod v2 {
         ));
     }
 
+    #[cfg(test)]
     fn make_suppl_data(mrowner: &[u8; 48], svn: u32) -> Vec<u8> {
         let mut suppl = alloc::vec![0u8; REPORT_DATA_SIZE];
         suppl[Report::R_MIGTD_MROWNER].copy_from_slice(mrowner);

@@ -1,0 +1,3 @@
+[MA] FIXTURE_PLATFORM_DATA_READY
+[MA] RUNTIME_PROFILE: process=standalone start=autostart role=destination host_control=none peer_transport=tcp-emulation platform_services=fixture
+[MA] PEER_CHANNEL_SETUP: role=destination address=127.0.0.1:8001

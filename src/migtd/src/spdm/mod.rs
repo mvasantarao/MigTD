@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg(feature = "spdm_attestation")]
+#![cfg(any(feature = "spdm_attestation", feature = "SnpEmu"))]
 
+#[cfg(feature = "SnpEmu")]
+mod snp_vdm;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
 mod spdm_rebind;
 mod spdm_req;
-mod spdm_rsp;
+pub(crate) mod spdm_rsp;
 mod spdm_vdm;
 mod vmcall_msg;
 
@@ -29,7 +31,10 @@ use zeroize::ZeroizeOnDrop;
 
 use async_io::AsyncRead;
 use async_io::AsyncWrite;
+#[cfg(not(feature = "SnpEmu"))]
 use crypto::hash::digest_sha384;
+#[cfg(feature = "SnpEmu")]
+pub use snp_vdm::*;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
 pub use spdm_rebind::spdm_requester_rebind_old;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
@@ -41,9 +46,12 @@ pub use spdm_rsp::spdm_responder_transfer_msk;
 
 pub use spdm_vdm::*;
 
-use crate::migration::MigrationResult;
+#[cfg(not(feature = "SnpEmu"))]
 use crate::migration::MigtdMigrationInformation;
+#[cfg(feature = "SnpEmu")]
+use crate::runtime::snp::legacy::LegacyAppContext as SpdmAppContextData;
 use crate::spdm::vmcall_msg::VMCALL_SPDM_MESSAGE_HEADER_SIZE;
+use crate::status::MigrationResult;
 
 pub(crate) type SpdmDeviceIoArc<T> = Arc<Mutex<MigtdTransport<T>>>;
 pub struct MigtdTransport<T: AsyncRead + AsyncWrite + Unpin + Send> {
@@ -130,19 +138,38 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
     }
 }
 
-pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
+#[cfg(not(feature = "SnpEmu"))]
+pub fn gen_quote_spdm(
+    report_data: &[u8],
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> Result<Vec<u8>, MigrationResult> {
     let hash = digest_sha384(report_data)?;
 
-    // Generate the TD Report that contains the public key hash as nonce
+    // Build 64-byte additional_data: SHA384(report_data) padded to 64 bytes.
+    // This is the nonce embedded in the attestation report, binding it to the
+    // SPDM handshake transcript (TH1).
     let mut additional_data = [0u8; 64];
     additional_data[..hash.len()].copy_from_slice(hash.as_ref());
 
-    let (quote, _report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
-        log::error!("get_quote_with_retry failed: {:?}\n", e);
-        MigrationResult::MutualAttestationError
-    })?;
+    // Legacy SNP compatibility does not claim a fresh TH1 report-data binding.
+    #[cfg(feature = "SnpEmu")]
+    {
+        return providers.legacy_report_blob(&additional_data).map_err(|e| {
+            log::error!("selected SNP MA evidence acquisition failed: {:?}\n", e);
+            MigrationResult::MutualAttestationError
+        });
+    }
 
-    Ok(quote)
+    // TDX / AzCVMEmu path: generate a real TD report and get a quote via QVL.
+    #[cfg(not(feature = "SnpEmu"))]
+    {
+        let (quote, _report) =
+            crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
+                log::error!("get_quote_with_retry failed: {:?}\n", e);
+                MigrationResult::MutualAttestationError
+            })?;
+        Ok(quote)
+    }
 }
 
 /// Verify that the peer's quote contains the expected REPORTDATA.
@@ -152,6 +179,13 @@ pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
 ///
 /// `supplemental_data` is the output of verify_quote() (774 bytes),
 /// which contains the REPORTDATA at offset 520..568 (48 bytes).
+///
+/// **TDX-ONLY.** This function reads the TDX supplemental_data layout (QvlResult, 774 bytes).
+/// TODO(Phase-3b/3b-binding): SNP reports carry report_data at report[0x50..0x90] (bytes 80..144
+/// of the raw 1184-byte ATTESTATION_REPORT, not in a QvlResult supplemental blob).
+/// Phase 3b must add `verify_snp_report_data_binding()` reading that offset, and remove
+/// the #[cfg(SnpEmu)] bypass in spdm_req.rs / spdm_rsp.rs verify_report_data_binding() calls.
+#[cfg(not(feature = "SnpEmu"))]
 pub fn verify_peer_report_data(
     supplemental_data: &[u8],
     expected_report_data: &[u8],
@@ -190,11 +224,21 @@ pub fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Ve
 
 /// Verify a quote, returning the supplemental data on success.
 ///
-/// When the `test_disable_ra_and_accept_all` feature is enabled, verification
-/// is bypassed and an empty `Vec` is returned.
-pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<Vec<u8>> {
-    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+/// Legacy SNP verifies captured signatures/certificates through its selected
+/// compatibility bridge, without claiming live REPORTDATA binding. Only the
+/// explicit test bypass skips that verification.
+#[cfg(not(feature = "SnpEmu"))]
+pub fn spdm_verify_quote(
+    #[allow(unused_variables)] quote: &[u8],
+    #[cfg(feature = "SnpEmu")]
+    #[allow(unused_variables)]
+    context: &pal::types::SnpOperationContext,
+    #[cfg(feature = "SnpEmu")] _providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> SpdmResult<Vec<u8>> {
+    #[cfg(not(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all")))]
     let res = attestation::verify_quote(quote);
+    #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
+    let res = verify_snp_fixture_quote(quote, context, _providers);
     #[cfg(feature = "test_disable_ra_and_accept_all")]
     let res: Result<Vec<u8>, ()> = Ok(vec![]);
 
@@ -205,6 +249,7 @@ pub fn spdm_verify_quote(#[allow(unused_variables)] quote: &[u8]) -> SpdmResult<
 }
 
 /// Verify that the peer's REPORTDATA is bound to the expected prefix and TH1.
+#[cfg(not(feature = "SnpEmu"))]
 pub fn verify_report_data_binding(
     supplemental_data: &[u8],
     peer_prefix: &[u8],
@@ -231,6 +276,7 @@ pub fn verify_report_data_binding(
 /// operates on quote supplemental data.  In the rebind flow the peer provides a
 /// raw TDREPORT instead of a quote; the REPORTDATA field is accessed via the
 /// parsed `TdxReport.report_mac.report_data` struct field.
+#[cfg(not(feature = "SnpEmu"))]
 pub fn verify_tdreport_data_binding(
     tdreport_bytes: &[u8],
     peer_prefix: &[u8],
@@ -308,11 +354,13 @@ impl Codec for PrivateKeyDer {
 }
 
 #[derive(Debug)]
+#[cfg(not(feature = "SnpEmu"))]
 struct SpdmAppContextData {
     pub migration_info: MigtdMigrationInformation,
     pub private_key: PrivateKeyDer,
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 impl Codec for SpdmAppContextData {
     fn encode(&self, bytes: &mut Writer) -> Result<usize, codec::EncodeErr> {
         let mut size = 0;
@@ -407,9 +455,39 @@ pub(crate) fn decode_spdm_session_err(e: SpdmStatus) -> MigrationResult {
             && ed.data[2] == spdmlib::message::SpdmErrorCode::SpdmErrorVendorDefined.get_u8()
         {
             if let Ok(decoded) = MigrationResult::try_from(ed.data[3]) {
-                return decoded;
+                if decoded != MigrationResult::Success {
+                    return decoded;
+                }
             }
         }
     }
     MigrationResult::SecureSessionError
+}
+
+#[cfg(all(
+    test,
+    feature = "SnpEmu",
+    not(feature = "test_disable_ra_and_accept_all")
+))]
+mod snp_fixture_tests {
+    use pal::types::{
+        HostRequestId, ManagedGuestHandle, MigrationId, MigrationRole, SnpOperationContext,
+    };
+
+    #[test]
+    fn fixture_quote_runs_qvl_verification() {
+        let context = SnpOperationContext::new(
+            HostRequestId::new(7),
+            MigrationId::new(7),
+            MigrationRole::Source,
+            ManagedGuestHandle::new(9),
+        );
+        let providers = crate::snp_composition::selected_runtime_provider_set();
+        let quote = providers
+            .legacy_report_blob(&[0u8; 64])
+            .expect("fixture report");
+        assert!(providers
+            .verify_legacy_fixture_quote(&quote, &context)
+            .is_ok());
+    }
 }

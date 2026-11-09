@@ -67,19 +67,14 @@ pub fn server<T: AsyncRead + AsyncWrite + Unpin>(
     let certs = vec![certs];
 
     // Server verifies certificate of client
-    let config = TlsConfig::new(
-        certs,
-        signing_key,
-        move |cert, quote| verify_client_cert(cert, quote),
-        peer_data,
-    )
-    .map_err(|e| {
-        log::error!(
-            "server policy_v2 TlsConfig::new() failed with error {:?}\n",
+    let config =
+        TlsConfig::new(certs, signing_key, verify_client_cert, peer_data).map_err(|e| {
+            log::error!(
+                "server policy_v2 TlsConfig::new() failed with error {:?}\n",
+                e
+            );
             e
-        );
-        e
-    })?;
+        })?;
     config.tls_server(stream).map_err(|e| {
         log::error!("server policy_v2 tls_server() failed with error {:?}\n", e);
         e.into()
@@ -283,45 +278,41 @@ fn create_certificate_for_server(signing_key: &EcdsaPk) -> Result<(Vec<u8>, Vec<
                 Some(false),
                 Some(quote.as_slice()),
             )
-            .map_err(|e| {
+            .inspect_err(|&e| {
                 log::error!(
                     "gen_cert Extension::new for EXTNID_MIGTD_QUOTE_REPORT failed with error {:?}\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for EXTNID_MIGTD_QUOTE_REPORT failed with error {:?}\n",
                 e
             );
-            e
         })?;
 
     // If policy_v2 feature is enabled, add policy extension
     #[cfg(feature = "policy_v2")]
     let x509_builder = x509_builder
         .add_extension(
-            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).map_err(
-                |e| {
+            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).inspect_err(
+                |&e| {
                     log::error!(
                         "gen_cert policy_v2 add_extension failed with error {:?}.\n",
                         e
                     );
-                    e
                 },
             )?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert policy_v2 add_extension for policy hash failed with error {:?}.\n",
                 e
             );
-            e
         })?;
 
-    let x509_cert_der = sign_tls_tbs(x509_builder, &signing_key)?;
+    let x509_cert_der = sign_tls_tbs(x509_builder, signing_key)?;
     Ok((x509_cert_der, quote))
 }
 
@@ -362,45 +353,41 @@ fn create_certificate_for_client(signing_key: &EcdsaPk) -> Result<(Vec<u8>, Vec<
                 Some(false),
                 Some(quote.as_slice()),
             )
-            .map_err(|e| {
+            .inspect_err(|&e| {
                 log::error!(
                     "gen_cert Extension::new for EXTNID_MIGTD_QUOTE_REPORT failed with error {:?}\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for EXTNID_MIGTD_QUOTE_REPORT failed with error {:?}\n",
                 e
             );
-            e
         })?;
 
     // If policy_v2 feature is enabled, add policy extension
     #[cfg(feature = "policy_v2")]
     let x509_builder = x509_builder
         .add_extension(
-            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).map_err(
-                |e| {
+            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).inspect_err(
+                |&e| {
                     log::error!(
                         "gen_cert policy_v2 add_extension failed with error {:?}.\n",
                         e
                     );
-                    e
                 },
             )?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert policy_v2 add_extension for policy hash failed with error {:?}.\n",
                 e
             );
-            e
         })?;
 
-    let x509_cert_der = sign_tls_tbs(x509_builder, &signing_key)?;
+    let x509_cert_der = sign_tls_tbs(x509_builder, signing_key)?;
     Ok((x509_cert_der, quote))
 }
 
@@ -443,42 +430,38 @@ fn create_certificate_for_rebinding_old(
                 Some(false),
                 Some(tdreport.as_bytes()),
             )
-            .map_err(|e| {
+            .inspect_err(|&e| {
                 log::error!(
                     "gen_cert Extension::new for EXTNID_MIGTD_TDREPORT failed with error {:?}\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for EXTNID_MIGTD_TDREPORT failed with error {:?}\n",
                 e
             );
-            e
         })?;
 
     // If policy_v2 feature is enabled, add policy extension
     #[cfg(feature = "policy_v2")]
     let x509_builder = x509_builder
         .add_extension(
-            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).map_err(
-                |e| {
+            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).inspect_err(
+                |&e| {
                     log::error!(
                         "gen_cert policy_v2 add_extension failed with error {:?}.\n",
                         e
                     );
-                    e
                 },
             )?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert policy_v2 add_extension for policy hash failed with error {:?}.\n",
                 e
             );
-            e
         })?
         .add_extension(
             Extension::new(
@@ -486,41 +469,36 @@ fn create_certificate_for_rebinding_old(
                 Some(false),
                 Some(servtd_ext.as_bytes()),
             )
-            .map_err(|e| {
+            .inspect_err(|&e| {
                 log::error!(
                     "gen_cert policy_v2 add_extension failed with error {:?}.\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert policy_v2 add_extension for servtd_ext failed with error {:?}.\n",
                 e
             );
-            e
         })?
         .add_extension(
-            Extension::new(EXTNID_MIGTD_TDREPORT_INIT, Some(false), Some(&init_tdinfo)).map_err(
-                |e| {
+            Extension::new(EXTNID_MIGTD_TDREPORT_INIT, Some(false), Some(init_tdinfo))
+                .inspect_err(|&e| {
                     log::error!(
                         "gen_cert policy_v2 add_extension failed with error {:?}.\n",
                         e
                     );
-                    e
-                },
-            )?,
+                })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert policy_v2 add_extension for tdreport init failed with error {:?}.\n",
                 e
             );
-            e
         })?;
 
-    let x509_cert_der = sign_tls_tbs(x509_builder, &signing_key)?;
+    let x509_cert_der = sign_tls_tbs(x509_builder, signing_key)?;
     Ok(x509_cert_der)
 }
 
@@ -562,43 +540,39 @@ fn create_certificate_for_rebinding_new(signing_key: &EcdsaPk) -> Result<Vec<u8>
                 Some(false),
                 Some(tdreport.as_bytes()),
             )
-            .map_err(|e| {
+            .inspect_err(|&e| {
                 log::error!(
                     "gen_cert Extension::new for EXTNID_MIGTD_TDREPORT failed with error {:?}\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for EXTNID_MIGTD_TDREPORT failed with error {:?}\n",
                 e
             );
-            e
         })?;
 
     let x509_builder = x509_builder
         .add_extension(
-            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).map_err(
-                |e| {
+            Extension::new(EXTNID_MIGTD_POLICY_HASH, Some(false), Some(&policy_hash)).inspect_err(
+                |&e| {
                     log::error!(
                         "gen_cert policy_v2 add_extension failed with error {:?}.\n",
                         e
                     );
-                    e
                 },
             )?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert policy_v2 add_extension for policy hash failed with error {:?}.\n",
                 e
             );
-            e
         })?;
 
-    let x509_cert_der = sign_tls_tbs(x509_builder, &signing_key)?;
+    let x509_cert_der = sign_tls_tbs(x509_builder, signing_key)?;
     Ok(x509_cert_der)
 }
 
@@ -625,72 +599,65 @@ fn create_tls_tbs_common<'a>(
     })?;
 
     let x509_builder = CertificateBuilder::new(sig_alg, algorithm, public_key)
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert CertificateBuilder::new failed with error {:?}\n",
                 e
             );
-            e
         })?
         // 1970-01-01T00:00:00Z
         .set_not_before(core::time::Duration::new(0, 0))
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!("gen_cert set_not_before failed with error {:?}\n", e);
-            e
         })?
         // 9999-12-31T23:59:59Z
         .set_not_after(core::time::Duration::new(253402300799, 0))
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!("gen_cert set_not_after failed with error {:?}\n", e);
-            e
         })?
         .add_extension(
-            Extension::new(KEY_USAGE_EXTENSION, Some(true), Some(key_usage)).map_err(|e| {
+            Extension::new(KEY_USAGE_EXTENSION, Some(true), Some(key_usage)).inspect_err(|&e| {
                 log::error!(
                     "gen_cert Extension::new for KEY_USAGE_EXTENSION failed with error {:?}\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for KEY_USAGE_EXTENSION failed with error {:?}\n",
                 e
             );
-            e
         })?
         .add_extension(
-            Extension::new(EXTENDED_KEY_USAGE, Some(false), Some(eku)).map_err(|e| {
+            Extension::new(EXTENDED_KEY_USAGE, Some(false), Some(eku)).inspect_err(|&e| {
                 log::error!(
                     "gen_cert Extension::new for EXTENDED_KEY_USAGE failed with error {:?}\n",
                     e
                 );
-                e
             })?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for EXTENDED_KEY_USAGE failed with error {:?}\n",
                 e
             );
-            e
         })?
         .add_extension(
-            Extension::new(EXTNID_MIGTD_EVENT_LOG, Some(false), Some(event_log)).map_err(|e| {
-                log::error!(
+            Extension::new(EXTNID_MIGTD_EVENT_LOG, Some(false), Some(event_log)).inspect_err(
+                |&e| {
+                    log::error!(
                     "gen_cert Extension::new for EXTNID_MIGTD_EVENT_LOG failed with error {:?}\n",
                     e
                 );
-                e
-            })?,
+                },
+            )?,
         )
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert add_extension for EXTNID_MIGTD_EVENT_LOG failed with error {:?}\n",
                 e
             );
-            e
         })?;
 
     Ok(x509_builder)
@@ -698,59 +665,58 @@ fn create_tls_tbs_common<'a>(
 
 fn sign_tls_tbs(x509_builder: CertificateBuilder, signing_key: &EcdsaPk) -> Result<Vec<u8>> {
     let mut x509_certificate = x509_builder.build();
-    let tbs = x509_certificate.tbs_certificate.to_der().map_err(|e| {
-        log::error!(
-            "gen_cert x509_certificate.tbs_certificate.to_der failed with error {:?}.\n",
-            e
-        );
-        e
-    })?;
+    let tbs = x509_certificate
+        .tbs_certificate
+        .to_der()
+        .inspect_err(|&e| {
+            log::error!(
+                "gen_cert x509_certificate.tbs_certificate.to_der failed with error {:?}.\n",
+                e
+            );
+        })?;
     let signature = signing_key.sign(&tbs).map_err(|e| {
         log::error!("gen_cert signing_key.sign failed with error {:?}.\n", e);
         e
     })?;
-    x509_certificate.set_signature(&signature).map_err(|e| {
-        log::error!(
-            "gen_cert x509_certificate.set_signature failed with error {:?}.\n",
-            e
-        );
-        e
-    })?;
+    x509_certificate
+        .set_signature(&signature)
+        .inspect_err(|&e| {
+            log::error!(
+                "gen_cert x509_certificate.set_signature failed with error {:?}.\n",
+                e
+            );
+        })?;
 
-    Ok(x509_certificate.to_der().map_err(|e| {
+    Ok(x509_certificate.to_der().inspect_err(|&e| {
         log::error!(
             "gen_cert x509_certificate.to_der failed with error {:?}.\n",
             e
         );
-        e
     })?)
 }
 
 fn create_eku() -> Result<Vec<u8>> {
     Ok(vec![SERVER_AUTH, CLIENT_AUTH, MIGTD_EXTENDED_KEY_USAGE]
         .to_der()
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!("gen_cert to_der failed with error {:?}\n", e);
-            e
         })?)
 }
 
 fn create_key_usage() -> Result<Vec<u8>> {
     Ok(BitStringRef::from_bytes(&[0x80])
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert BitStringRef::from_bytes() failed with error {:?}\n",
                 e
             );
-            e
         })?
         .to_der()
-        .map_err(|e| {
+        .inspect_err(|&e| {
             log::error!(
                 "gen_cert BitStringRef::to_der() failed with error {:?}\n",
                 e
             );
-            e
         })?)
 }
 
@@ -1063,9 +1029,8 @@ mod verify {
                 log::error!("Failed to get public key bytes from certificate.\n");
                 CryptoError::ParseCertificate
             })?;
-        let tbs = cert.tbs_certificate.to_der().map_err(|e| {
+        let tbs = cert.tbs_certificate.to_der().inspect_err(|&e| {
             log::error!("Failed to get tbs_certificate der: {:?}\n", e);
-            e
         })?;
         let signature = cert.signature_value.as_bytes().ok_or_else(|| {
             log::error!("Failed to get signature bytes from certificate.\n");
@@ -1089,9 +1054,8 @@ mod verify {
                 log::error!("Failed to get public key bytes from certificate.\n");
                 CryptoError::ParseCertificate
             })?;
-        let tbs = cert.tbs_certificate.to_der().map_err(|e| {
+        let tbs = cert.tbs_certificate.to_der().inspect_err(|&e| {
             log::error!("Failed to get tbs_certificate der: {:?}\n", e);
-            e
         })?;
         let signature = cert.signature_value.as_bytes().ok_or_else(|| {
             log::error!("Failed to get signature bytes from certificate.\n");
@@ -1221,9 +1185,8 @@ fn check_migtd_eku(extensions: &Extensions) -> core::result::Result<(), CryptoEr
     for extn in extensions.get() {
         if extn.extn_id == EXTENDED_KEY_USAGE {
             if let Some(extn_value) = extn.extn_value {
-                let eku = ExtendedKeyUsage::from_der(extn_value.as_bytes()).map_err(|e| {
+                let eku = ExtendedKeyUsage::from_der(extn_value.as_bytes()).inspect_err(|&e| {
                     log::error!("Failed to parse ExtendedKeyUsage: {:?}\n", e);
-                    e
                 })?;
                 if eku.contains(&MIGTD_EXTENDED_KEY_USAGE) {
                     return Ok(());

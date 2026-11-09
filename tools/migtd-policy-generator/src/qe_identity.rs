@@ -30,7 +30,7 @@ async fn fetch_qe_identity(for_production: bool) -> Result<QeInfo> {
         SBX_QE_IDENTITY_URL
     };
 
-    let (response_code, data) = fetch_data_from_url(&url).await?;
+    let (response_code, data) = fetch_data_from_url(url).await?;
     match response_code {
         200 => {
             println!("Got enclave identity");

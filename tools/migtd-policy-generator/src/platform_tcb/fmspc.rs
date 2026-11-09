@@ -28,7 +28,7 @@ pub async fn fetch_fmspc_list(for_production: bool) -> Result<Vec<Fmspc>> {
     }
 }
 
-pub fn get_all_e5_platform(list: &Vec<Fmspc>) -> Vec<&Fmspc> {
+pub fn get_all_e5_platform(list: &[Fmspc]) -> Vec<&Fmspc> {
     list.iter()
         .filter(|p| p.platform.as_str() == "E5")
         .collect()

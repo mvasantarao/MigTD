@@ -38,6 +38,13 @@ use crate::driver::ticks::with_timeout;
 use crate::ratls;
 #[cfg(feature = "spdm_attestation")]
 use crate::spdm;
+#[cfg(feature = "SnpEmu")]
+use pal::types::{
+    HostRequestId, ManagedGuestHandle, MigrationId, MigrationRole as PlatformMigrationRole,
+    SnpOperationContext,
+};
+#[cfg(feature = "SnpEmu")]
+use zeroize::Zeroize;
 
 #[cfg(feature = "vmcall-raw")]
 const PAGE_SIZE: usize = 0x1_000;
@@ -104,6 +111,7 @@ pub struct ExchangeInformation {
     pub reserved: [u8; 4],
 }
 
+#[cfg(any(not(feature = "spdm_attestation"), test))]
 impl ExchangeInformation {
     fn validate(&self) -> Result<()> {
         if self.reserved != [0; 4] {
@@ -148,14 +156,12 @@ pub fn query() -> Result<()> {
         command: QUERY_COMMAND,
         reserved: [0; 2],
     };
-    cmd.write(query.as_bytes()).map_err(|e| {
+    cmd.write(query.as_bytes()).inspect_err(|_| {
         log::error!("query: Failed to write query to command buffer\n");
-        e
     })?;
     cmd.write(VMCALL_SERVICE_MIGTD_GUID.as_bytes())
-        .map_err(|e| {
+        .inspect_err(|_| {
             log::error!("query: Failed to write MIGTD GUID to command buffer\n");
-            e
         })?;
     let _ = VmcallServiceResponse::new(rsp_mem.as_mut_bytes(), VMCALL_SERVICE_COMMON_GUID)
         .ok_or_else(|| {
@@ -259,7 +265,7 @@ fn calculate_shared_page_nums(reqbufferhdrlen: usize) -> Result<usize> {
         + policy_size
         + event_log_size
         + report_size;
-    Ok((total_size + PAGE_SIZE - 1) / PAGE_SIZE)
+    Ok(total_size.div_ceil(PAGE_SIZE))
 }
 
 #[cfg(feature = "vmcall-raw")]
@@ -276,11 +282,11 @@ fn try_accept_request(
 }
 
 #[cfg(feature = "vmcall-raw")]
-fn get_request_payload<'a>(
-    data_buffer: &'a [u8],
+fn get_request_payload(
+    data_buffer: &[u8],
     reqbufferhdrlen: usize,
     data_length: u32,
-) -> Result<&'a [u8]> {
+) -> Result<&[u8]> {
     let end = reqbufferhdrlen
         .checked_add(data_length as usize)
         .ok_or(MigrationResult::InvalidParameter)?;
@@ -441,11 +447,11 @@ fn parse_request(
             }
         }
         DataStatusOperation::GetTDReport => {
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             {
                 decode_and_dispatch!(ReportInfo, |info| WaitForRequestResponse::GetTdReport(info))
             }
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             {
                 log_request_error!(
                     request_id,
@@ -489,7 +495,7 @@ fn parse_request(
 
 #[cfg(feature = "vmcall-raw")]
 pub async fn wait_for_request() -> Result<WaitForRequestResponse> {
-    let mut reqbufferhdr = RequestDataBufferHeader {
+    let reqbufferhdr = RequestDataBufferHeader {
         datastatus: 0,
         length: 0,
     };
@@ -503,7 +509,7 @@ pub async fn wait_for_request() -> Result<WaitForRequestResponse> {
 
     let shared_data_buffer = data_buffer.as_mut_bytes();
 
-    shared_data_buffer[0..reqbufferhdrlen].copy_from_slice(&reqbufferhdr.as_bytes());
+    shared_data_buffer[0..reqbufferhdrlen].copy_from_slice(reqbufferhdr.as_bytes());
 
     tdx::tdvmcall_migtd_waitforrequest(shared_data_buffer, event::VMCALL_SERVICE_VECTOR).map_err(
         |e| {
@@ -652,9 +658,8 @@ pub fn shutdown() -> Result<()> {
         command: MIG_COMMAND_SHUT_DOWN,
         reserved: [0; 2],
     };
-    cmd.write(sd.as_bytes()).map_err(|e| {
+    cmd.write(sd.as_bytes()).inspect_err(|_| {
         log::error!("shutdown: Failed to write shutdown command to command buffer\n");
-        e
     })?;
     tdx::tdvmcall_service(cmd_mem.as_bytes(), rsp_mem.as_mut_bytes(), 0, 0).map_err(|e| {
         log::error!("shutdown: tdvmcall_service failed: {:?}\n", e);
@@ -717,7 +722,7 @@ pub async fn get_migtd_data(
 }
 
 #[cfg(feature = "vmcall-raw")]
-pub async fn report_status(status: u8, request_id: u64, data: &Vec<u8>) -> Result<()> {
+pub async fn report_status(status: u8, request_id: u64, data: &[u8]) -> Result<()> {
     let mut reportstatus = ReportStatusResponse::new()
         .with_pre_migration_status(0)
         .with_error_code(0)
@@ -728,7 +733,7 @@ pub async fn report_status(status: u8, request_id: u64, data: &Vec<u8>) -> Resul
     };
     let reqbufferhdrlen = size_of::<RequestDataBufferHeader>();
 
-    let shared_page_nums = (reqbufferhdrlen + data.len() + PAGE_SIZE - 1) / PAGE_SIZE;
+    let shared_page_nums = (reqbufferhdrlen + data.len()).div_ceil(PAGE_SIZE);
     let mut data_buffer = SharedMemory::new(shared_page_nums).ok_or_else(|| {
         log::error!(migration_request_id = request_id; "report_status: Failed to allocate shared memory for data buffer\n");
         MigrationResult::OutOfResource
@@ -748,13 +753,13 @@ pub async fn report_status(status: u8, request_id: u64, data: &Vec<u8>) -> Resul
         return Err(MigrationResult::InvalidParameter);
     }
 
-    if data.len() > 0 {
+    if !data.is_empty() {
         reqbufferhdr.length += data.len() as u32;
     }
 
     let data_buffer = data_buffer.as_mut_bytes();
-    data_buffer[0..reqbufferhdrlen].copy_from_slice(&reqbufferhdr.as_bytes());
-    if data.len() > 0 {
+    data_buffer[0..reqbufferhdrlen].copy_from_slice(reqbufferhdr.as_bytes());
+    if !data.is_empty() {
         data_buffer[reqbufferhdrlen..data.len() + reqbufferhdrlen]
             .copy_from_slice(&data[0..data.len()]);
     }
@@ -964,17 +969,27 @@ async fn migration_src_exchange_msk(
     transport: TransportType,
     info: &MigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
 ) -> Result<()> {
     use core::ops::DerefMut;
 
     const SPDM_TIMEOUT: Duration = Duration::from_secs(60); // 60 seconds
-    let (mut spdm_requester, device_io_ref) = spdm::spdm_requester(transport).map_err(|_e| {
+    eprintln!(
+        "[MA] exchange_msk: constructing SPDM requester (request_id={})",
+        info.mig_info.mig_request_id
+    );
+    let (mut spdm_requester, device_io_ref) = spdm::spdm_requester(transport).map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM requester construction failed: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk(): Failed in spdm_requester transport. Migration ID: {}\n",
             info.mig_info.mig_request_id
         );
         MigrationResult::SecureSessionError
     })?;
+    eprintln!("[MA] exchange_msk: SPDM requester ready; starting transfer (timeout=60s)");
     with_timeout(
         SPDM_TIMEOUT,
         spdm::spdm_requester_transfer_msk(
@@ -982,10 +997,16 @@ async fn migration_src_exchange_msk(
             &info.mig_info,
             #[cfg(feature = "policy_v2")]
             peer_data,
+            #[cfg(feature = "SnpEmu")]
+            providers,
         ),
     )
     .await
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM requester transfer timed out: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk: spdm_requester_transfer_msk timeout error: {:?}\n",
             e
@@ -993,14 +1014,20 @@ async fn migration_src_exchange_msk(
         e
     })?
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM requester transfer failed: {:?}",
+            e
+        );
         log::error!("exchange_msk: spdm_requester_transfer_msk error: {:?}\n", e);
         spdm::decode_spdm_session_err(e)
     })?;
+    eprintln!("[MA] exchange_msk: SPDM requester transfer completed");
     log::info!("MSK exchange completed\n");
 
     let mut transport_lock = device_io_ref.lock();
     let transport = transport_lock.deref_mut();
     shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await?;
+    eprintln!("[MA] exchange_msk: requester transport shutdown completed");
     Ok(())
 }
 
@@ -1009,17 +1036,32 @@ async fn migration_dst_exchange_msk(
     transport: TransportType,
     info: &MigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
 ) -> Result<()> {
     use core::ops::DerefMut;
 
     const SPDM_TIMEOUT: Duration = Duration::from_secs(60); // 60 seconds
-    let (mut spdm_responder, device_io_ref) = spdm::spdm_responder(transport).map_err(|_e| {
+    eprintln!(
+        "[MA] exchange_msk: constructing SPDM responder (request_id={})",
+        info.mig_info.mig_request_id
+    );
+    let (mut spdm_responder, device_io_ref) = spdm::spdm_responder(
+        transport,
+        #[cfg(feature = "SnpEmu")]
+        providers.clone(),
+    )
+    .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM responder construction failed: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk(): Failed in spdm_responder transport. Migration ID: {}\n",
             info.mig_info.mig_request_id
         );
         MigrationResult::SecureSessionError
     })?;
+    eprintln!("[MA] exchange_msk: SPDM responder ready; waiting for transfer (timeout=60s)");
 
     with_timeout(
         SPDM_TIMEOUT,
@@ -1032,6 +1074,10 @@ async fn migration_dst_exchange_msk(
     )
     .await
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM responder transfer timed out: {:?}",
+            e
+        );
         log::error!(
             "exchange_msk: spdm_responder_transfer_msk timeout error: {:?}\n",
             e
@@ -1039,19 +1085,37 @@ async fn migration_dst_exchange_msk(
         e
     })?
     .map_err(|e| {
+        eprintln!(
+            "[MA] ERROR: exchange_msk: SPDM responder transfer failed: {:?}",
+            e
+        );
         log::error!("exchange_msk: spdm_responder_transfer_msk error: {:?}\n", e);
         spdm::decode_spdm_session_err(e)
     })?;
+    eprintln!("[MA] exchange_msk: SPDM responder transfer completed");
     log::info!("MSK exchange completed\n");
 
     let mut transport_lock = device_io_ref.lock();
     let transport = transport_lock.deref_mut();
     shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await?;
+    eprintln!("[MA] exchange_msk: responder transport shutdown completed");
     Ok(())
 }
 
 #[cfg(feature = "main")]
-pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
+pub async fn exchange_msk(
+    info: &MigrationInformation,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> Result<()> {
+    eprintln!(
+        "[MA] exchange_msk: entry (request_id={} is_src={})",
+        info.mig_info.mig_request_id,
+        info.is_src()
+    );
+    // Keep legacy role validation before any session effects.
+    #[cfg(feature = "SnpEmu")]
+    snp_operation_context(&info.mig_info)?;
+
     // Per GHCI 1.5: if VMM provided initMigtdData, verify policy binding
     #[cfg(feature = "policy_v2")]
     if let Some(init_td_info) = info.mig_info.init_td_info_if_present() {
@@ -1064,15 +1128,26 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
         })?;
     }
 
+    eprintln!("[MA] exchange_msk: calling setup_transport (peer SPDM channel)");
     #[allow(unused_mut)]
     let mut transport = setup_transport(
         info.mig_info.mig_request_id,
-        #[cfg(any(feature = "vmcall-vsock", feature = "virtio-vsock"))]
+        #[cfg(all(
+            not(feature = "vmcall-raw"),
+            any(feature = "vmcall-vsock", feature = "virtio-vsock")
+        ))]
         info.mig_socket_info.mig_td_cid,
-        #[cfg(any(feature = "vmcall-vsock", feature = "virtio-vsock"))]
+        #[cfg(all(
+            not(feature = "vmcall-raw"),
+            any(feature = "vmcall-vsock", feature = "virtio-vsock")
+        ))]
         info.mig_socket_info.mig_channel_port,
     )
     .await?;
+    eprintln!(
+        "[MA] exchange_msk: peer transport ready (request_id={})",
+        info.mig_info.mig_request_id
+    );
 
     // Exchange policy and issuer chain before TLS because of the message size limitation of TLS protocol.
     #[cfg(feature = "policy_v2")]
@@ -1087,9 +1162,8 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
         log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: pre_session_data_exchange timeout: {:?}\n", e);
         e
     })?
-    .map_err(|e| {
+    .inspect_err(|&e| {
         log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: pre_session_data_exchange error: {:?}\n", e);
-        e
     })?;
 
     #[cfg(not(feature = "spdm_attestation"))]
@@ -1157,6 +1231,8 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
                 info,
                 #[cfg(feature = "policy_v2")]
                 peer_data,
+                #[cfg(feature = "SnpEmu")]
+                providers,
             )
             .await?;
         } else {
@@ -1165,6 +1241,8 @@ pub async fn exchange_msk(info: &MigrationInformation) -> Result<()> {
                 info,
                 #[cfg(feature = "policy_v2")]
                 peer_data,
+                #[cfg(feature = "SnpEmu")]
+                providers,
             )
             .await?;
         }
@@ -1178,9 +1256,8 @@ pub fn exchange_info(
     is_src: bool,
 ) -> Result<ExchangeInformation> {
     let mut exchange_info = ExchangeInformation::default();
-    read_msk(mig_info, &mut exchange_info.key).map_err(|e| {
+    read_msk(mig_info, &mut exchange_info.key).inspect_err(|&e| {
         log::error!(migration_request_id = mig_info.mig_request_id; "exchange_info: read_msk failed with error: {:?} for mig_info.binding_handle = {}\n", e, mig_info.binding_handle);
-        e
     })?;
 
     let (field_min, field_max) = if is_src {
@@ -1225,7 +1302,30 @@ fn read_msk(mig_info: &MigtdMigrationInformation, msk: &mut MigrationSessionKey)
     Ok(())
 }
 
-pub fn write_msk(mig_info: &MigtdMigrationInformation, msk: &MigrationSessionKey) -> Result<()> {
+pub fn write_msk(
+    mig_info: &MigtdMigrationInformation,
+    msk: &MigrationSessionKey,
+    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
+) -> Result<()> {
+    #[cfg(feature = "SnpEmu")]
+    {
+        let context = snp_operation_context(mig_info)?;
+        let mut key_bytes = [0u8; 32];
+        for (field, bytes) in msk.fields.iter().zip(key_bytes.chunks_exact_mut(8)) {
+            bytes.copy_from_slice(&field.to_le_bytes());
+        }
+        let result = providers
+            .install_legacy_key(&context, &key_bytes)
+            .map_err(|error| {
+                eprintln!(
+                    "[MA] ERROR: mock MSG_SET_MIGRATION_INFO failed: {:?} request_id={}",
+                    error, mig_info.mig_request_id
+                );
+                MigrationResult::SecureSessionError
+            });
+        key_bytes.zeroize();
+        return result;
+    }
     for idx in 0..msk.fields.len() {
         tdx::tdcall_servtd_wr(
             mig_info.binding_handle,
@@ -1240,6 +1340,21 @@ pub fn write_msk(mig_info: &MigtdMigrationInformation, msk: &MigrationSessionKey
     }
 
     Ok(())
+}
+
+#[cfg(feature = "SnpEmu")]
+pub(crate) fn snp_operation_context(
+    mig_info: &MigtdMigrationInformation,
+) -> Result<SnpOperationContext> {
+    let role = PlatformMigrationRole::try_from(mig_info.migration_source)
+        .map_err(|_| MigrationResult::InvalidParameter)?;
+
+    Ok(SnpOperationContext::new(
+        HostRequestId::new(mig_info.mig_request_id),
+        MigrationId::new(mig_info.mig_request_id),
+        role,
+        ManagedGuestHandle::new(mig_info.binding_handle),
+    ))
 }
 
 /// Used to read a TDX Module global-scope metadata field.
@@ -1322,8 +1437,63 @@ pub fn set_mig_version(mig_info: &MigtdMigrationInformation, mig_ver: u16) -> Re
 #[cfg(test)]
 mod test {
     use crate::migration::{session::cal_mig_version, MigrationResult};
+    #[cfg(feature = "SnpEmu")]
+    use crate::migration::{session::snp_operation_context, MigtdMigrationInformation};
+    #[cfg(feature = "SnpEmu")]
+    use pal::types::MigrationRole;
 
     use super::ExchangeInformation;
+
+    #[cfg(feature = "SnpEmu")]
+    #[test]
+    fn snp_context_maps_legacy_request_to_logical_identities() {
+        let mut info = MigtdMigrationInformation::default();
+        info.mig_request_id = 7;
+        info.migration_source = 1;
+        info.binding_handle = 9;
+
+        let context = snp_operation_context(&info).unwrap();
+
+        assert_eq!(context.request_id.value(), 7);
+        assert_eq!(context.migration_id.value(), 7);
+        assert_eq!(context.role, MigrationRole::Source);
+        assert_eq!(context.managed_guest.value(), 9);
+        assert_eq!(context.peer, None);
+        assert_eq!(context.protocol_version, None);
+        assert_eq!(context.policy, None);
+    }
+
+    #[cfg(feature = "SnpEmu")]
+    #[test]
+    fn snp_context_rejects_invalid_legacy_role() {
+        let mut info = MigtdMigrationInformation::default();
+        info.migration_source = 2;
+
+        assert!(matches!(
+            snp_operation_context(&info),
+            Err(MigrationResult::InvalidParameter)
+        ));
+    }
+
+    #[cfg(feature = "SnpEmu")]
+    #[tokio::test]
+    async fn snp_exchange_msk_rejects_invalid_role_before_session_effects() {
+        let info = super::MigrationInformation {
+            mig_info: MigtdMigrationInformation {
+                migration_source: 2,
+                ..Default::default()
+            },
+        };
+
+        assert!(matches!(
+            super::exchange_msk(
+                &info,
+                &crate::snp_composition::selected_runtime_provider_set(),
+            )
+            .await,
+            Err(MigrationResult::InvalidParameter)
+        ));
+    }
 
     #[test]
     fn test_exchange_information_validate_rejects_non_zero_reserved() {
@@ -1404,11 +1574,13 @@ mod test {
     #[cfg(feature = "vmcall-raw")]
     mod parse_request_tests {
         use super::super::{parse_request, REQUESTS};
+        #[cfg(not(feature = "policy_v2"))]
+        use crate::migration::MigtdMigrationInformation;
         #[cfg(feature = "policy_v2")]
         use crate::migration::MIGTD_MIGRATION_INFO_HEADER_SIZE;
         use crate::migration::{
             data::{RequestDataBufferHeader, WaitForRequestResponse},
-            EnableLogAreaInfo, MigrationResult, MigtdMigrationInformation, ReportInfo,
+            EnableLogAreaInfo, MigrationResult, ReportInfo,
         };
         use core::mem::size_of;
         use core::task::Poll;
@@ -1544,7 +1716,7 @@ mod test {
             let buf = build_request_buffer(3, &payload);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             {
                 match result {
                     Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
@@ -1555,7 +1727,7 @@ mod test {
                 }
                 cleanup_request(request_id);
             }
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
@@ -1569,7 +1741,7 @@ mod test {
             let buf = build_request_buffer(3, &payload);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             {
                 match result {
                     Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
@@ -1582,7 +1754,7 @@ mod test {
                 }
                 cleanup_request(request_id);
             }
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
@@ -1597,12 +1769,12 @@ mod test {
             let buf = build_request_buffer(3, &[0u8; 16]);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(feature = "AzCVMEmu")]
+            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::InvalidParameter))
             ));
-            #[cfg(not(feature = "AzCVMEmu"))]
+            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::UnsupportedOperationError))

@@ -2,8 +2,34 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-#![cfg_attr(not(any(test, feature = "AzCVMEmu")), no_std)]
-#![cfg_attr(not(any(test, feature = "AzCVMEmu")), no_main)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_main)]
+
+#[cfg(all(
+    feature = "SnpHardware",
+    any(feature = "tdx-platform", feature = "attestation")
+))]
+compile_error!(
+    "SnpHardware cannot include TDX providers, transports, policy or attestation bypasses"
+);
+#[cfg(all(
+    feature = "SnpHardware",
+    any(
+        feature = "SnpEmu",
+        feature = "SnpEmuAzure",
+        feature = "snp-fixture",
+        feature = "snp-state-emulator",
+        feature = "snp-tcp-transport",
+        feature = "snp-mock-installation",
+        feature = "snp-mock-rebind",
+        feature = "snp_fixture_only"
+    )
+))]
+compile_error!("SnpHardware cannot include emulator providers or fixture roots");
+#[cfg(all(feature = "AzCVMEmu", feature = "snp-core"))]
+compile_error!("TDX and SNP compositions are mutually exclusive");
+#[cfg(all(feature = "SnpEmu", feature = "tdx-platform"))]
+compile_error!("SnpEmu cannot include TDX platform features; use its SNP compatibility adapters");
 
 // AzCVMEmu only supports the vmcall-raw transport.
 #[cfg(all(
@@ -27,15 +53,33 @@ compile_error!("`use-mock-quote` bypasses RA-TLS channel binding and is test-onl
 #[cfg(all(feature = "test_disable_ra_and_accept_all", not(debug_assertions)))]
 compile_error!("`test_disable_ra_and_accept_all` disables remote attestation (accept-all RA-TLS), violating Design Guide §4 mutual authentication; it is test-only and must not be enabled in a release build. Build the test image with the dev profile (`cargo image --debug`).");
 
-#[cfg_attr(feature = "main", macro_use)]
+#[cfg_attr(any(feature = "main", feature = "SnpEmu"), macro_use)]
 extern crate alloc;
 
+// Phase 3a emits direct stderr diagnostics in emulation builds. Bare-metal
+// MigTD is no_std, so retain format checking there without producing output.
+#[cfg(all(feature = "tdx-platform", not(any(test, feature = "std"))))]
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        let _ = core::format_args!($($arg)*);
+    }};
+}
+
 // Re-export TDX dependencies conditionally to avoid feature gates throughout the code
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(all(
+    feature = "tdx-platform",
+    not(any(feature = "AzCVMEmu", feature = "SnpEmu"))
+))]
 extern crate td_payload;
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(all(
+    feature = "tdx-platform",
+    not(any(feature = "AzCVMEmu", feature = "SnpEmu"))
+))]
 extern crate td_shim_interface;
-#[cfg(not(feature = "AzCVMEmu"))]
+#[cfg(all(
+    feature = "tdx-platform",
+    not(any(feature = "AzCVMEmu", feature = "SnpEmu"))
+))]
 extern crate tdx_tdcall;
 
 #[cfg(feature = "AzCVMEmu")]
@@ -45,14 +89,27 @@ extern crate td_shim_interface_emu as td_shim_interface;
 #[cfg(feature = "AzCVMEmu")]
 extern crate tdx_tdcall_emu as tdx_tdcall;
 
+#[cfg(feature = "tdx-platform")]
 pub mod config;
+#[cfg(feature = "tdx-platform")]
 pub mod driver;
+#[cfg(feature = "tdx-platform")]
 pub mod event_log;
+#[cfg(feature = "tdx-platform")]
 pub mod mig_policy;
+#[cfg(feature = "tdx-platform")]
 pub mod migration;
+#[cfg(feature = "tdx-platform")]
 pub mod quote;
+#[cfg(feature = "tdx-platform")]
 pub mod ratls;
+#[cfg(any(feature = "tdx-platform", feature = "SnpEmu"))]
 pub mod spdm;
+#[cfg(any(feature = "tdx-platform", feature = "SnpEmu"))]
+pub mod status;
+
+#[cfg(any(feature = "SnpHardware", feature = "SnpEmu"))]
+pub mod snp_composition;
 
 pub const STACK_SIZE: usize = 0x20_0000;
 pub const HEAP_SIZE: usize = 0x70_0000;
@@ -62,7 +119,7 @@ pub const HEAP_SIZE: usize = 0x70_0000;
 /// For the x86_64-unknown-none target, the entry point name is '_start'
 #[no_mangle]
 #[cfg(not(test))]
-#[cfg(target_os = "none")]
+#[cfg(all(target_os = "none", feature = "tdx-platform"))]
 pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
     use td_payload::arch;
     use td_payload::mm::layout::*;
@@ -121,7 +178,7 @@ pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
     arch::init::init(&layout, main);
 }
 
-#[cfg(target_os = "none")]
+#[cfg(all(target_os = "none", feature = "tdx-platform"))]
 fn init(payload: u64) {
     use td_loader::elf;
 
@@ -143,3 +200,12 @@ fn init(payload: u64) {
         }
     }
 }
+
+#[cfg(feature = "snp-core")]
+pub mod runtime;
+
+#[cfg(all(feature = "SnpEmu", feature = "snp-tcp-transport"))]
+pub mod transport;
+
+#[cfg(feature = "snp-fixture")]
+pub mod evidence;

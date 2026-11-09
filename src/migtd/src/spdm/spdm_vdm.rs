@@ -54,7 +54,27 @@ enum_builder! {
         ExchangeRebindAttestInfoReq => 0x07,
         ExchangeRebindAttestInfoRsp => 0x08,
         ExchangeRebindInfoReq => 0x09,
-        ExchangeRebindInfoRsp => 0x0A
+        ExchangeRebindInfoRsp => 0x0A,
+        ExchangeSnpMaEvidenceReq => 0x20,
+        ExchangeSnpMaEvidenceRsp => 0x21,
+        ExchangeSnpCollateralReq => 0x22,
+        ExchangeSnpCollateralRsp => 0x23,
+        ExchangeSnpTenantEvidenceReq => 0x24,
+        ExchangeSnpAuthorizationResultRsp => 0x25,
+        ExchangeSnpKeyContributionReq => 0x26,
+        ExchangeSnpKeyContributionRsp => 0x27,
+        PollSnpConfirmationReq => 0x28,
+        PollSnpConfirmationRsp => 0x29,
+        SubmitSnpConfirmationReq => 0x2A,
+        SubmitSnpConfirmationRsp => 0x2B,
+        SubmitSnpCompletionReq => 0x2C,
+        SubmitSnpCompletionRsp => 0x2D,
+        DeliverSnpKeyV2Req => 0x30,
+        DeliverSnpKeyV2Rsp => 0x31,
+        PollSnpCompletionV2Req => 0x32,
+        PollSnpCompletionV2Rsp => 0x33,
+        SubmitSnpCompletionV2Req => 0x34,
+        SubmitSnpCompletionV2Rsp => 0x35
     }
 }
 
@@ -114,7 +134,20 @@ enum_builder! {
         MigrationImportVersion => 0x82,
         ForwardMigrationSessionKey => 0x83,
         BackwardMigrationSessionKey => 0x84,
-        RebindSessionToken => 0x85
+        RebindSessionToken => 0x85,
+        SnpMaEvidenceV1 => 0x0100,
+        SnpCollateralSetV1 => 0x0101,
+        SnpTenantEvidenceV1 => 0x0102,
+        SnpAuthorizationResultV1 => 0x0103,
+        SnpKeyContributionV1 => 0x0104,
+        SnpConfirmationV1 => 0x0105,
+        SnpInstallationResultV1 => 0x0106,
+        SnpFirmwareCompletionV1 => 0x0107,
+        SnpInstallSessionControlV1 => 0x0108,
+        SnpKeyDeliveryV2 => 0x0109,
+        SnpKeyAcceptanceV2 => 0x010A,
+        SnpFirmwareCompletionV2 => 0x010B,
+        SnpInstallSessionControlV2 => 0x010C
     }
 }
 
@@ -418,7 +451,12 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         return (Err(SPDM_STATUS_INVALID_MSG_FIELD), Some(&rsp_bytes[..used]));
     }
 
+    #[cfg(not(feature = "SnpEmu"))]
     let mut reader = Reader::init(&req_payload.req_payload[0..req_payload.req_length as usize]);
+    #[cfg(feature = "SnpEmu")]
+    let protected_request = zeroize::Zeroizing::new(req_payload.req_payload);
+    #[cfg(feature = "SnpEmu")]
+    let mut reader = Reader::init(&protected_request[..req_payload.req_length as usize]);
     let vdm_request = if let Some(vdm_request) = VdmMessage::read(&mut reader) {
         vdm_request
     } else {
@@ -432,7 +470,7 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         request_response_code: SpdmRequestResponseCode::SpdmResponseVendorDefinedResponse,
     };
 
-    let mut vdm_rsp_payload = SpdmVdmResponsePayload {
+    let vdm_rsp_payload = SpdmVdmResponsePayload {
         standard_id: RegistryOrStandardsBodyID::IANA,
         vendor_id: VendorIDStruct {
             len: VDM_MESSAGE_VENDOR_ID_LEN as u8,
@@ -441,6 +479,10 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         rsp_length: 0,
         rsp_payload: vec![0u8; MAX_SPDM_VENDOR_DEFINED_PAYLOAD_SIZE],
     };
+    #[cfg(not(feature = "SnpEmu"))]
+    let mut vdm_rsp_payload = vdm_rsp_payload;
+    #[cfg(feature = "SnpEmu")]
+    let mut vdm_rsp_payload = crate::runtime::snp::legacy::LegacyResponsePayload(vdm_rsp_payload);
 
     // Patch the vendor id field
     vdm_rsp_payload.vendor_id.vendor_id[..VDM_MESSAGE_VENDOR_ID_LEN]
@@ -490,6 +532,10 @@ pub fn migtd_vdm_msg_rsp_dispatcher_ex<'a>(
         vdm_rsp_payload.rsp_length = vdm_payload_size as u32;
     } else {
         let err = vdm_payload_size.err().unwrap();
+        eprintln!(
+            "[MA] ERROR: VDM responder handler failed: opcode={:?} status={:?}",
+            vdm_request.op_code, err
+        );
         let app_error = if let StatusCode::VDM(vdm) = err.status_code {
             vdm.vdm_error_code as u8
         } else {

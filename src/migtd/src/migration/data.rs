@@ -256,7 +256,7 @@ pub enum WaitForRequestResponse {
     StartMigration(MigrationInformation),
     #[cfg(all(feature = "main", feature = "policy_v2"))]
     StartRebinding(MigtdMigrationInformation),
-    #[cfg(feature = "AzCVMEmu")]
+    #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
     GetTdReport(ReportInfo),
     EnableLogArea(EnableLogAreaInfo),
     #[cfg(feature = "policy_v2")]

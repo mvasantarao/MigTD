@@ -136,7 +136,7 @@ pub fn verify_cert_chain_and_signature(
     Ok(())
 }
 
-fn extract_cert_chain_from_pem(cert_chain_pem: &[u8]) -> Result<Vec<CertificateDer>> {
+fn extract_cert_chain_from_pem(cert_chain_pem: &[u8]) -> Result<Vec<CertificateDer<'_>>> {
     let mut cert_chain = Vec::new();
 
     // Extract all certificates from the PEM chain

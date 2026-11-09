@@ -144,7 +144,7 @@ pub async fn get_platform_tcb_list(config: &dyn crate::PcsConfig) -> Result<Vec<
         });
 
     let results = try_join_all(tasks).await?;
-    Ok(results.into_iter().filter_map(|entry| entry).collect())
+    Ok(results.into_iter().flatten().collect())
 }
 
 pub async fn fetch_platform_tcb(

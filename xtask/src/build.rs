@@ -239,7 +239,7 @@ impl BuildArgs {
 
         Ok(PROJECT_ROOT
             .join("target/x86_64-unknown-none/")
-            .join(&self.profile_path())
+            .join(self.profile_path())
             .join("migtd"))
     }
 
@@ -319,7 +319,7 @@ impl BuildArgs {
         features.push_str("main");
 
         if !self.no_default_features {
-            features.push_str(",");
+            features.push(',');
             if let Some(platform) = self.platform {
                 match platform {
                     Platform::Kvm => features.push_str(MIGTD_KVM_FEATURES),
@@ -334,11 +334,11 @@ impl BuildArgs {
         }
 
         if let Some(selected) = &self.features {
-            features.push_str(",");
+            features.push(',');
             features.push_str(selected);
         }
 
-        features.push_str(",");
+        features.push(',');
         if self.debug {
             println!("Building debug MigTD");
             match self.log_level {

@@ -6,7 +6,6 @@
 #![no_main]
 #![allow(unused)]
 #[macro_use]
-
 mod testattestation;
 mod testmmiorw;
 mod testmsrrw;

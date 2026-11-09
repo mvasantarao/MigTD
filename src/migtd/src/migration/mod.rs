@@ -4,6 +4,7 @@
 
 pub mod data;
 pub mod event;
+#[cfg(feature = "vmcall-raw")]
 pub mod logging;
 #[cfg(feature = "policy_v2")]
 pub mod pre_session_data;
@@ -252,6 +253,7 @@ impl MigtdMigrationInformation {
     /// Parse a policy_v2 wire payload of either:
     /// - header-only (short form, `has_init_data == 0`), or
     /// - header + 512-byte TDINFO_STRUCT (full form, `has_init_data == 1`).
+    ///
     /// Header size is transport-dependent (56 for vmcall-raw, 72 otherwise).
     pub fn read_from_bytes(
         data_length: u32,
@@ -411,48 +413,7 @@ pub struct MigtdMigpolicy {
     pub mig_policy: Vec<u8>,
 }
 
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MigrationResult {
-    Success = 0,
-    InvalidParameter = 1,
-    Unsupported = 2,
-    OutOfResource = 3,
-    TdxModuleError = 4,
-    NetworkError = 5,
-    SecureSessionError = 6,
-    MutualAttestationError = 7,
-    PolicyUnsatisfiedError = 8,
-    InvalidPolicyError = 9,
-    VmmCanceled = 10,
-    VmmInternalError = 11,
-    UnsupportedOperationError = 12,
-    InitializationError = 0xFF,
-}
-
-impl TryFrom<u8> for MigrationResult {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(MigrationResult::Success),
-            1 => Ok(MigrationResult::InvalidParameter),
-            2 => Ok(MigrationResult::Unsupported),
-            3 => Ok(MigrationResult::OutOfResource),
-            4 => Ok(MigrationResult::TdxModuleError),
-            5 => Ok(MigrationResult::NetworkError),
-            6 => Ok(MigrationResult::SecureSessionError),
-            7 => Ok(MigrationResult::MutualAttestationError),
-            8 => Ok(MigrationResult::PolicyUnsatisfiedError),
-            9 => Ok(MigrationResult::InvalidPolicyError),
-            10 => Ok(MigrationResult::VmmCanceled),
-            11 => Ok(MigrationResult::VmmInternalError),
-            12 => Ok(MigrationResult::UnsupportedOperationError),
-            0xFF => Ok(MigrationResult::InitializationError),
-            _ => Err(()),
-        }
-    }
-}
+pub use crate::status::MigrationResult;
 
 #[cfg(any(feature = "virtio-vsock", feature = "vmcall-vsock"))]
 impl From<VsockError> for MigrationResult {

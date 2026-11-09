@@ -2,16 +2,25 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
+#[cfg(not(feature = "SnpEmu"))]
 use crate::mig_policy;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
 use crate::migration::rebinding::{write_rebinding_session_token, write_servtd_rebind_attr};
-#[cfg(not(feature = "policy_v2"))]
+#[cfg(all(not(feature = "policy_v2"), not(feature = "SnpEmu")))]
 use crate::migration::servtd_ext::verify_servtd_attr;
 #[cfg(feature = "policy_v2")]
 use crate::migration::servtd_ext::{verify_servtd_attr, write_approved_servtd_ext_hash, ServtdExt};
-use crate::migration::MigrationResult;
+#[cfg(feature = "SnpEmu")]
+pub use crate::runtime::snp::legacy::{
+    handle_exchange_mig_attest_info_req, handle_exchange_mig_info_req,
+};
+#[cfg(feature = "SnpEmu")]
+use crate::runtime::snp::requests::LegacyOperation as MigtdMigrationInformation;
+#[cfg(not(feature = "SnpEmu"))]
+use crate::status::MigrationResult;
+#[cfg(not(feature = "SnpEmu"))]
 use crate::{
     event_log::get_event_log,
     migration::{
@@ -26,13 +35,14 @@ use alloc::sync::Arc;
 use async_io::{AsyncRead, AsyncWrite};
 use codec::{Codec, Reader, Writer};
 use core::ops::DerefMut;
-use crypto::{ecdsa::EcdsaPk, hash::digest_sha384};
+use crypto::ecdsa::EcdsaPk;
+#[cfg(not(feature = "SnpEmu"))]
+use crypto::hash::digest_sha384;
 use log::error;
 
-use crate::spdm::{
-    build_report_data, gen_quote_spdm, spdm_verify_quote, verify_report_data_binding,
-    verify_tdreport_data_binding, vmcall_msg::VmCallTransportEncap, *,
-};
+#[cfg(not(feature = "SnpEmu"))]
+use crate::spdm::{gen_quote_spdm, verify_report_data_binding, verify_tdreport_data_binding};
+use crate::spdm::{vmcall_msg::VmCallTransportEncap, *};
 use spdmlib::{
     common::{self, *},
     config,
@@ -43,7 +53,6 @@ use spdmlib::{
     secret::SpdmSecretAsymSign,
 };
 use spin::Mutex;
-use zerocopy::IntoBytes;
 use zeroize::Zeroize;
 
 extern crate alloc;
@@ -54,6 +63,8 @@ pub struct ResponderContextEx<'a> {
     pub peer_data: Vec<u8>,
     pub info: ResponderContextExInfo<'a>,
     pub mig_info_exchanged: bool,
+    #[cfg(feature = "SnpEmu")]
+    pub snp_providers: crate::snp_composition::SnpRuntimeProviders,
     #[cfg(feature = "policy_v2")]
     pub servtd_ext: Option<ServtdExt>,
 }
@@ -74,7 +85,7 @@ impl ResponderContextEx<'_> {
     }
 }
 
-pub unsafe fn upcast_mut(inner: &mut ResponderContext) -> &mut ResponderContextEx {
+pub unsafe fn upcast_mut(inner: &mut ResponderContext) -> &mut ResponderContextEx<'_> {
     let ptr = inner as *mut ResponderContext as *mut u8;
     let outer_ptr = ptr.sub(0) as *mut ResponderContextEx;
     &mut *outer_ptr
@@ -82,6 +93,7 @@ pub unsafe fn upcast_mut(inner: &mut ResponderContext) -> &mut ResponderContextE
 
 pub fn spdm_responder<'a, T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static>(
     stream: T,
+    #[cfg(feature = "SnpEmu")] snp_providers: crate::snp_composition::SnpRuntimeProviders,
 ) -> Result<(ResponderContextEx<'a>, SpdmDeviceIoArc<T>), SpdmStatus> {
     let transport = MigtdTransport { transport: stream };
     let device_io = Arc::new(Mutex::new(transport));
@@ -142,6 +154,8 @@ pub fn spdm_responder<'a, T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'sta
         peer_data: Vec::new(),
         info: ResponderContextExInfo::None,
         mig_info_exchanged: false,
+        #[cfg(feature = "SnpEmu")]
+        snp_providers,
         #[cfg(feature = "policy_v2")]
         servtd_ext: None,
     };
@@ -149,18 +163,20 @@ pub fn spdm_responder<'a, T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'sta
     Ok((responder_context_ex, device_io_ref))
 }
 
-pub async fn spdm_responder_transfer_msk(
-    spdm_responder_ex: &mut ResponderContextEx<'_>,
-    mig_info: &MigtdMigrationInformation,
+pub async fn spdm_responder_transfer_msk<'a>(
+    spdm_responder_ex: &mut ResponderContextEx<'a>,
+    mig_info: &'a MigtdMigrationInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
 ) -> Result<(), SpdmStatus> {
     #[cfg(not(feature = "policy_v2"))]
     let peer_data = Vec::new();
 
     spdm_responder_ex.peer_data = peer_data;
+    spdm_responder_ex.info = ResponderContextExInfo::MigrationInformation(mig_info);
 
     // Zeroize the responder key buffer on every return path.
     let result = spdm_responder_transfer_msk_inner(spdm_responder_ex, mig_info).await;
+    spdm_responder_ex.info = ResponderContextExInfo::None;
     spdm_responder_ex
         .responder_context
         .common
@@ -191,7 +207,12 @@ async fn spdm_responder_transfer_msk_inner(
 pub async fn rsp_handle_message(spdm_responder: &mut ResponderContext) -> Result<(), SpdmStatus> {
     let mut sid = None;
     loop {
+        #[cfg(not(feature = "SnpEmu"))]
         let raw_packet = Arc::new(Mutex::new([0u8; config::RECEIVER_BUFFER_SIZE]));
+        #[cfg(feature = "SnpEmu")]
+        let raw_packet = Arc::new(Mutex::new(zeroize::Zeroizing::new(
+            [0u8; config::RECEIVER_BUFFER_SIZE],
+        )));
         let mut raw_packet = raw_packet.lock();
         let raw_packet = raw_packet.deref_mut();
         raw_packet.zeroize();
@@ -356,7 +377,7 @@ pub fn handle_exchange_pub_key_req(
     spdm_responder.common.provision_info.my_pub_key = Some(my_pub_key_prov);
 
     let mut peer_pub_key_prov = SpdmCertChainData {
-        data_size: peer_pub_key_element.length as u32,
+        data_size: peer_pub_key_element.length,
         data: [0u8; config::MAX_SPDM_CERT_CHAIN_DATA_SIZE],
     };
     peer_pub_key_prov.data[..peer_pub_key_element.length as usize].copy_from_slice(peer_pub_key);
@@ -365,6 +386,7 @@ pub fn handle_exchange_pub_key_req(
     Ok(cnt)
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 pub fn handle_exchange_mig_attest_info_req(
     responder_context: &mut ResponderContext,
     session_id: Option<u32>,
@@ -374,6 +396,8 @@ pub fn handle_exchange_mig_attest_info_req(
 ) -> SpdmResult<usize> {
     // Migration attestation messages must be handled only when migration info is set.
     let spdm_responder_ex = unsafe { upcast_mut(responder_context) };
+    #[cfg(feature = "SnpEmu")]
+    let providers = spdm_responder_ex.snp_providers.clone();
     if !matches!(
         &spdm_responder_ex.info,
         ResponderContextExInfo::MigrationInformation(_)
@@ -381,6 +405,13 @@ pub fn handle_exchange_mig_attest_info_req(
         error!("Migration info is not set in responder context.\n");
         return Err(SPDM_STATUS_INVALID_MSG_FIELD);
     }
+    #[cfg(all(feature = "SnpEmu", not(feature = "policy_v2")))]
+    let operation_context = match &spdm_responder_ex.info {
+        ResponderContextExInfo::MigrationInformation(mig_info) => {
+            snp_operation_context(mig_info).map_err(|_| SPDM_STATUS_INVALID_MSG_FIELD)?
+        }
+        _ => return Err(SPDM_STATUS_INVALID_MSG_FIELD),
+    };
 
     let session_id = if session_id.is_some() {
         session_id
@@ -453,13 +484,23 @@ pub fn handle_exchange_mig_attest_info_req(
     let report_data = build_report_data(b"MigTDRsp", &th1)?;
 
     //quote dst
-    let quote_dst = gen_quote_spdm(&report_data)?;
+    let quote_dst = gen_quote_spdm(
+        &report_data,
+        #[cfg(feature = "SnpEmu")]
+        &providers,
+    )?;
     // Self-quote verification is only needed for policy v1, which uses
     // verified_report_local in authenticate_policy(). Policy v2 re-verifies
     // the quote internally via authenticate_remote().
     #[cfg(not(feature = "policy_v2"))]
     let verified_report_local = {
-        let res = spdm_verify_quote(quote_dst.as_slice());
+        let res = spdm_verify_quote(
+            quote_dst.as_slice(),
+            #[cfg(feature = "SnpEmu")]
+            &operation_context,
+            #[cfg(feature = "SnpEmu")]
+            &providers,
+        );
         if res.is_err() {
             error!("mutual attestation failed, end the session!\n");
             let session = responder_context
@@ -576,6 +617,8 @@ pub fn handle_exchange_mig_attest_info_req(
         &th1,
         responder_context,
         session_id,
+        #[cfg(feature = "SnpEmu")]
+        (&operation_context, &providers),
     )?;
 
     #[cfg(feature = "policy_v2")]
@@ -585,12 +628,14 @@ pub fn handle_exchange_mig_attest_info_req(
             spdm_responder_ex.peer_data.clone()
         };
         rsp_verify_peer_attestation_v2(
-            &quote_src_vec,
-            &event_log_src_vec,
-            &mig_policy_hash_src,
-            &td_report_init_vec,
-            &servtd_ext_bytes_vec,
-            &peer_data,
+            PeerAttestationV2 {
+                quote_peer: &quote_src_vec,
+                event_log_peer: &event_log_src_vec,
+                mig_policy_hash_peer: &mig_policy_hash_src,
+                peer_init_td_info: &td_report_init_vec,
+                servtd_ext_peer: &servtd_ext_bytes_vec,
+                peer_data: &peer_data,
+            },
             &th1,
             responder_context,
             session_id,
@@ -624,6 +669,9 @@ pub fn handle_exchange_mig_attest_info_req(
         .ok_or(SPDM_STATUS_BUFFER_FULL)?;
 
     //event log dst
+    #[cfg(feature = "SnpEmu")]
+    let event_log_dst: &[u8] = &[]; // SnpEmu: no TDX CCEL hardware
+    #[cfg(not(feature = "SnpEmu"))]
     let event_log_dst = get_event_log().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
     let event_log_element = VdmMessageElement {
         element_type: VdmMessageElementType::EventLogMy,
@@ -644,8 +692,19 @@ pub fn handle_exchange_mig_attest_info_req(
     };
     #[cfg(not(feature = "policy_v2"))]
     let mig_policy_dst_hash = {
-        let mig_policy_dst = crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
-        digest_sha384(mig_policy_dst).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        // SnpEmu: no TDX firmware config volume; use SHA384([]) as placeholder policy hash
+        #[cfg(feature = "SnpEmu")]
+        {
+            use pal::snp::policy::SnpMigPolicy;
+            digest_sha384(SnpMigPolicy::new_zeroed().as_bytes())
+                .map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        }
+        #[cfg(not(feature = "SnpEmu"))]
+        {
+            let mig_policy_dst =
+                crate::config::get_policy().ok_or(SPDM_STATUS_INVALID_STATE_LOCAL)?;
+            digest_sha384(mig_policy_dst).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?
+        }
     };
     let mig_policy_element = VdmMessageElement {
         element_type: VdmMessageElementType::MigPolicyMy,
@@ -662,6 +721,7 @@ pub fn handle_exchange_mig_attest_info_req(
 }
 
 #[cfg(not(feature = "policy_v2"))]
+#[cfg(not(feature = "SnpEmu"))]
 #[allow(unused_variables)]
 fn rsp_verify_peer_attestation_v1(
     verified_report_local: &[u8],
@@ -670,9 +730,19 @@ fn rsp_verify_peer_attestation_v1(
     th1: &SpdmDigestStruct,
     responder_context: &mut ResponderContext,
     session_id: u32,
+    #[cfg(feature = "SnpEmu")] (operation_context, providers): (
+        &SnpOperationContext,
+        &crate::snp_composition::SnpRuntimeProviders,
+    ),
 ) -> SpdmResult {
     // 1. Verify peer's quote
-    let res = spdm_verify_quote(quote_peer);
+    let res = spdm_verify_quote(
+        quote_peer,
+        #[cfg(feature = "SnpEmu")]
+        operation_context,
+        #[cfg(feature = "SnpEmu")]
+        providers,
+    );
     if res.is_err() {
         error!("mutual attestation failed, end the session!\n");
         let session = responder_context
@@ -687,6 +757,7 @@ fn rsp_verify_peer_attestation_v1(
     // 2. Verify REPORTDATA binding
     #[cfg(not(any(
         feature = "AzCVMEmu",
+        feature = "SnpEmu",
         feature = "test_disable_ra_and_accept_all",
         feature = "test_mock_report",
         feature = "use-mock-quote"
@@ -702,7 +773,7 @@ fn rsp_verify_peer_attestation_v1(
     }
 
     // 3. Authenticate policy
-    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+    #[cfg(not(any(feature = "test_disable_ra_and_accept_all", feature = "SnpEmu")))]
     {
         let policy_check_result = mig_policy::authenticate_policy(
             false,
@@ -721,17 +792,30 @@ fn rsp_verify_peer_attestation_v1(
 }
 
 #[cfg(feature = "policy_v2")]
+struct PeerAttestationV2<'a> {
+    quote_peer: &'a [u8],
+    event_log_peer: &'a [u8],
+    mig_policy_hash_peer: &'a [u8],
+    peer_init_td_info: &'a [u8],
+    servtd_ext_peer: &'a [u8],
+    peer_data: &'a [u8],
+}
+
+#[cfg(feature = "policy_v2")]
 fn rsp_verify_peer_attestation_v2(
-    quote_peer: &[u8],
-    event_log_peer: &[u8],
-    mig_policy_hash_peer: &[u8],
-    peer_init_td_info: &[u8],
-    servtd_ext_peer: &[u8],
-    peer_data: &[u8],
+    peer: PeerAttestationV2<'_>,
     th1: &SpdmDigestStruct,
     responder_context: &mut ResponderContext,
     session_id: u32,
 ) -> SpdmResult {
+    let PeerAttestationV2 {
+        quote_peer,
+        event_log_peer,
+        mig_policy_hash_peer,
+        peer_init_td_info,
+        servtd_ext_peer,
+        peer_data,
+    } = peer;
     // 1. Verify peer-data hash matches the value bound in the certificate
     let peer_data_hash = digest_sha384(peer_data).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?;
     if mig_policy_hash_peer != peer_data_hash.as_slice() {
@@ -795,6 +879,7 @@ fn rsp_verify_peer_attestation_v2(
     Ok(())
 }
 
+#[cfg(not(feature = "SnpEmu"))]
 pub fn handle_exchange_mig_info_req(
     responder_context: &mut ResponderContext,
     session_id: Option<u32>,
@@ -904,6 +989,10 @@ pub fn handle_exchange_mig_info_req(
     write_msk(
         &responder_app_context.migration_info,
         &remote_information.key,
+        #[cfg(feature = "SnpEmu")]
+        &unsafe { upcast_mut(responder_context) }
+            .snp_providers
+            .clone(),
     )?;
 
     unsafe {

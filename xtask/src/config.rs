@@ -74,8 +74,8 @@ fn is_mmio_config_valid(config: &MmioConfig) -> bool {
     }
 
     // Ensure that the PCIe config range does not overlap with the MMIO32 space.
-    if config.pcie_config_base < (config.mmio32_start + config.mmio32_size) as u64
-        && config.pcie_config_base + config.pcie_config_size > config.mmio32_start as u64
+    if config.pcie_config_base < config.mmio32_start + config.mmio32_size
+        && config.pcie_config_base + config.pcie_config_size > config.mmio32_start
     {
         return false;
     }

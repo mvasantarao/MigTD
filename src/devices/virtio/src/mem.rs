@@ -200,7 +200,7 @@ impl MemoryRegion {
     #[cfg(feature = "fuzz")]
     fn mmio_read<T: Copy + Clone>(&self, offset: u64) -> Result<T, MemoryRegionError> {
         let address = pci::get_fuzz_seed_address() + 0x10c + offset;
-        if address as usize % align_of::<T>() != 0 {
+        if !(address as usize).is_multiple_of(align_of::<T>()) {
             return Err(MemoryRegionError {
                 region: *self,
                 offset,
@@ -216,7 +216,7 @@ impl MemoryRegion {
                 .checked_add(size_of::<T>() as u64)
                 .and_then(|end| if end > self.length { None } else { Some(end) })
                 .is_none()
-            || (self.base + offset) % align_of::<T>() as u64 != 0
+            || !(self.base + offset).is_multiple_of(align_of::<T>() as u64)
         {
             return Err(MemoryRegionError {
                 region: *self,
@@ -258,7 +258,7 @@ impl MemoryRegion {
     #[cfg(feature = "fuzz")]
     fn mmio_write<T>(&self, offset: u64, value: T) -> Result<(), MemoryRegionError> {
         let address = pci::get_fuzz_seed_address() + 0x10c + offset;
-        if address as usize % align_of::<T>() != 0 {
+        if !(address as usize).is_multiple_of(align_of::<T>()) {
             return Err(MemoryRegionError {
                 region: *self,
                 offset,
@@ -278,7 +278,7 @@ impl MemoryRegion {
                 .checked_add(size_of::<T>() as u64)
                 .and_then(|end| if end > self.length { None } else { Some(end) })
                 .is_none()
-            || (self.base + offset) % align_of::<T>() as u64 != 0
+            || !(self.base + offset).is_multiple_of(align_of::<T>() as u64)
         {
             return Err(MemoryRegionError {
                 region: *self,

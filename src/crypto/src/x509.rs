@@ -153,7 +153,7 @@ impl<'a> Certificate<'a> {
         })
     }
 
-    pub fn tbs_certificate(&self) -> &TBSCertificate {
+    pub fn tbs_certificate(&self) -> &TBSCertificate<'_> {
         &self.tbs_certificate
     }
 

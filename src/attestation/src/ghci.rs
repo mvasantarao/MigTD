@@ -38,7 +38,7 @@ pub extern "C" fn servtd_get_quote(tdquote_req_buf: *mut c_void, len: u64) -> i3
 
     let input = unsafe { from_raw_parts_mut(tdquote_req_buf as *mut u8, len as usize) };
 
-    let mut shared = if let Some(shared) = SharedMemory::new((len as usize + 0xFFF) / 0x1000) {
+    let mut shared = if let Some(shared) = SharedMemory::new((len as usize).div_ceil(0x1000)) {
         shared
     } else {
         log::error!("Failed to allocate shared memory of size {}\n", len);

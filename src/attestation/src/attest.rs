@@ -6,10 +6,10 @@
 use crate::binding::verify_quote_integrity_ex;
 
 #[cfg(not(any(feature = "igvm-attest", feature = "use-mock-quote")))]
-use crate::binding::get_quote as get_quote_inner;
+use crate::binding::{get_quote as get_quote_inner, AttestLibError};
 
 use crate::{
-    binding::{init_heap, verify_quote_integrity, AttestLibError, QveCollateral},
+    binding::{init_heap, verify_quote_integrity, QveCollateral},
     root_ca::ROOT_CA_PUBLIC_KEY,
     Error, TD_VERIFIED_REPORT_SIZE,
 };
@@ -115,12 +115,12 @@ pub fn attest_init_heap() -> Option<usize> {
 pub fn get_quote(td_report: &[u8]) -> Result<Vec<u8>, Error> {
     #[cfg(feature = "igvm-attest")]
     {
-        return crate::igvmattest::get_quote_igvm(td_report);
+        crate::igvmattest::get_quote_igvm(td_report)
     }
 
     #[cfg(feature = "use-mock-quote")]
     {
-        return Ok(crate::mock_quote::get_mock_quote(td_report));
+        Ok(crate::mock_quote::get_mock_quote(td_report))
     }
 
     #[cfg(not(any(feature = "igvm-attest", feature = "use-mock-quote")))]
