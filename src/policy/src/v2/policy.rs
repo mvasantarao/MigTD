@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
 use alloc::{collections::BTreeMap, string::String, string::ToString, vec::Vec};
+use chrono::NaiveDateTime;
 use core::{
     cmp::Ordering,
     convert::{TryFrom, TryInto},
@@ -305,12 +306,12 @@ impl<'a> PolicyData<'a> {
         relative_reference: &PolicyEvaluationInfo,
         skip_global: bool,
     ) -> Result<(), PolicyError> {
-        match self.forward_policy.as_ref() {
-            Some(policy) => {
-                Self::evaluate_policy_block(policy, value, relative_reference, skip_global)
-            }
-            None => Ok(()),
-        }
+        Self::evaluate_policy_block(
+            self.forward_policy.as_ref(),
+            value,
+            relative_reference,
+            skip_global,
+        )
     }
 
     pub fn evaluate_policy_backward(
@@ -319,12 +320,12 @@ impl<'a> PolicyData<'a> {
         relative_reference: &PolicyEvaluationInfo,
         skip_global: bool,
     ) -> Result<(), PolicyError> {
-        match self.backward_policy.as_ref() {
-            Some(policy) => {
-                Self::evaluate_policy_block(policy, value, relative_reference, skip_global)
-            }
-            None => Ok(()),
-        }
+        Self::evaluate_policy_block(
+            self.backward_policy.as_ref(),
+            value,
+            relative_reference,
+            skip_global,
+        )
     }
 
     pub fn evaluate_policy_common(
@@ -333,29 +334,60 @@ impl<'a> PolicyData<'a> {
         relative_reference: &PolicyEvaluationInfo,
         skip_global: bool,
     ) -> Result<(), PolicyError> {
-        match self.policy.as_ref() {
-            Some(policy) => {
-                Self::evaluate_policy_block(policy, value, relative_reference, skip_global)
-            }
-            None => Ok(()),
-        }
+        Self::evaluate_policy_block(self.policy.as_ref(), value, relative_reference, skip_global)
     }
 
     fn evaluate_policy_block(
-        block: &Vec<PolicyTypes>,
+        block: Option<&Vec<PolicyTypes>>,
         value: &PolicyEvaluationInfo,
         relative_reference: &PolicyEvaluationInfo,
         skip_global: bool,
     ) -> Result<(), PolicyError> {
-        for policy_type in block {
-            match policy_type {
-                PolicyTypes::Global(global) if !skip_global => {
-                    global.evaluate(value, relative_reference)?
+        // Apply explicit policy constraints, if present.
+        if let Some(block) = block {
+            for policy_type in block {
+                match policy_type {
+                    PolicyTypes::Global(global) if !skip_global => {
+                        global.evaluate(value, relative_reference)?
+                    }
+                    PolicyTypes::Servtd(migtd) => migtd.evaluate(value, relative_reference)?,
+                    _ => {}
                 }
-                PolicyTypes::Servtd(migtd) => migtd.evaluate(value, relative_reference)?,
-                _ => {}
             }
         }
+
+        // Always enforce mandatory deny checks, even if a policy block is absent.
+        Self::enforce_mandatory_deny(value, skip_global)?;
+
+        Ok(())
+    }
+
+    /// Enforce non-optional deny checks.
+    ///
+    /// Reject `Revoked` platform status when global checks are enabled.
+    /// Always check engine status; treat unknown (`None`) as denied.
+    fn enforce_mandatory_deny(
+        value: &PolicyEvaluationInfo,
+        skip_global: bool,
+    ) -> Result<(), PolicyError> {
+        if !skip_global {
+            if let Some(status) = value.tcb_status.as_deref() {
+                if TcbStatus::try_from(status)? == TcbStatus::Revoked {
+                    return Err(PolicyError::TcbEvaluation);
+                }
+            }
+        }
+
+        // Engine status must be known; fail closed on `None`.
+        match value.migtd_tcb_status.as_deref() {
+            Some(status) => {
+                if ServtdTcbStatus::try_from(status)? == ServtdTcbStatus::Revoked {
+                    return Err(PolicyError::SvnMismatch);
+                }
+            }
+            None => return Err(PolicyError::UnqualifiedMigTdInfo),
+        }
+
         Ok(())
     }
 
@@ -601,6 +633,18 @@ struct PolicyProperty {
     pub reference: Reference,
 }
 
+/// Returns true only for a canonical, fixed-width ISO-8601 UTC timestamp of the
+/// exact form "YYYY-MM-DDTHH:MM:SSZ" (e.g. "2025-01-01T00:00:00Z"). Lexicographic
+/// ordering of date strings is only valid under this canonical form, so callers
+/// that compare dates with `>=` must reject anything else.
+fn is_canonical_iso8601(s: &str) -> bool {
+    const FORMAT: &str = "%Y-%m-%dT%H:%M:%SZ";
+
+    NaiveDateTime::parse_from_str(s, FORMAT)
+        .map(|timestamp| timestamp.format(FORMAT).to_string() == s)
+        .unwrap_or(false)
+}
+
 impl PolicyProperty {
     pub fn evaluate_integer(
         &self,
@@ -712,8 +756,14 @@ impl PolicyProperty {
                 match self.operation.as_str() {
                     "equal" => Ok(value == reference_value),
                     "greater-or-equal" => {
-                        // Simple lexicographical comparison works for ISO-8601 format (e.g. "2025-01-01T00:00:00Z")
-                        // This is because ISO-8601 is designed to be sortable as strings
+                        // The lexicographical comparison below is only correct when both
+                        // operands are canonical, fixed-width ISO-8601 timestamps (e.g.
+                        // "2025-01-01T00:00:00Z"). A non-canonical value such as "2024-9-1"
+                        // would sort incorrectly (byte '9' > '1'), so reject anything that is
+                        // not in the canonical form before comparing, failing closed.
+                        if !is_canonical_iso8601(value) || !is_canonical_iso8601(reference_value) {
+                            return Err(PolicyError::InvalidReference);
+                        }
                         Ok(value >= reference_value)
                     }
                     _ => Err(PolicyError::InvalidOperation),
@@ -924,6 +974,28 @@ mod test {
         assert!(!tcb_date_policy
             .evaluate_string("2025-06-15T11:00:00Z", Some("2025-06-15T12:00:00Z"),)
             .unwrap());
+    }
+
+    #[test]
+    fn test_policy_tcb_date_rejects_malformed_timestamps() {
+        const VALID_TIMESTAMP: &str = "2025-06-15T12:00:00Z";
+        const INVALID_TIMESTAMPS: [&str; 2] = ["2025-6-15T12:00:00Z", "2025-13-40T25:61:61Z"];
+
+        let policy = PolicyProperty {
+            operation: "greater-or-equal".to_string(),
+            reference: Reference::String(VALID_TIMESTAMP.to_string()),
+        };
+        for value in INVALID_TIMESTAMPS {
+            assert!(policy.evaluate_string(value, None).is_err());
+        }
+
+        for reference in INVALID_TIMESTAMPS {
+            let policy = PolicyProperty {
+                operation: "greater-or-equal".to_string(),
+                reference: Reference::String(reference.to_string()),
+            };
+            assert!(policy.evaluate_string(VALID_TIMESTAMP, None).is_err());
+        }
     }
 
     #[test]
@@ -1176,5 +1248,83 @@ mod test {
         assert!(!tcb_evaluation_number_policy
             .evaluate_integer(4, Some(relative_reference))
             .unwrap());
+    }
+
+    #[test]
+    fn test_absent_block_denies_revoked_platform() {
+        // No block: still deny `Revoked` platform status.
+        let value = PolicyEvaluationInfo {
+            tcb_status: Some("Revoked".to_string()),
+            ..PolicyEvaluationInfo::default()
+        };
+        let relative = PolicyEvaluationInfo::default();
+
+        // `skip_global = false` evaluates platform status.
+        assert!(
+            PolicyData::<'static>::evaluate_policy_block(None, &value, &relative, false).is_err()
+        );
+    }
+
+    #[test]
+    fn test_absent_block_denies_revoked_engine() {
+        // No block: still deny `Revoked` engine status.
+        let value = PolicyEvaluationInfo {
+            migtd_tcb_status: Some("Revoked".to_string()),
+            ..PolicyEvaluationInfo::default()
+        };
+        let relative = PolicyEvaluationInfo::default();
+
+        // Engine status is checked even with `skip_global = true`.
+        assert!(
+            PolicyData::<'static>::evaluate_policy_block(None, &value, &relative, true).is_err()
+        );
+    }
+
+    #[test]
+    fn test_absent_block_allows_non_revoked() {
+        // No block: non-`Revoked` status is allowed.
+        let value = PolicyEvaluationInfo {
+            tcb_status: Some("UpToDate".to_string()),
+            migtd_tcb_status: Some("UpToDate".to_string()),
+            ..PolicyEvaluationInfo::default()
+        };
+        let relative = PolicyEvaluationInfo::default();
+
+        assert!(
+            PolicyData::<'static>::evaluate_policy_block(None, &value, &relative, false).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_skip_global_ignores_platform_status() {
+        // In rebinding (`skip_global`), platform status is ignored.
+        let value = PolicyEvaluationInfo {
+            tcb_status: Some("Revoked".to_string()),
+            migtd_tcb_status: Some("UpToDate".to_string()),
+            ..PolicyEvaluationInfo::default()
+        };
+        let relative = PolicyEvaluationInfo::default();
+
+        assert!(
+            PolicyData::<'static>::evaluate_policy_block(None, &value, &relative, true).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_unclassifiable_engine_is_denied() {
+        // Fail closed: unknown engine status (`None`) is denied in all paths.
+        let value = PolicyEvaluationInfo {
+            tcb_status: Some("UpToDate".to_string()),
+            migtd_tcb_status: None,
+            ..PolicyEvaluationInfo::default()
+        };
+        let relative = PolicyEvaluationInfo::default();
+
+        assert!(
+            PolicyData::<'static>::evaluate_policy_block(None, &value, &relative, false).is_err()
+        );
+        assert!(
+            PolicyData::<'static>::evaluate_policy_block(None, &value, &relative, true).is_err()
+        );
     }
 }

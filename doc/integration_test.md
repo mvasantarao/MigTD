@@ -6,6 +6,12 @@ git clone https://github.com/intel/MigTD.git
 git submodule update --init --recursive
 ./sh_script/preparation.sh
 ```
+
+Preparation preserves the fork's pinned, pre-patched td-shim ring and applies
+missing SPDM ring patches without resetting or cleaning either checkout.
+It is safe to repeat and fails on an incompatible patch state. The
+`--snp-bundle` mode validates the pinned ring without modifying dependencies.
+
 ## Setup pytest environment
 Please use recommend configuration in [integration_test.py](../sh_script/test/integration_test.py).
 
@@ -27,9 +33,11 @@ guest_img = "/home/env/guest.img"
 stress_test_cycles = 1
 ```
 ## Build & Test
+The commands below use `--no-tdinfo` for compatibility with QEMU versions that do not support TDVF Type 7.
+
 ### Build Migration TD binary - Vsock
 ```
-cargo image --policy config/policy_pre_production_fmspc.json --root-ca config/Intel_SGX_Provisioning_Certification_RootCA_preproduction.cer
+cargo image --no-tdinfo --policy config/policy_pre_production_fmspc.json --root-ca config/Intel_SGX_Provisioning_Certification_RootCA_preproduction.cer
 ```
 ### Run Test
 Set stress_test_cycles to 1 in configration file.
@@ -40,7 +48,7 @@ popd
 ```
 ### Build Migration TD Test binaries - Vsock
 ```
-bash sh_script/build_final.sh -t test -c -a on
+bash sh_script/build_final.sh --no-tdinfo -t test -c -a on
 ```
 ### Run Test
 ```
@@ -50,7 +58,7 @@ popd
 ```
 ### Build Migration TD binary - Serial
 ```
-cargo image --no-default-features --features stack-guard,virtio-serial --policy config/policy_pre_production_fmspc.json --root-ca config/Intel_SGX_Provisioning_Certification_RootCA_preproduction.cer
+cargo image --no-tdinfo --no-default-features --features stack-guard,virtio-serial --policy config/policy_pre_production_fmspc.json --root-ca config/Intel_SGX_Provisioning_Certification_RootCA_preproduction.cer
 ```
 ### Run Test
 Set stress_test_cycles to 1 in configration file.
@@ -61,7 +69,7 @@ popd
 ```
 ### Build Migration TD Test binaries - Serial
 ```
-bash sh_script/build_final.sh -t test -c -a on -d serial
+bash sh_script/build_final.sh --no-tdinfo -t test -c -a on -d serial
 ```
 ### Run Test
 ```

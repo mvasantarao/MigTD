@@ -223,9 +223,16 @@ fn prepare_report_data(public_key: &[u8]) -> Result<[u8; 64]> {
 fn gen_quote(public_key: &[u8]) -> Result<Vec<u8>> {
     let additional_data = prepare_report_data(public_key)?;
 
-    let (quote, _report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
+    let (quote, report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
         log::error!("get_quote_with_retry failed: {:?}\n", e);
         RatlsError::GetQuote
+    })?;
+    crate::quote::verify_local_quote(&quote, &report).map_err(|e| {
+        log::error!(
+            "Local quote does not match the generated TD report: {:?}\n",
+            e
+        );
+        RatlsError::VerifyQuote
     })?;
 
     Ok(quote)
@@ -1087,7 +1094,17 @@ mod verify {
         }
         const PUBLIC_KEY_HASH_SIZE: usize = 48;
 
-        let report_data = &verified_report[520..520 + PUBLIC_KEY_HASH_SIZE];
+        let report_data = verified_report
+            .get(520..520 + PUBLIC_KEY_HASH_SIZE)
+            .ok_or_else(|| {
+                log::error!(
+                    "verify_public_key: verified_report too short (len={})\n",
+                    verified_report.len()
+                );
+                CryptoError::TlsVerifyPeerCert(
+                    "verified_report too short for public key hash".to_string(),
+                )
+            })?;
         let digest = digest_sha384(public_key).map_err(|e| {
             log::error!("Failed to compute SHA384 digest: {:?}\n", e);
             e

@@ -123,6 +123,11 @@ pub(super) async fn send_pre_session_data<T: AsyncRead + AsyncWrite + Unpin>(
             log::error!("send_pre_session_data: Network error: {:?}\n", e);
             MigrationResult::NetworkError
         })?;
+        // Fail closed if the transport reports success without progress.
+        if n == 0 {
+            log::error!("send_pre_session_data: zero-length transport write\n");
+            return Err(MigrationResult::NetworkError);
+        }
         sent += n;
     }
     Ok(())
@@ -141,6 +146,10 @@ pub(super) async fn receive_pre_session_data<T: AsyncRead + AsyncWrite + Unpin>(
             log::error!("receive_pre_session_data: Network error: {:?}\n", e);
             MigrationResult::NetworkError
         })?;
+        if n == 0 {
+            log::error!("receive_pre_session_data: EOF (peer closed connection)\n");
+            return Err(MigrationResult::NetworkError);
+        }
         recvd += n;
     }
     Ok(())
@@ -191,6 +200,21 @@ pub(super) async fn receive_pre_session_data_packet<T: AsyncRead + AsyncWrite + 
     }
 
     let pre_session_data_payload_size = header.length as usize;
+
+    // Bound the VMM-supplied payload length before allocating. Without this
+    // check, the untrusted u32 length could request a roughly 4 GiB heap
+    // allocation and abort MigTD. 1 MiB is well above expected policy and
+    // issuer-chain sizes.
+    const MAX_PRE_SESSION_PAYLOAD_SIZE: usize = 1024 * 1024;
+    if pre_session_data_payload_size > MAX_PRE_SESSION_PAYLOAD_SIZE {
+        log::error!(
+            "receive_pre_session_data_packet: payload length {} exceeds max {}\n",
+            pre_session_data_payload_size,
+            MAX_PRE_SESSION_PAYLOAD_SIZE
+        );
+        return Err(MigrationResult::InvalidParameter);
+    }
+
     let mut pre_session_data_payload = vec![0u8; pre_session_data_payload_size];
     receive_pre_session_data(transport, &mut pre_session_data_payload)
         .await

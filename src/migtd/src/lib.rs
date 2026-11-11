@@ -113,6 +113,7 @@ pub mod snp_composition;
 
 pub const STACK_SIZE: usize = 0x20_0000;
 pub const HEAP_SIZE: usize = 0x70_0000;
+pub const MAX_MIGRATION_CHANNEL_COUNT: u32 = 12;
 
 /// The entry point of MigTD-Core
 ///
