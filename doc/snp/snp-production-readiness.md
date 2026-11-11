@@ -551,6 +551,86 @@ crash/restart/rollback/ambiguous-write recovery and retention tests on the
 actual providers. Qualification: pending; missing/corrupt state cannot become
 provisioned empty state.
 
+## IGVM build-to-end-to-end qualification
+
+Planning status updated 2026-11-10. This section maps the path from image
+generation to end-to-end testing; it is not an executable production runbook
+or evidence that any step is qualified. Existing PA statuses, tracking
+ownership and acceptance gates are unchanged.
+
+### Documentation and implementation boundaries
+
+| Document / component | Responsibility |
+|---|---|
+| IGVM build/test runbook | Planned deliverable: exact pinned commands, environment, deployment/preflight, triggers, expected outcomes, negative tests, cleanup and evidence collection |
+| This readiness ledger | Track prerequisites, owners, blockers, qualification status and links to the runbook and durable results |
+| [Master plan](master-execution-plan.md#task-14-snp-igvm-packaging-and-actual-image-tests) | Task 14 emulator requirements and H5.7 production acceptance gates |
+| [IGVM planning summary](snp-ma-igvm.md) | Runtime/artifact boundaries and intersection with Microsoft TDX updates |
+| [Bundle producer/validator](snp-bundles.md) | Existing immutable MA-bundle construction and validation; not final SNP IGVM production or actual-image qualification |
+
+The runbook location, actual SNP IGVM producer, supported launch consumer and
+external deployment owners must be confirmed. No executable end-to-end
+production procedure is claimed here. The accountable PA tracking owner remains
+as recorded in the index; the technical owners below are required roles, not
+newly confirmed external assignments.
+
+TDX and SNP IGVM assembly may live in the same repository with separate
+platform-specific builders, feature compositions, manifests, outputs and tests.
+The TDX td-shim recipe and TDX measurements are not SNP implementations.
+Offline compilation, assembly and image inspection require no Venice hardware.
+Fixture-image boot requires a compatible consumer/platform, not necessarily
+Venice. Actual Venice report/firmware behavior and production migration require
+supported hardware and firmware.
+
+### Stages, required inputs and evidence
+
+Stages are operational dependencies, not replacements for canonical task IDs.
+Image-build and boot evidence must remain separate from V6 workflow and
+production qualification.
+
+| Stage | Required action and inputs | Technical owner roles / dependencies | Evidence and current disposition |
+|---|---|---|---|
+| 1. Freeze profile | Select emulator/production composition, PID1/service runtime, ABI, kernel, producer/consumer, loader and launch layout; pin source/features/toolchains | MigTD build and image/runtime owners; Task 14/H5.7 | Versioned recipe and approved input identities required; final profile/tool ownership remains to be confirmed |
+| 2. Build/test MA bundle | Use declared inputs and existing bundle tooling; test exact ELF before packaging | MigTD build/test owner; accepted P2.2 bundle contract | Bundle mechanism exists within its bounded scope; each new payload needs its own validated bundle, SBOM, hashes and test receipt |
+| 3. Generate IGVM | Consume immutable tested bundle, pinned SNP producer and declared runtime/rootfs/launch metadata; never rebuild/transform MA | Image producer and runtime owner; Task 14/H5.7 | Final SNP image and versioned deployment manifest required; no completed producer/qualification inferred from TDX tooling |
+| 4. Validate final image | Parse/inspect final image, compare embedded MA bytes, validate platform/layout, hashes, applicable signatures and measurement inputs | Image validator/measurement owner | Final-image extraction/inspection and substitution negatives required; staging-tree hashes alone are insufficient |
+| 5. Provision test hosts | Compatible source/destination launch environment, kernels/firmware, network/control topology and supported hardware for real firmware testing | Host/harness, BASE and platform owners; PA-007/PA-008 | Versioned host/firmware/loader inventory and preflight results required; offline build does not prove compatibility |
+| 6. Deploy/launch | Download validated images, verify identities, launch declared entry point and roles without rebuilding | Deployment and harness owners | Exact-image deployment receipts, early boot/MA startup logs and role configuration required; raw kernel/initrd boot is a separate layer |
+| 7. Preflight services | AAS V6/common adapter for V6 flow; BASE evidence delivery/mapping; collateral, roots, policy, trusted time, randomness, replay and installation services | AAS/MigTD integration, BASE, PKI/policy and state/effect owners; AAS1A/AAS1A-M, PA-005/PA-007/PA-008/PA-009/PA-010/PA-011 | Required V6 verifier is unavailable; production services/layout remain externally gated. Missing providers must fail explicitly, without fixture fallback |
+| 8. Trigger/authorize | Correlated host prepare requests, identical complete tenant evidence at peers, actual SPDM TH1, purpose6/7 evidence and policy/history/replay checks | MA workflow and BASE owners; Tasks 7-9 | Live verified admission required; component fixtures/model receipts do not satisfy runtime gate |
+| 9. Deliver/install | Source random32 generation only after admission; encrypted delivery/acceptance, destination installation/completion before source installation | MA transport and firmware installation owners; Tasks 10-11, PA-008 | Exact key/history/context association and correlated role-specific effects required; receipt alone is not installation |
+| 10. Check outcomes | Validate authoritative firmware/provider outcomes, correlated host status and current-scope assertions | MA, BASE, platform and test owners; H5.7 as applicable | Distinguish success/failure/partial/unknown. Actual tenant transfer/workload checks require supported BASE/firmware orchestration; MA-only completion is not full tenant migration |
+| 11. Fault/retry testing | Invalid evidence, provider failures, timeout/cancel, disconnect, duplicates/reordering, crash/restart, rollback and partial-effect injection | Test, replay/state and platform owners; Task 13, H5.4/H5.7 | Cleanup, once-only/idempotency boundaries, durable recovery and unknown-effect reconciliation need actual-provider evidence |
+| 12. Retain/review/promote | Collect versioned image/source/host/provider/test identities and approved durable redacted evidence | Tracking, deployment and acceptance authorities; Task 14/H5.7 | Publish evidence links and explicit acceptance before qualification; do not promote fixture images as production |
+
+Provisioning and configuration may overlap, but all required preflight gates
+must pass before triggering migration or admitting effects. The runbook must
+provide exact commands, expected observations, failure stop conditions and
+safe teardown for each stage, tied to pinned producer/consumer revisions.
+Unavailable external commands/APIs must be marked blocked with an owner.
+
+### Evidence gates and scope limits
+
+- Packaging design, generation/inspection infrastructure and compatible
+  actual-image boot testing can progress under separate authorization while
+  AAS is blocked. They do not satisfy AAS1A-M, Task 7 or full Task 14 acceptance.
+- The production physical report-layout conflict remains [PA-009](#pa-009).
+  Policy/PKI, BASE/firmware integration and durable-state dependencies retain
+  their existing PA records; this sequence closes none of them.
+- Expected image hash, embedded ELF hash and launch measurement are distinct.
+  Production requires authenticated observations and the approved measured/
+  endorsed boot chain, not file containment alone.
+- The final production SnpHardware image must be built and tested separately
+  from the fixture-backed emulator image. No automatic AAS-to-fixture fallback
+  or production trust in fixture roots is permitted.
+- Task 12's fresh post-install persisted-state evidence remains deferred.
+  Correlated installation outcomes are required, but are not relabeled as
+  fresh attested readback or proof of the complete tenant transfer.
+- Retain exact commands, inputs, logs and expected/actual results under
+  immutable identities; redact sensitive tenant/key material and use approved
+  durable evidence storage. A runbook link and actual result links must be
+  recorded before claiming qualification.
+
 ## Prohibited production claims
 
 - No AMD ABI/layout conformance for the conflicting physical report fields,
