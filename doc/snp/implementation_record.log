@@ -6062,3 +6062,207 @@ Inherited deps/linux-sgx and deps/td-shim dirt excluded.
 Staged whitespace check identified a raw signature misclassified as text;
   scoped binary Git attributes preserve fixture bytes and disable text diffs.
 Boundary:no push,downstream execution,runtime activation or qualification change.
+
+Microsoft TDX integration Step5 - SOURCE RESOLUTION;VALIDATION PENDING
+Started UTC:2026-11-10T21:16:57.078092+00:00.
+Workstream:Microsoft downstreaming,not SNP architectural Task5.
+Authorization:user statement "execute step 5";no commit or push authorized.
+Isolation:/home/murthy/repos/MigTD-tdx-integration;
+  branch integration/microsoft-tdx-sync;original feature checkout untouched.
+Fork input:7e18f0280b3c431f0cf9b2030a5ab7624e9958cd.
+Microsoft input:7ed84f9c34b47b6c1cee58e94ab909b868175c94.
+Common ancestor:47754359f327809a54325954e6e1c3cf59f18fab.
+Prerequisites:Steps1-4 isolation,comparison,68-commit inventory and selected
+  full-merge strategy;remote observations refreshed without retargeting the pin.
+Action:started no-commit merge;resolved nine textual conflicts and reviewed
+  auto-merged overlaps,including upstream TDX-main changes relocated to legacy.rs.
+Retained:fork platform dispatcher,Cargo features,ring/sys_time overrides,
+  SNP-owned requests/evidence/transport,accepted synthetic assets and trust gates.
+Source adaptations:platform-specific SPDM interfaces,staged TDX key effects,
+  owned-session cleanup including SNP timeout cancellation,shared neutral
+  channel limit,digest event bodies with full original measurement inputs,
+  production TDX host-report dispatch and selected CI action pins.
+Added:SPDM teardown/framing regression coverage;execution remains Step7.
+Selected native targets:linux-sgx 3ab6a6bdb97adc76f690c0083c618bb98992fde7;
+  fork spdm-rs f80596705a6f3683c12867c4793524e969886b36;
+  fork td-shim 49cd99b99fa33c6b3922d20604a9fb7cb15d1afa.
+Validation scope:source formatting/parsing,lock-reference closure,YAML/job
+  preservation,protected feature/override checks and direct no-feature library
+  plus external channel-limit consumer compilation;outcomes in isolated receipt.
+Receipt:session bdd532d2-ac1d-408e-af00-b6b39e9ef94c,
+  files/tdx-step5/resolution-receipt.md and checks.json.
+Boundary:merge remains uncommitted;native submodules uninitialized;no native
+  preparation,Cargo feature-matrix build,unit/EMU regression or hosted CI run.
+Next:Step6 dependency reconciliation/preparation,then Step7 regression gates.
+Acceptance:pending;not DONE or production-qualified;AAS1A/AAS1A-M and Task7
+  prerequisites unchanged;Task12 remains deferred.
+
+Microsoft TDX integration Step5 - VALIDATION;SOURCE-RESOLUTION MILESTONE
+Validation UTC:2026-11-10T21:33:20.769385+00:00.
+PASS:zero unresolved index entries;tracked worktree matches staged candidate;
+  formatting/parsing of33 changed Rust files;17 YAML documents parsed with
+  duplicate-key rejection;fork and selected upstream workflow jobs retained.
+PASS:both SNP EMU jobs preserved except selected runner-action pin;both TDX
+  hardware jobs retain protected tdx-integration environment;fork weekly
+  write permissions,Cargo feature definitions and package overrides preserved.
+PASS:root406/helper193 lock packages have closed,unambiguous dependency
+  references;this does not establish Cargo resolution or native-link parity.
+PASS:actual no-feature MigTD library and external consumer compile directly;
+  shared migration channel limit is12 without enabling TDX.
+PASS:full measurement inputs versus digest bodies,owned-session cleanup and
+  delayed TDX SPDM effect source invariants;not runtime proof.
+PASS:original branch,HEAD,root changes and dirty submodule state unchanged.
+Evidence:isolated receipt records final staged tree,patch SHA256,all27 shared
+  changed paths,the selected68 commits and per-file identities.
+Boundary:native preparation,Cargo feature builds,new regression execution,
+  full EMU/CI gates,hosted results and applicable hardware qualification
+  are pending;this is not acceptance,commit/publication or qualification.
+
+Microsoft TDX integration Step6 - START
+Started UTC:2026-11-11T03:15:09.327263+00:00.
+Authorization:user statement "execute step 6".
+Scope:Microsoft downstreaming dependency/native reconciliation,not SNP Task6.
+Prerequisites:Step5 staged tree 9d102a4372d08fca672dd66297c9470fb2e43a6f;
+  zero unresolved entries;original branch,HEAD and inherited dirt preserved.
+Isolation:/home/murthy/repos/MigTD-tdx-integration;
+  branch integration/microsoft-tdx-sync;no commit or push authorized.
+Inputs:fork 7e18f0280b3c431f0cf9b2030a5ab7624e9958cd;
+  Microsoft MERGE_HEAD 7ed84f9c34b47b6c1cee58e94ab909b868175c94.
+Native gitlinks:linux-sgx 3ab6a6bdb97adc76f690c0083c618bb98992fde7;
+  spdm-rs f80596705a6f3683c12867c4793524e969886b36;
+  td-shim 49cd99b99fa33c6b3922d20604a9fb7cb15d1afa.
+Action:initialized44 recursive submodules at declared revisions.
+Finding:legacy dependency preparation resets/cleans ring and would discard
+  committed fork extensions;those destructive scripts were not executed.
+Resolution:top-level preparation validates pristine pre-patched ring
+  d4a364f6af319229b4bc7f6e65aabf1b9bfafb64 and required patches;only missing
+  standalone SPDM ring patches are applied,without reset/clean.
+Resolution:hosted archive fixup now fails on command errors and cleans its
+  private temporary files,retaining sbrk.o and weak exit-registration shims.
+Cargo:initial --locked failed;Cargo reconciled seven missing transitive
+  packages without removing/changing existing package versions or checksums.
+
+Microsoft TDX integration Step6 - VALIDATION;LOCAL PREPARATION MILESTONE
+Validation UTC:2026-11-11T03:36:18.042481+00:00.
+PASS:default preparation repeated without changing prepared bytes;SNP-only
+  validation mode from outside checkout;invalid-argument rejection.
+PASS:root413-package and independent helper locked Cargo metadata,including
+  offline repeat;SNP normal dependency graph has no TDX runtime imports.
+PASS:fork Cargo features/workspace package overrides unchanged.
+PASS:make servtd_attest_preparation;make servtd_attest;actual
+  cargo build --locked -p attestation --features AzCVMEmu.
+Tools:Rust1.90.0;ring build clang18.1.3;native GCC/G++13.3;host OpenSSL3.0.13;
+  AS=nasm,AR=llvm-ar,CC=clang;native build intentionally uses its own GCC.
+PASS:C supplemental-data size822 and field offsets;REPORT_DATA offset520;
+  C/Rust collateral size120 and pointer offsets8/104.
+PASS:real hosted native init_heap/get_heap_base/sbrk smoke;required norelro,
+  section-GC and ImageBase=0 context;non-executable smoke-test stack.
+PASS:repeatable hosted archive bytes;sbrk/set_heap_base retained;
+  atexit/__cxa_atexit weak;new fixup temporary files removed.
+Raw archive SHA256:
+  ee297c32c02c6febaa0f9b1c403550d4cc182ffe08081afdcea76504da404c34.
+Hosted archive SHA256:
+  1c4bb3221a63db8fd2e5fcf76f27641940f7591b5762f0276f2dba98c04acb80.
+State:all gitlink revisions unchanged;SPDM standalone ring has expected
+  preparation patch dirt;pinned td-shim ring remains pristine.
+PASS:original checkout branch,HEAD,root changes and submodule state unchanged.
+Receipt:session bdd532d2-ac1d-408e-af00-b6b39e9ef94c,
+  files/tdx-step6/preparation-receipt.md and native-checks.json.
+Boundary:merge uncommitted;full MigTD feature builds,SPDM unit/EMU regression,
+  successful quote verification,GCC14/hosted CI and hardware qualification
+  remain Step7/later gates;no AAS activation or verifier-gate waiver.
+Acceptance:pending;not a final integration acceptance or production claim.
+
+Microsoft TDX integration Step7 - START
+Started UTC:2026-11-11T16:00:13.962841+00:00.
+Authorization:user requested "execute Step 7".
+Checkout:/home/murthy/repos/MigTD-tdx-integration.
+Branch:integration/microsoft-tdx-sync;HEAD7e18f028;MERGE_HEAD7ed84f9c.
+Input staged tree:b3ecea43b8cb12c6868b48b24853a05cd33e8df0.
+Scope:targeted SPDM/TDX/SNP regressions;applicable local workflow builds,
+  formatting,lint,dependency checks,library and sequential EMU gates.
+Boundary:no commit,push,original-checkout modification,AAS activation,
+  verifier-gate waiver or production/hardware qualification.
+Evidence:session bdd532d2-ac1d-408e-af00-b6b39e9ef94c,
+  files/tdx-step7/inputs.json;results.jsonl;per-command hashed logs.
+
+Microsoft TDX integration Step7 - VALIDATION;LOCAL REGRESSION MILESTONE
+Validation UTC:2026-11-11T17:14:18.162622+00:00.
+PASS:8 new SPDM teardown/framing tests each on TDXv1,TDXv2 and SNP;
+  affected TDX/SPDM73 tests;policy-v2 and affected build/hash/signing tools.
+PASS:final sequential cargo xtask lib-test342 test executions;
+  one existing ignored Azure THIM network-header test remains ignored.
+PASS:CI format/check/clippy on Rust1.88;strict workspace/all-target
+  clippy -D warnings on Rust1.90,required by the SNP SDK MSRV.
+PASS:dependency advisories,sources,bans;all32 firmware image profiles,
+  six tools and library release builds;all14 TDX EMU scenarios.
+PASS:final SNP fixture56 and PAL fixture459 tests;SNP musl release;
+  77 feature/dependency/public-API checks;two sequential frozen-executable
+  standalone SNP migration scenarios with source/destination/controller exit0.
+PASS:actual SnpHardware executable excludes fixture/test-root assets and
+  forbidden symbols;unavailable production startup refuses with exit2 and
+  explicitly states no emulator fallback;not production qualification.
+Remediation:missing cargo-deny installed into private session tools,not
+  global environment;15 strict-lint diagnostics fixed only in four
+  integration-touched Rust files;error values/logging,offset limits and
+  deferred key-install ordering preserved;final affected/full gates rerun.
+Cleanup:only generated td-shim layout source deltas reversed;
+  preparation-only standalone SPDM ring patches retained.
+PASS:original checkout branch,HEAD,root changes and submodule state unchanged;
+  dependency revisions,Cargo features and workspace overrides unchanged.
+Evidence:session bdd532d2-ac1d-408e-af00-b6b39e9ef94c,
+  files/tdx-step7/validation-receipt.md and validation-receipt.json,
+  results.jsonl;65 preserved final CI substep logs;SNP scenario manifests.
+Boundary:merge remains uncommitted;hosted GitHub Actions/security-service
+  and protected hardware jobs,GCC14/newer-container parity,real TDX/Venice
+  attestation/migration,nested two-VM runs and production IGVM qualification
+  are not claimed;AAS gates unchanged;Task12 remains deferred.
+Acceptance:Step8 disposition/user acceptance and separate commit/push
+  authorization remain pending;local validation is not final acceptance.
+
+Microsoft TDX integration Step8 - START
+Started UTC:2026-11-11T17:49:33.152053+00:00.
+Authorization:user requested "Complete Step 8's receipt and acceptance."
+Checkout:/home/murthy/repos/MigTD-tdx-integration.
+Branch:integration/microsoft-tdx-sync;HEAD7e18f028;MERGE_HEAD7ed84f9c.
+Input validated staged tree:1cf33c1aae2b7c7a06357af88f378d1042b0e231.
+Scope:final integration receipt,source/evidence identity checks and bounded
+  acceptance;no commit,push,PR,target merge or production promotion.
+
+Microsoft TDX integration Step8 - VALIDATION;FINAL RECEIPT
+PASS:all68 selected Microsoft commits accounted for;none in the selected
+  range deferred;nine textual conflicts resolved;27 shared paths reconciled;
+  zero unresolved index entries;Step7 source/dependency blobs unchanged.
+PASS:Step7 gate/evidence hashes checked;only this acceptance log changes
+  the candidate after the validated Step7 tree;no runtime change or gate waiver.
+PASS:original native submodules match the Step1 preservation snapshot.
+Authorized exception:separate user-requested feature documentation commit
+  d0872ef4d0e563907b4f825e0f3bebefccd9c7ea has parent7e18f028 and changes only
+  doc/snp/snp-production-readiness.md;its bytes equal the original dirty
+  document recorded in Step1;historical receipts are preserved unchanged.
+Target:feature/azure-attestation-sdk,not main;retain local unpushed d0872ef4
+  during separately authorized integration;candidate has no overlapping
+  readiness-document edit,but that commit is not yet included in the candidate.
+Evidence:session bdd532d2-ac1d-408e-af00-b6b39e9ef94c,
+  files/tdx-step8/integration-receipt.md and integration-receipt.json;
+  inputs.json,final-state.json,cumulative candidate.patch;
+  final staged tree and evidence hashes recorded in the structured receipt.
+Output merge commit:none;pending Microsoft merge remains staged/uncommitted.
+Historical clarification:Step4 pinned-TAV wording is superseded by accepted
+  manifests/Step7 graph checks;existing native AAS8774be30 backend retained;
+  TAV absent;no new AAS V6 SDK revision or verifier activation accepted here.
+
+Microsoft TDX integration Step8 - ACCEPTANCE;BOUNDED LOCAL CANDIDATE
+Disposition:Step8 COMPLETE;locally validated pinned candidate accepted under
+  the user's explicit Step8 receipt/acceptance request for separate handoff.
+Retained:SNP/TDX isolation,frozen fixtures and production trust separation;
+  fork Cargo features/overrides,native pins,explicit provider refusal;
+  teardown/framing protections and deferred TDX version/key effects.
+Open:hosted CI/upload/security-service/protected jobs;GCC14/newer-container
+  parity;real TDX/Venice attestation/migration;nested two-VM execution;
+  production SNP IGVM/hardware deployment;AAS1A/AAS1A-M and AMD report-layout
+  gates;existing ignored THIM-header network test;Task12 remains deferred.
+Boundary:local acceptance is not hosted/hardware/production acceptance.
+  No commit,push,PR,target merge,original-submodule cleanup or gate waiver
+  authorized or performed;future branch/code/dependency changes require
+  applicable combined verification and an attributed output-commit receipt.

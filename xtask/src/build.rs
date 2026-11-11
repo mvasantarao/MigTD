@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
 use crate::config;
-use anyhow::{Ok, Result};
+use anyhow::{Context, Result};
 use clap::{Args, ValueEnum};
 use lazy_static::lazy_static;
+use migtd::MAX_MIGRATION_CHANNEL_COUNT;
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -17,6 +18,8 @@ const MIGTD_KVM_FEATURES: &str = MIGTD_DEFAULT_FEATURES;
 const DEFAULT_TDVF_IMAGE_NAME: &str = "migtd.bin";
 const DEFAULT_IGVM_IMAGE_NAME: &str = "migtd.igvm";
 const DEFAULT_IMAGE_FORMAT: &str = "tdvf";
+const MIGTD_TD_INFO_GUID: &str = "dbbdfad7-9cba-4aae-b498-c0fd425860b4";
+const MIGTD_MAX_VCPU_COUNT: u32 = 1;
 
 lazy_static! {
     static ref PROJECT_ROOT: &'static Path =
@@ -27,8 +30,12 @@ lazy_static! {
     static ref DEFAULT_CA: PathBuf =
         PROJECT_ROOT.join("config/Intel_SGX_Provisioning_Certification_RootCA.cer");
     static ref DEFAULT_METADATA: PathBuf = PROJECT_ROOT.join("config/metadata.json");
+    static ref DEFAULT_METADATA_NO_TDINFO: PathBuf =
+        PROJECT_ROOT.join("config/metadata_no_tdinfo.json");
     static ref DEFAULT_SHIM_LAYOUT: PathBuf = PROJECT_ROOT.join("config/shim_layout.json");
     static ref DEFAULT_IMAGE_LAYOUT: PathBuf = PROJECT_ROOT.join("config/image_layout.json");
+    static ref DEFAULT_IMAGE_LAYOUT_NO_TDINFO: PathBuf =
+        PROJECT_ROOT.join("config/image_layout_no_tdinfo.json");
     static ref DEFAULT_SERVTD_INFO: PathBuf = PROJECT_ROOT.join("config/servtd_info.json");
     static ref MMIO_LAYOUT_SOURCE: PathBuf = PROJECT_ROOT.join("src/devices/pci/src/layout.rs");
 }
@@ -70,7 +77,7 @@ pub(crate) struct BuildArgs {
     /// Path of the configuration file for td-shim image layout
     #[clap(long)]
     image_layout: Option<PathBuf>,
-    /// Log level control in migtd, default value is `off` for release and `info` for debug
+    /// Log level for MigTD and dependencies, capped at `info`; defaults to `off` for release and `info` for debug
     #[clap(short, long)]
     log_level: Option<LogLevel>,
     /// MMIO space layout configuration for migtd
@@ -82,6 +89,12 @@ pub(crate) struct BuildArgs {
     /// Issuer chain of migration policy v2, required if `policy_v2` is set
     #[clap(long)]
     policy_issuer_chain: Option<PathBuf>,
+    /// Security Version Number recorded in the MigTD TD_INFO structure
+    #[clap(long, default_value_t = 1)]
+    td_info_svn: u32,
+    /// Omit TD_INFO for compatibility with VMMs that do not support TDVF Type 7
+    #[clap(long)]
+    no_tdinfo: bool,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -108,9 +121,7 @@ impl LogLevel {
             LogLevel::Off => "log/max_level_off",
             LogLevel::Error => "log/max_level_error",
             LogLevel::Warn => "log/max_level_warn",
-            LogLevel::Info => "log/max_level_info",
-            LogLevel::Debug => "log/max_level_debug",
-            LogLevel::Trace => "log/max_level_trace",
+            LogLevel::Info | LogLevel::Debug | LogLevel::Trace => "log/max_level_info",
         }
     }
 
@@ -119,9 +130,7 @@ impl LogLevel {
             LogLevel::Off => "log/release_max_level_off",
             LogLevel::Error => "log/release_max_level_error",
             LogLevel::Warn => "log/release_max_level_warn",
-            LogLevel::Info => "log/release_max_level_info",
-            LogLevel::Debug => "log/release_max_level_debug",
-            LogLevel::Trace => "log/release_max_level_trace",
+            LogLevel::Info | LogLevel::Debug | LogLevel::Trace => "log/release_max_level_info",
         }
     }
 }
@@ -134,11 +143,66 @@ impl BuildArgs {
         let migtd = self.build_migtd()?;
         let bin = self.build_final(reset_vector.as_path(), shim.as_path(), migtd.as_path())?;
         self.enroll(bin.as_path())?;
+        self.patch_td_info(bin.as_path())?;
 
         Ok(bin)
     }
 
+    fn patch_td_info(&self, bin: &Path) -> Result<()> {
+        if self.no_tdinfo || self.image_format() != DEFAULT_IMAGE_FORMAT {
+            return Ok(());
+        }
+
+        let payload_path = bin.with_extension("td-info-payload.bin");
+        let mut payload = Vec::with_capacity(8);
+        payload.extend_from_slice(&MAX_MIGRATION_CHANNEL_COUNT.to_le_bytes());
+        payload.extend_from_slice(&MIGTD_MAX_VCPU_COUNT.to_le_bytes());
+        fs::write(&payload_path, payload)?;
+
+        let sh = Shell::new()?;
+        sh.change_dir(SHIM_FOLDER.as_path());
+        let version = self.migtd_version()?;
+        let svn = self.td_info_svn.to_string();
+        let patch_result = cmd!(
+            sh,
+            "cargo run -p td-shim-tools --bin td-shim-patch -- td-info"
+        )
+        .args(["--in", bin.to_str().unwrap()])
+        .args(["--out", bin.to_str().unwrap()])
+        .args(["--guid", MIGTD_TD_INFO_GUID])
+        .args(["--version", version.as_str()])
+        .args(["--svn", svn.as_str()])
+        .args(["--payload-info", payload_path.to_str().unwrap()])
+        .run();
+
+        fs::remove_file(payload_path)?;
+        patch_result?;
+        Ok(())
+    }
+
+    fn migtd_version(&self) -> Result<String> {
+        let sh = Shell::new()?;
+        sh.change_dir(*PROJECT_ROOT);
+        let metadata = cmd!(sh, "cargo metadata --format-version 1 --no-deps").read()?;
+        let metadata: serde_json::Value = serde_json::from_str(&metadata)?;
+        metadata["packages"]
+            .as_array()
+            .and_then(|packages| packages.iter().find(|package| package["name"] == "migtd"))
+            .and_then(|package| package["version"].as_str())
+            .map(ToOwned::to_owned)
+            .context("migtd package version not found in cargo metadata")
+    }
+
     fn check_arguments(&self) -> Result<()> {
+        if !self.no_tdinfo && self.image_format() == DEFAULT_IMAGE_FORMAT && self.td_info_svn == 0 {
+            return Err(anyhow::anyhow!("TD_INFO SVN must be non-zero"));
+        }
+
+        if self.no_tdinfo {
+            self.ensure_td_info_absent(&self.image_layout()?)?;
+            self.ensure_td_info_absent(&self.metadata()?)?;
+        }
+
         if self.policy_v2 {
             if self.policy.is_none() {
                 return Err(anyhow::anyhow!(
@@ -154,10 +218,30 @@ impl BuildArgs {
         Ok(())
     }
 
+    fn ensure_td_info_absent(&self, path: &Path) -> Result<()> {
+        let content = fs::read_to_string(path)?;
+        let config: serde_json::Value = serde_json::from_str(&content)?;
+        let contains_td_info = config.get("TdInfo").is_some_and(|value| !value.is_null())
+            || config["Sections"].as_array().is_some_and(|sections| {
+                sections
+                    .iter()
+                    .any(|section| section["Type"].as_str() == Some("TdInfo"))
+            });
+
+        if contains_td_info {
+            return Err(anyhow::anyhow!(
+                "{} contains TdInfo and cannot be used with --no-tdinfo",
+                path.display()
+            ));
+        }
+        Ok(())
+    }
+
     fn build_shim(&self) -> Result<(PathBuf, PathBuf)> {
         self.build_shim_layout()?;
 
         let sh = Shell::new()?;
+        sh.set_var("RUSTFLAGS", Self::remap_rustflags()?);
         sh.change_dir(SHIM_FOLDER.as_path());
         if self.profile() == "release" {
             cmd!(sh, "cargo build -p td-shim --target x86_64-unknown-none --features=main,tdx,log/max_level_off --no-default-features --release")
@@ -221,6 +305,7 @@ impl BuildArgs {
         let sh = Shell::new()?;
         sh.set_var("CC_x86_64_unknown_none", "clang");
         sh.set_var("AR_x86_64_unknown_none", "llvm-ar");
+        sh.set_var("RUSTFLAGS", Self::remap_rustflags()?);
         sh.set_var(
             "SPDM_CONFIG",
             PROJECT_ROOT
@@ -314,6 +399,40 @@ impl BuildArgs {
         }
     }
 
+    fn remap_rustflags() -> Result<String> {
+        let project = PROJECT_ROOT
+            .to_str()
+            .context("project root is not valid UTF-8")?;
+        let cargo_home = match env::var("CARGO_HOME") {
+            Ok(path) => path,
+            Err(env::VarError::NotPresent) => env::var("HOME")
+                .map(|home| format!("{home}/.cargo"))
+                .context("CARGO_HOME and HOME are unavailable")?,
+            Err(error) => return Err(error).context("CARGO_HOME is not valid UTF-8"),
+        };
+        let rustup_home = match env::var("RUSTUP_HOME") {
+            Ok(path) => path,
+            Err(env::VarError::NotPresent) => env::var("HOME")
+                .map(|home| format!("{home}/.rustup"))
+                .context("RUSTUP_HOME and HOME are unavailable")?,
+            Err(error) => return Err(error).context("RUSTUP_HOME is not valid UTF-8"),
+        };
+        let mut flags = match env::var("RUSTFLAGS") {
+            Ok(flags) => flags,
+            Err(env::VarError::NotPresent) => String::new(),
+            Err(error) => return Err(error).context("RUSTFLAGS is not valid UTF-8"),
+        };
+        if !flags.is_empty() {
+            flags.push(' ');
+        }
+        flags.push_str(&format!(
+            "--remap-path-prefix={cargo_home}=/cargo \
+             --remap-path-prefix={rustup_home}=/rustup \
+             --remap-path-prefix={project}=/migtd"
+        ));
+        Ok(flags)
+    }
+
     fn features(&self) -> String {
         let mut features = String::new();
         features.push_str("main");
@@ -341,77 +460,22 @@ impl BuildArgs {
         features.push(',');
         if self.debug {
             println!("Building debug MigTD");
-            match self.log_level {
-                Some(loglevel) => match loglevel {
-                    LogLevel::Off => {
-                        println!("Building debug MigTD found loglevel=Off), overriding to Info");
-                        features.push_str(LogLevel::Info.debug_feature());
-                    }
-                    LogLevel::Error => {
-                        println!("Building debug MigTD found loglevel=Error");
-                        features.push_str(loglevel.debug_feature());
-                    }
-                    LogLevel::Warn => {
-                        println!("Building debug MigTD found loglevel=Warn");
-                        features.push_str(loglevel.debug_feature());
-                    }
-                    LogLevel::Info => {
-                        println!("Building debug MigTD found loglevel=Info");
-                        features.push_str(loglevel.debug_feature());
-                    }
-                    LogLevel::Debug => {
-                        println!("Building debug MigTD found loglevel=Debug");
-                        features.push_str(loglevel.debug_feature());
-                    }
-                    LogLevel::Trace => {
-                        println!("Building debug MigTD found loglevel=Trace");
-                        features.push_str(loglevel.debug_feature());
-                    }
-                },
-                _ => {
-                    println!("Building debug MigTD found None(loglevel)");
-                }
-            }
+            features.push_str(self.log_level.unwrap_or(LogLevel::Info).debug_feature());
         } else {
             println!("Building release MigTD");
-            match self.log_level {
-                Some(loglevel) => match loglevel {
-                    LogLevel::Off => {
-                        println!("Building release MigTD found loglevel=Off), overriding to Info");
-                        features.push_str(LogLevel::Info.release_feature());
-                    }
-                    LogLevel::Error => {
-                        println!("Building release MigTD found loglevel=Error");
-                        features.push_str(loglevel.release_feature());
-                    }
-                    LogLevel::Warn => {
-                        println!("Building release MigTD found loglevel=Warn");
-                        features.push_str(loglevel.release_feature());
-                    }
-                    LogLevel::Info => {
-                        println!("Building release MigTD found loglevel=Info");
-                        features.push_str(loglevel.release_feature());
-                    }
-                    LogLevel::Debug => {
-                        println!("Building release MigTD found loglevel=Debug");
-                        features.push_str(loglevel.release_feature());
-                    }
-                    LogLevel::Trace => {
-                        println!("Building release MigTD found loglevel=Trace");
-                        features.push_str(loglevel.release_feature());
-                    }
-                },
-                _ => {
-                    println!("Building release MigTD found None(loglevel)");
-                }
-            }
+            features.push_str(self.log_level.unwrap_or(LogLevel::Off).release_feature());
         }
 
         features
     }
 
     fn metadata(&self) -> Result<PathBuf> {
-        let path = self.metadata.as_ref().unwrap_or(&DEFAULT_METADATA);
+        let default: &Path = if self.no_tdinfo {
+            DEFAULT_METADATA_NO_TDINFO.as_path()
+        } else {
+            DEFAULT_METADATA.as_path()
+        };
+        let path = self.metadata.as_deref().unwrap_or(default);
         fs::canonicalize(path).map_err(|e| e.into())
     }
 
@@ -475,7 +539,65 @@ impl BuildArgs {
     }
 
     fn image_layout(&self) -> Result<PathBuf> {
-        let path = self.image_layout.as_ref().unwrap_or(&DEFAULT_IMAGE_LAYOUT);
+        let default: &Path = if self.no_tdinfo {
+            DEFAULT_IMAGE_LAYOUT_NO_TDINFO.as_path()
+        } else {
+            DEFAULT_IMAGE_LAYOUT.as_path()
+        };
+        let path = self.image_layout.as_deref().unwrap_or(default);
         fs::canonicalize(path).map_err(|e| e.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BuildArgs;
+    use clap::Parser;
+
+    #[derive(Parser)]
+    struct TestArgs {
+        #[clap(flatten)]
+        build: BuildArgs,
+    }
+
+    #[test]
+    fn log_level_features() {
+        for debug in [false, true] {
+            for level in [
+                None,
+                Some("off"),
+                Some("error"),
+                Some("warn"),
+                Some("info"),
+                Some("debug"),
+                Some("trace"),
+            ] {
+                let mut args = vec!["test"];
+                if debug {
+                    args.push("--debug");
+                }
+                if let Some(level) = level {
+                    args.extend(["--log-level", level]);
+                }
+                let build = TestArgs::parse_from(args).build;
+                let prefix = if debug {
+                    "max_level"
+                } else {
+                    "release_max_level"
+                };
+                let expected_level = level.unwrap_or(if debug { "info" } else { "off" });
+                let expected_level = match expected_level {
+                    "debug" | "trace" => "info",
+                    level => level,
+                };
+                let expected = format!("log/{prefix}_{expected_level}");
+                let features = build.features();
+                let log_features: Vec<_> = features
+                    .split(',')
+                    .filter(|feature| feature.starts_with("log/"))
+                    .collect();
+                assert_eq!(log_features, vec![expected.as_str()]);
+            }
+        }
     }
 }

@@ -4,8 +4,9 @@
 
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::pre_session_data_exchange;
-#[cfg(not(feature = "spdm_attestation"))]
 use crate::migration::servtd_ext::verify_servtd_attr;
+#[cfg(all(feature = "spdm_attestation", feature = "policy_v2"))]
+use crate::migration::servtd_ext::write_approved_servtd_ext_hash;
 use crate::migration::transport::setup_transport;
 use crate::migration::transport::shutdown_transport;
 use crate::migration::transport::TransportType;
@@ -48,6 +49,8 @@ use zeroize::Zeroize;
 
 #[cfg(feature = "vmcall-raw")]
 const PAGE_SIZE: usize = 0x1_000;
+#[cfg(feature = "vmcall-raw")]
+const HOST_REQUESTED_REPORTDATA: &[u8; 24] = b"HostRequestedMigTDReport";
 const TDCALL_STATUS_SUCCESS: u64 = 0;
 
 const TDCS_FIELD_MIG_DEC_KEY: u64 = 0x9810_0003_0000_0010;
@@ -67,6 +70,15 @@ struct TdxReportBuf(TdxReport);
 #[cfg(feature = "vmcall-raw")]
 #[repr(C, align(64))]
 struct AdditionalDataBuf([u8; TD_REPORT_ADDITIONAL_DATA_SIZE]);
+
+/// Keep VMM-requested reports outside the REPORTDATA namespaces used by
+/// MigTD-generated RA-TLS and SPDM authentication reports.
+#[cfg(feature = "vmcall-raw")]
+pub fn get_tdreport_reportdata() -> [u8; TD_REPORT_ADDITIONAL_DATA_SIZE] {
+    let mut reportdata = [0u8; TD_REPORT_ADDITIONAL_DATA_SIZE];
+    reportdata[..HOST_REQUESTED_REPORTDATA.len()].copy_from_slice(HOST_REQUESTED_REPORTDATA);
+    reportdata
+}
 
 #[cfg(feature = "vmcall-raw")]
 const TDX_VMCALL_VMM_SUCCESS: u8 = 1;
@@ -447,22 +459,7 @@ fn parse_request(
             }
         }
         DataStatusOperation::GetTDReport => {
-            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
-            {
-                decode_and_dispatch!(ReportInfo, |info| WaitForRequestResponse::GetTdReport(info))
-            }
-            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
-            {
-                log_request_error!(
-                    request_id,
-                    "wait_for_request: GetTDReport is not supported in production builds\n"
-                );
-                reject_request(
-                    pending_error_report,
-                    request_id,
-                    MigrationResult::UnsupportedOperationError,
-                )
-            }
+            decode_and_dispatch!(ReportInfo, |info| WaitForRequestResponse::GetTdReport(info))
         }
         DataStatusOperation::EnableLogArea => {
             decode_and_dispatch!(EnableLogAreaInfo, |info| {
@@ -620,11 +617,10 @@ pub async fn wait_for_request() -> Result<MigrationInformation> {
                     .ok_or(MigrationResult::InvalidParameter)?;
             let request_id = mig_info.mig_info.mig_request_id;
 
-            if REQUESTS.lock().contains(&request_id) {
-                Poll::Pending
-            } else {
-                REQUESTS.lock().insert(request_id);
+            if REQUESTS.lock().insert(request_id) {
                 Poll::Ready(Ok(mig_info))
+            } else {
+                Poll::Pending
             }
         } else if wfr.operation == 0 {
             Poll::Pending
@@ -669,14 +665,10 @@ pub fn shutdown() -> Result<()> {
 }
 
 #[cfg(feature = "vmcall-raw")]
-pub async fn get_tdreport(
-    additional_data: &[u8; TD_REPORT_ADDITIONAL_DATA_SIZE],
-    data: &mut Vec<u8>,
-    request_id: u64,
-) -> Result<()> {
+pub async fn get_tdreport(data: &mut Vec<u8>, request_id: u64) -> Result<()> {
     const TDVMCALL_TDREPORT: u64 = 0x00004;
     let mut report_buf = TdxReportBuf(TdxReport::default());
-    let additional_data_buf = AdditionalDataBuf(*additional_data);
+    let additional_data_buf = AdditionalDataBuf(get_tdreport_reportdata());
     let tdreportsize = size_of::<TdxReport>();
 
     let mut args = TdcallArgs {
@@ -990,11 +982,16 @@ async fn migration_src_exchange_msk(
         MigrationResult::SecureSessionError
     })?;
     eprintln!("[MA] exchange_msk: SPDM requester ready; starting transfer (timeout=60s)");
-    with_timeout(
+    let exchange_information = exchange_info(&info.mig_info, true).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: exchange_info error: {:?}\n", e);
+    })?;
+
+    let session_result = with_timeout(
         SPDM_TIMEOUT,
         spdm::spdm_requester_transfer_msk(
             &mut spdm_requester,
             &info.mig_info,
+            &exchange_information,
             #[cfg(feature = "policy_v2")]
             peer_data,
             #[cfg(feature = "SnpEmu")]
@@ -1011,23 +1008,41 @@ async fn migration_src_exchange_msk(
             "exchange_msk: spdm_requester_transfer_msk timeout error: {:?}\n",
             e
         );
-        e
-    })?
-    .map_err(|e| {
-        eprintln!(
-            "[MA] ERROR: exchange_msk: SPDM requester transfer failed: {:?}",
-            e
-        );
-        log::error!("exchange_msk: spdm_requester_transfer_msk error: {:?}\n", e);
-        spdm::decode_spdm_session_err(e)
-    })?;
-    eprintln!("[MA] exchange_msk: SPDM requester transfer completed");
-    log::info!("MSK exchange completed\n");
+        MigrationResult::from(e)
+    })
+    .and_then(|result| {
+        result.map_err(|e| {
+            log::error!("exchange_msk: spdm_requester_transfer_msk error: {:?}\n", e);
+            spdm::decode_spdm_session_err(e)
+        })
+    });
 
+    spdm::teardown_sessions(&mut spdm_requester.common);
     let mut transport_lock = device_io_ref.lock();
     let transport = transport_lock.deref_mut();
-    shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await?;
-    eprintln!("[MA] exchange_msk: requester transport shutdown completed");
+    let shutdown_result =
+        shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await;
+
+    let remote_information = match session_result {
+        Ok(remote_information) => remote_information,
+        Err(error) => {
+            let _ = shutdown_result;
+            return Err(error);
+        }
+    };
+    shutdown_result?;
+
+    let mig_ver = cal_mig_version(true, &exchange_information, &remote_information).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: cal_mig_version error: {:?}\n", e);
+    })?;
+    set_mig_version(&info.mig_info, mig_ver).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: set_mig_version error: {:?}\n", e);
+    })?;
+    write_msk(&info.mig_info, &remote_information.key).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: write_msk error: {:?}\n", e);
+    })?;
+
+    log::info!(migration_request_id = info.mig_info.mig_request_id; "Set MSK and report status\n");
     Ok(())
 }
 
@@ -1045,16 +1060,10 @@ async fn migration_dst_exchange_msk(
         "[MA] exchange_msk: constructing SPDM responder (request_id={})",
         info.mig_info.mig_request_id
     );
-    let (mut spdm_responder, device_io_ref) = spdm::spdm_responder(
-        transport,
-        #[cfg(feature = "SnpEmu")]
-        providers.clone(),
-    )
-    .map_err(|e| {
-        eprintln!(
-            "[MA] ERROR: exchange_msk: SPDM responder construction failed: {:?}",
-            e
-        );
+    let exchange_information = exchange_info(&info.mig_info, false).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: exchange_info error: {:?}\n", e);
+    })?;
+    let (mut spdm_responder, device_io_ref) = spdm::spdm_responder(transport).map_err(|_e| {
         log::error!(
             "exchange_msk(): Failed in spdm_responder transport. Migration ID: {}\n",
             info.mig_info.mig_request_id
@@ -1063,11 +1072,12 @@ async fn migration_dst_exchange_msk(
     })?;
     eprintln!("[MA] exchange_msk: SPDM responder ready; waiting for transfer (timeout=60s)");
 
-    with_timeout(
+    let session_result = with_timeout(
         SPDM_TIMEOUT,
         spdm::spdm_responder_transfer_msk(
             &mut spdm_responder,
             &info.mig_info,
+            &exchange_information,
             #[cfg(feature = "policy_v2")]
             peer_data,
         ),
@@ -1082,23 +1092,55 @@ async fn migration_dst_exchange_msk(
             "exchange_msk: spdm_responder_transfer_msk timeout error: {:?}\n",
             e
         );
-        e
-    })?
-    .map_err(|e| {
-        eprintln!(
-            "[MA] ERROR: exchange_msk: SPDM responder transfer failed: {:?}",
-            e
-        );
-        log::error!("exchange_msk: spdm_responder_transfer_msk error: {:?}\n", e);
-        spdm::decode_spdm_session_err(e)
-    })?;
-    eprintln!("[MA] exchange_msk: SPDM responder transfer completed");
-    log::info!("MSK exchange completed\n");
+        MigrationResult::from(e)
+    })
+    .and_then(|result| {
+        result.map_err(|e| {
+            log::error!("exchange_msk: spdm_responder_transfer_msk error: {:?}\n", e);
+            spdm::decode_spdm_session_err(e)
+        })
+    });
 
+    spdm::teardown_sessions(&mut spdm_responder.responder_context.common);
     let mut transport_lock = device_io_ref.lock();
     let transport = transport_lock.deref_mut();
-    shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await?;
-    eprintln!("[MA] exchange_msk: responder transport shutdown completed");
+    let shutdown_result =
+        shutdown_transport(&mut transport.transport, info.mig_info.mig_request_id).await;
+
+    if let Err(error) = session_result {
+        let _ = shutdown_result;
+        return Err(error);
+    }
+    shutdown_result?;
+
+    let remote_information = spdm_responder.remote_information.take().ok_or_else(|| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: missing remote migration information\n");
+        MigrationResult::SecureSessionError
+    })?;
+    verify_servtd_attr(
+        info.mig_info.binding_handle,
+        &info.mig_info.target_td_uuid,
+    )
+    .inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: verify_servtd_attr error: {:?}\n", e);
+    })?;
+    let mig_ver =
+        cal_mig_version(false, &exchange_information, &remote_information).inspect_err(|e| {
+            log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: cal_mig_version error: {:?}\n", e);
+        })?;
+    set_mig_version(&info.mig_info, mig_ver).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: set_mig_version error: {:?}\n", e);
+    })?;
+    write_msk(&info.mig_info, &remote_information.key).inspect_err(|e| {
+        log::error!(migration_request_id = info.mig_info.mig_request_id; "exchange_msk: write_msk error: {:?}\n", e);
+    })?;
+
+    #[cfg(feature = "policy_v2")]
+    if let Some(servtd_ext) = spdm_responder.servtd_ext {
+        write_approved_servtd_ext_hash(&servtd_ext.calculate_approved_servtd_ext_hash()?)?;
+    }
+
+    log::info!(migration_request_id = info.mig_info.mig_request_id; "Set MSK and report status\n");
     Ok(())
 }
 
@@ -1443,6 +1485,8 @@ mod test {
     use pal::types::MigrationRole;
 
     use super::ExchangeInformation;
+    #[cfg(feature = "vmcall-raw")]
+    use super::{get_tdreport_reportdata, HOST_REQUESTED_REPORTDATA};
 
     #[cfg(feature = "SnpEmu")]
     #[test]
@@ -1569,7 +1613,41 @@ mod test {
         assert!(matches!(result, Ok(6)));
     }
 
+    // `ExchangeInformation` is written to the migration peer byte-for-byte via
+    // `as_bytes()`. The four bytes after `max_ver` were implicit trailing
+    // padding that the serializer copied to the peer uninitialized; they are
+    // now a zero-initialized `reserved` field, so the wire form is fully
+    // defined with no leaked bytes.
+    #[cfg(not(feature = "spdm_attestation"))]
+    #[test]
+    fn exchange_information_serializes_without_uninitialized_padding() {
+        assert_eq!(core::mem::size_of::<ExchangeInformation>(), 40);
+        let mut info = ExchangeInformation::default();
+        info.min_ver = 0x0102;
+        info.max_ver = 0x0304;
+        info.key.fields = [0xAAu64; 4];
+        let bytes = info.as_bytes();
+        assert_eq!(bytes.len(), 40);
+        // key 0..32, min_ver 32..34, max_ver 34..36, reserved 36..40: the
+        // trailing four bytes are now always zero rather than leaked memory.
+        assert_eq!(&bytes[36..40], &[0u8; 4]);
+    }
+
     // ---- parse_request-level tests: simulate host data buffers ----
+
+    #[cfg(feature = "vmcall-raw")]
+    #[test]
+    fn get_tdreport_uses_fixed_reportdata() {
+        let reportdata = get_tdreport_reportdata();
+
+        assert_eq!(
+            &reportdata[..HOST_REQUESTED_REPORTDATA.len()],
+            HOST_REQUESTED_REPORTDATA
+        );
+        assert!(reportdata[HOST_REQUESTED_REPORTDATA.len()..]
+            .iter()
+            .all(|byte| *byte == 0));
+    }
 
     #[cfg(feature = "vmcall-raw")]
     mod parse_request_tests {
@@ -1716,22 +1794,14 @@ mod test {
             let buf = build_request_buffer(3, &payload);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
-            {
-                match result {
-                    Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
-                        assert_eq!(info.mig_request_id, request_id);
-                        assert_eq!(info.reportdata[0], 0xCC);
-                    }
-                    _ => panic!("Expected GetTdReport, got unexpected variant"),
+            match result {
+                Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
+                    assert_eq!(info.mig_request_id, request_id);
+                    assert_eq!(info.reportdata[0], 0xCC);
                 }
-                cleanup_request(request_id);
+                _ => panic!("Expected GetTdReport, got unexpected variant"),
             }
-            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
-            assert!(matches!(
-                result,
-                Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
-            ));
+            cleanup_request(request_id);
         }
 
         #[test]
@@ -1741,43 +1811,25 @@ mod test {
             let buf = build_request_buffer(3, &payload);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
-            {
-                match result {
-                    Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
-                        assert_eq!(info.mig_request_id, request_id);
-                        assert_eq!(info.reportdata, [0u8; 64]);
-                    }
-                    _ => {
-                        panic!("Expected GetTdReport with zero reportdata, got unexpected variant")
-                    }
+            match result {
+                Poll::Ready(Ok(WaitForRequestResponse::GetTdReport(info))) => {
+                    assert_eq!(info.mig_request_id, request_id);
+                    assert_eq!(info.reportdata, [0u8; 64]);
                 }
-                cleanup_request(request_id);
+                _ => panic!("Expected GetTdReport with zero reportdata, got unexpected variant"),
             }
-            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
-            assert!(matches!(
-                result,
-                Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
-            ));
+            cleanup_request(request_id);
         }
 
         #[test]
         fn test_parse_get_td_report_wrong_size_rejected() {
-            // 16 bytes is neither 8 nor 72. Under AzCVMEmu the payload is decoded
-            // and rejected for its size; production builds reject GetTDReport
-            // outright as unsupported before decoding.
+            // 16 bytes is neither 8 nor 72 → read_from_bytes rejects
             let buf = build_request_buffer(3, &[0u8; 16]);
             let mut pending = None;
             let result = parse_request(&buf, HDR_LEN, &mut pending);
-            #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
             assert!(matches!(
                 result,
                 Poll::Ready(Err(MigrationResult::InvalidParameter))
-            ));
-            #[cfg(not(any(feature = "AzCVMEmu", feature = "SnpEmu")))]
-            assert!(matches!(
-                result,
-                Poll::Ready(Err(MigrationResult::UnsupportedOperationError))
             ));
         }
 

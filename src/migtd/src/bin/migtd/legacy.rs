@@ -82,7 +82,7 @@ pub fn runtime_main() {
     {
         // Initialize logging with level filter. The actual log level is determined by
         // compile-time feature flags.
-        let _ = td_logger::init(log::LevelFilter::Trace);
+        let _ = td_logger::init(log::LevelFilter::Info);
     }
 
     // Create LogArea per vCPU
@@ -220,7 +220,17 @@ fn get_policy_and_measure(event_log: &mut [u8]) {
         }
     };
 
-    let event_data = policy;
+    // Keep tagged bodies bounded while measuring the complete artifact.
+    let event_data = match event_log::calculate_digest(policy) {
+        Ok(digest) => digest,
+        Err(error) => {
+            log::error!("Failed to digest migration policy: {:?}\n", error);
+            panic_with_guest_crash_reg_report(
+                MigrationResult::InitializationError as u64,
+                b"Failed to digest migration policy",
+            );
+        }
+    };
 
     // Measure and extend the migration policy to RTMR
     let _ = event_log::write_tagged_event_log(
@@ -228,7 +238,7 @@ fn get_policy_and_measure(event_log: &mut [u8]) {
         MR_INDEX_POLICY,
         policy,
         TAGGED_EVENT_ID_POLICY,
-        event_data,
+        &event_data,
     )
     .map_err(|e| {
         log::error!("Failed to log migration policy: {:?}\n", e);
@@ -303,13 +313,24 @@ fn get_policy_issuer_chain_and_measure(event_log: &mut [u8]) {
         }
     };
 
+    let event_data = match event_log::calculate_digest(policy_issuer_chain) {
+        Ok(digest) => digest,
+        Err(error) => {
+            log::error!("Failed to digest policy issuer chain: {:?}\n", error);
+            panic_with_guest_crash_reg_report(
+                MigrationResult::InitializationError as u64,
+                b"Failed to digest policy issuer chain",
+            );
+        }
+    };
+
     // Measure and extend the policy issuer chain to RTMR
     let _ = event_log::write_tagged_event_log(
         event_log,
         MR_INDEX_POLICY_ISSUER_CHAIN,
         policy_issuer_chain,
         TAGGED_EVENT_ID_POLICY_ISSUER_CHAIN,
-        policy_issuer_chain,
+        &event_data,
     )
     .map_err(|e| {
         log::error!("Failed to log policy issuer chain: {:?}\n", e);
@@ -333,13 +354,24 @@ fn get_ca_and_measure(event_log: &mut [u8]) {
         }
     };
 
+    let event_data = match event_log::calculate_digest(root_ca) {
+        Ok(digest) => digest,
+        Err(error) => {
+            log::error!("Failed to digest SGX root CA: {:?}\n", error);
+            panic_with_guest_crash_reg_report(
+                MigrationResult::InitializationError as u64,
+                b"Failed to digest SGX root CA",
+            );
+        }
+    };
+
     // Measure and extend the root certificate to RTMR
     let _ = event_log::write_tagged_event_log(
         event_log,
         MR_INDEX_ROOT_CA,
         root_ca,
         TAGGED_EVENT_ID_ROOT_CA,
-        root_ca,
+        &event_data,
     )
     .map_err(|e| {
         log::error!("Failed to log SGX root CA: {:?}\n", e);
@@ -398,7 +430,7 @@ fn initialize_policy() -> String {
 }
 
 fn handle_pre_mig() {
-    const MAX_CONCURRENCY_REQUESTS: usize = 12;
+    const MAX_CONCURRENCY_REQUESTS: usize = config::MAX_MIGRATION_CHANNEL_COUNT as usize;
 
     #[cfg(not(feature = "vmcall-raw"))]
     // Set by `wait_for_request` async task when getting new request from VMM.
@@ -521,21 +553,12 @@ fn handle_pre_mig() {
                             );
                             REQUESTS.lock().remove(&rebinding_info.mig_request_id);
                         }
-                        #[cfg(feature = "SnpEmu")]
-                        WaitForRequestResponse::GetTdReport(_) => {
-                            // SnpEmu: GetTdReport handled in snpemu::main() WFR loop.
-                        }
-                        #[cfg(feature = "AzCVMEmu")]
                         WaitForRequestResponse::GetTdReport(wfr_info) => {
                             log::trace!(migration_request_id = wfr_info.mig_request_id; "Processing GetTdReport request\n");
-                            let status = get_tdreport(
-                                &wfr_info.reportdata,
-                                &mut data,
-                                wfr_info.mig_request_id,
-                            )
-                            .await
-                            .map(|_| MigrationResult::Success)
-                            .unwrap_or_else(|e| e);
+                            let status = get_tdreport(&mut data, wfr_info.mig_request_id)
+                                .await
+                                .map(|_| MigrationResult::Success)
+                                .unwrap_or_else(|e| e);
                             if status == MigrationResult::Success {
                                 log::trace!(migration_request_id = wfr_info.mig_request_id; "Successfully completed get TDREPORT\n");
                             } else {

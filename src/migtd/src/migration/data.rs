@@ -117,7 +117,9 @@ impl<'a> VmcallServiceResponse<'a> {
         if length < RESPONSE_HEADER_LENGTH || length > data.len() {
             return None;
         }
-        Some(Self { data })
+        Some(Self {
+            data: &data[..length],
+        })
     }
 
     pub fn new(response: &'a mut [u8], guid: Guid) -> Option<Self> {
@@ -256,7 +258,6 @@ pub enum WaitForRequestResponse {
     StartMigration(MigrationInformation),
     #[cfg(all(feature = "main", feature = "policy_v2"))]
     StartRebinding(MigtdMigrationInformation),
-    #[cfg(any(feature = "AzCVMEmu", feature = "SnpEmu"))]
     GetTdReport(ReportInfo),
     EnableLogArea(EnableLogAreaInfo),
     #[cfg(feature = "policy_v2")]

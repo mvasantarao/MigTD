@@ -92,6 +92,7 @@ pub async fn exchange_legacy(
             )
             .await;
             // Cancellation drops the transfer future before its normal epilogue.
+            teardown_sessions(&mut requester.common);
             requester.common.app_context_data_buffer.zeroize();
             match transfer {
                 Ok(result) => result.map_err(decode_spdm_session_err),
@@ -108,6 +109,7 @@ pub async fn exchange_legacy(
                 spdm_responder_transfer_msk(&mut responder, operation),
             )
             .await;
+            teardown_sessions(&mut responder.responder_context.common);
             responder
                 .responder_context
                 .common

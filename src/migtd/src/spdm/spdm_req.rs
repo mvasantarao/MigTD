@@ -5,9 +5,7 @@
 use crate::mig_policy;
 #[cfg(not(feature = "SnpEmu"))]
 use crate::migration::{
-    data::MigrationSessionKey,
-    session::{cal_mig_version, exchange_info, set_mig_version, write_msk},
-    MigtdMigrationInformation,
+    data::MigrationSessionKey, session::ExchangeInformation, MigtdMigrationInformation,
 };
 #[cfg(feature = "SnpEmu")]
 use crate::runtime::snp::{
@@ -35,12 +33,17 @@ use spdmlib::{
 use spin::Mutex;
 use zeroize::Zeroize;
 extern crate alloc;
+#[cfg(not(feature = "SnpEmu"))]
+use crate::event_log::get_event_log;
 #[cfg(feature = "policy_v2")]
 use crate::migration::pre_session_data::local_peer_data;
-#[cfg(not(feature = "SnpEmu"))]
-use crate::{event_log::get_event_log, migration::session::ExchangeInformation};
 use alloc::sync::Arc;
 use log::error;
+
+#[cfg(not(feature = "SnpEmu"))]
+type MigrationExchangeResult = SpdmResult<ExchangeInformation>;
+#[cfg(feature = "SnpEmu")]
+type MigrationExchangeResult = SpdmResult;
 
 pub fn spdm_requester<T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static>(
     stream: T,
@@ -98,9 +101,10 @@ pub fn spdm_requester<T: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static>
 pub async fn spdm_requester_transfer_msk(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,
+    #[cfg(not(feature = "SnpEmu"))] exchange_information: &ExchangeInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
     #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
-) -> Result<(), SpdmStatus> {
+) -> MigrationExchangeResult {
     // `send_and_receive_pub_key` encodes the requester's ephemeral ECDSA
     // private key into `spdm_requester.common.app_context_data_buffer` so
     // libspdm's asymmetric signing callback can read it. The libspdm
@@ -109,6 +113,8 @@ pub async fn spdm_requester_transfer_msk(
     let result = spdm_requester_transfer_msk_inner(
         spdm_requester,
         mig_info,
+        #[cfg(not(feature = "SnpEmu"))]
+        exchange_information,
         #[cfg(feature = "policy_v2")]
         peer_data,
         #[cfg(feature = "SnpEmu")]
@@ -122,9 +128,10 @@ pub async fn spdm_requester_transfer_msk(
 async fn spdm_requester_transfer_msk_inner(
     spdm_requester: &mut RequesterContext,
     mig_info: &MigtdMigrationInformation,
+    #[cfg(not(feature = "SnpEmu"))] exchange_information: &ExchangeInformation,
     #[cfg(feature = "policy_v2")] peer_data: Vec<u8>,
     #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
-) -> Result<(), SpdmStatus> {
+) -> MigrationExchangeResult {
     eprintln!("[MA] SPDM requester: GET_VERSION");
     Box::pin(spdm_requester.send_receive_spdm_version())
         .await
@@ -180,59 +187,86 @@ async fn spdm_requester_transfer_msk_inner(
         session_id
     );
 
-    eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO");
-    Box::pin(send_and_receive_sdm_migration_attest_info(
-        spdm_requester,
-        mig_info,
-        session_id,
-        #[cfg(feature = "policy_v2")]
-        peer_data,
-        #[cfg(feature = "SnpEmu")]
-        providers,
-    ))
-    .await
-    .inspect_err(|&e| {
-        eprintln!(
-            "[MA] ERROR: SPDM requester MIGRATION_ATTEST_INFO failed: {:?}",
-            e
-        );
-    })?;
-    eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO complete");
-
-    eprintln!("[MA] SPDM requester: FINISH");
-    Box::pin(spdm_requester.send_receive_spdm_finish(Some(0xff), session_id))
+    let result = async {
+        eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO");
+        Box::pin(send_and_receive_sdm_migration_attest_info(
+            spdm_requester,
+            mig_info,
+            session_id,
+            #[cfg(feature = "policy_v2")]
+            peer_data,
+            #[cfg(feature = "SnpEmu")]
+            providers,
+        ))
         .await
         .inspect_err(|&e| {
-            eprintln!("[MA] ERROR: SPDM requester FINISH failed: {:?}", e);
+            eprintln!(
+                "[MA] ERROR: SPDM requester MIGRATION_ATTEST_INFO failed: {:?}",
+                e
+            );
         })?;
-    eprintln!("[MA] SPDM requester: FINISH complete");
+        eprintln!("[MA] SPDM requester: MIGRATION_ATTEST_INFO complete");
 
-    eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO");
-    Box::pin(send_and_receive_sdm_exchange_migration_info(
-        spdm_requester,
-        mig_info,
-        Some(session_id),
-        #[cfg(feature = "SnpEmu")]
-        providers,
-    ))
-    .await
-    .inspect_err(|&e| {
-        eprintln!(
-            "[MA] ERROR: SPDM requester EXCHANGE_MIGRATION_INFO failed: {:?}",
-            e
-        );
-    })?;
-    eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO complete");
+        eprintln!("[MA] SPDM requester: FINISH");
+        Box::pin(spdm_requester.send_receive_spdm_finish(Some(0xff), session_id))
+            .await
+            .inspect_err(|&e| {
+                eprintln!("[MA] ERROR: SPDM requester FINISH failed: {:?}", e);
+            })?;
+        eprintln!("[MA] SPDM requester: FINISH complete");
 
-    eprintln!("[MA] SPDM requester: END_SESSION");
-    Box::pin(spdm_requester.send_receive_spdm_end_session(session_id))
+        eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO");
+        #[cfg(not(feature = "SnpEmu"))]
+        let remote_information = Box::pin(send_and_receive_sdm_exchange_migration_info(
+            spdm_requester,
+            exchange_information,
+            Some(session_id),
+        ))
         .await
         .inspect_err(|&e| {
-            eprintln!("[MA] ERROR: SPDM requester END_SESSION failed: {:?}", e);
+            eprintln!(
+                "[MA] ERROR: SPDM requester EXCHANGE_MIGRATION_INFO failed: {:?}",
+                e
+            );
         })?;
-    eprintln!("[MA] SPDM requester: END_SESSION complete");
+        #[cfg(feature = "SnpEmu")]
+        Box::pin(send_and_receive_sdm_exchange_migration_info(
+            spdm_requester,
+            mig_info,
+            Some(session_id),
+            providers,
+        ))
+        .await
+        .inspect_err(|&e| {
+            eprintln!(
+                "[MA] ERROR: SPDM requester EXCHANGE_MIGRATION_INFO failed: {:?}",
+                e
+            );
+        })?;
+        eprintln!("[MA] SPDM requester: EXCHANGE_MIGRATION_INFO complete");
 
-    Ok(())
+        eprintln!("[MA] SPDM requester: END_SESSION");
+        Box::pin(spdm_requester.send_receive_spdm_end_session(session_id))
+            .await
+            .inspect_err(|&e| {
+                eprintln!("[MA] ERROR: SPDM requester END_SESSION failed: {:?}", e);
+            })?;
+        eprintln!("[MA] SPDM requester: END_SESSION complete");
+        #[cfg(not(feature = "SnpEmu"))]
+        {
+            Ok(remote_information)
+        }
+        #[cfg(feature = "SnpEmu")]
+        {
+            Ok(())
+        }
+    }
+    .await;
+
+    if result.is_err() {
+        teardown_session(&mut spdm_requester.common, session_id);
+    }
+    result
 }
 
 pub async fn send_and_receive_pub_key(spdm_requester: &mut RequesterContext) -> SpdmResult {
@@ -882,15 +916,12 @@ fn verify_peer_attestation_v2(
 #[cfg(not(feature = "SnpEmu"))]
 async fn send_and_receive_sdm_exchange_migration_info(
     spdm_requester: &mut RequesterContext,
-    mig_info: &MigtdMigrationInformation,
+    exchange_information: &ExchangeInformation,
     session_id: Option<u32>,
-    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
-) -> SpdmResult {
+) -> SpdmResult<ExchangeInformation> {
     let mut vendor_id = [0u8; MAX_SPDM_VENDOR_DEFINED_VENDOR_ID_LEN];
     vendor_id[..VDM_MESSAGE_VENDOR_ID_LEN].copy_from_slice(&VDM_MESSAGE_VENDOR_ID);
     let vendor_id = VendorIDStruct { len: 4, vendor_id };
-
-    let exchange_information = exchange_info(mig_info, true)?;
 
     let mut payload = vec![0u8; MAX_SPDM_VENDOR_DEFINED_PAYLOAD_SIZE];
     let mut writer = Writer::init(&mut payload);
@@ -1053,17 +1084,7 @@ async fn send_and_receive_sdm_exchange_migration_info(
         },
     };
 
-    let mig_ver = cal_mig_version(true, &exchange_information, &remote_information)?;
-    set_mig_version(mig_info, mig_ver)?;
-    write_msk(
-        mig_info,
-        &remote_information.key,
-        #[cfg(feature = "SnpEmu")]
-        providers,
-    )?;
-    log::info!("Set MSK and report status\n");
-
-    Ok(())
+    Ok(remote_information)
 }
 
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]

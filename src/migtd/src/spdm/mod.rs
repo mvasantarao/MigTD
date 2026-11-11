@@ -11,6 +11,8 @@ mod spdm_rebind;
 mod spdm_req;
 pub(crate) mod spdm_rsp;
 mod spdm_vdm;
+#[cfg(test)]
+mod tests;
 mod vmcall_msg;
 
 use alloc::boxed::Box;
@@ -22,7 +24,7 @@ use codec::Codec;
 use codec::Reader;
 use codec::Writer;
 use log::error;
-use spdmlib::common::SpdmDeviceIo;
+use spdmlib::common::{SpdmContext, SpdmDeviceIo};
 use spdmlib::error::*;
 use spdmlib::protocol::{SpdmDigestStruct, SPDM_MAX_HASH_SIZE};
 use spin::Mutex;
@@ -58,13 +60,35 @@ pub struct MigtdTransport<T: AsyncRead + AsyncWrite + Unpin + Send> {
     pub transport: T,
 }
 
+pub(crate) fn teardown_session(context: &mut SpdmContext, session_id: u32) {
+    if let Some(session) = context.get_session_via_id(session_id) {
+        session.teardown();
+    }
+}
+
+pub(crate) fn teardown_sessions(context: &mut SpdmContext) {
+    // FINISH clears last_session_id while the established session still holds keys.
+    // Each context belongs to one exchange, so retire every slot before shutdown.
+    for session in &mut context.session {
+        session.teardown();
+    }
+}
+
 #[async_trait]
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T> {
     async fn send(&mut self, buffer: Arc<&[u8]>) -> SpdmResult {
         let mut sent = 0;
         while sent < buffer.len() {
             match self.transport.write(&buffer[sent..]).await {
-                Ok(len) => sent += len,
+                Ok(len) => {
+                    // Fail closed when the VMM-mediated transport reports
+                    // success without progress to avoid an infinite loop.
+                    if len == 0 {
+                        log::error!("SPDM MigtdTransport::send: zero-length transport write\n");
+                        return Err(SPDM_STATUS_SEND_FAIL);
+                    }
+                    sent += len;
+                }
                 // ConnectionAborted maps from VmcallRawError::VmmCanceled.
                 // The SpdmDeviceIo trait cannot represent this error, so just
                 // log and return the generic SPDM_STATUS_SEND_FAIL.
@@ -93,7 +117,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
         while recvd < VMCALL_SPDM_MESSAGE_HEADER_SIZE {
             let n = self
                 .transport
-                .read(&mut buffer[recvd..])
+                .read(&mut buffer[recvd..VMCALL_SPDM_MESSAGE_HEADER_SIZE])
                 .await
                 // ConnectionAborted maps from VmcallRawError::VmmCanceled.
                 // The SpdmDeviceIo trait cannot represent this error, so just
@@ -104,6 +128,11 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
                     }
                     0_usize
                 })?;
+            // Fail closed when the transport reports success without progress.
+            if n == 0 {
+                log::error!("SPDM MigtdTransport::receive header: zero-length transport read\n");
+                return Err(0_usize);
+            }
             recvd += n;
         }
 
@@ -116,10 +145,11 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
             return Err(0_usize);
         }
 
-        while recvd < payload_size + VMCALL_SPDM_MESSAGE_HEADER_SIZE {
+        let total = payload_size + VMCALL_SPDM_MESSAGE_HEADER_SIZE;
+        while recvd < total {
             let n = self
                 .transport
-                .read(&mut buffer[recvd..])
+                .read(&mut buffer[recvd..total])
                 .await
                 .map_err(|e| {
                     if e.kind() == rust_std_stub::io::ErrorKind::ConnectionAborted {
@@ -127,10 +157,15 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
                     }
                     0_usize
                 })?;
+            // Fail closed when the transport reports success without progress.
+            if n == 0 {
+                log::error!("SPDM MigtdTransport::receive payload: zero-length transport read\n");
+                return Err(0_usize);
+            }
             recvd += n;
         }
 
-        Ok(recvd)
+        Ok(total)
     }
 
     async fn flush_all(&mut self) -> SpdmResult {
@@ -139,10 +174,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
 }
 
 #[cfg(not(feature = "SnpEmu"))]
-pub fn gen_quote_spdm(
-    report_data: &[u8],
-    #[cfg(feature = "SnpEmu")] providers: &crate::snp_composition::SnpRuntimeProviders,
-) -> Result<Vec<u8>, MigrationResult> {
+pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
     let hash = digest_sha384(report_data)?;
 
     // Build 64-byte additional_data: SHA384(report_data) padded to 64 bytes.
@@ -151,25 +183,18 @@ pub fn gen_quote_spdm(
     let mut additional_data = [0u8; 64];
     additional_data[..hash.len()].copy_from_slice(hash.as_ref());
 
-    // Legacy SNP compatibility does not claim a fresh TH1 report-data binding.
-    #[cfg(feature = "SnpEmu")]
-    {
-        return providers.legacy_report_blob(&additional_data).map_err(|e| {
-            log::error!("selected SNP MA evidence acquisition failed: {:?}\n", e);
-            MigrationResult::MutualAttestationError
-        });
-    }
-
-    // TDX / AzCVMEmu path: generate a real TD report and get a quote via QVL.
-    #[cfg(not(feature = "SnpEmu"))]
-    {
-        let (quote, _report) =
-            crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
-                log::error!("get_quote_with_retry failed: {:?}\n", e);
-                MigrationResult::MutualAttestationError
-            })?;
-        Ok(quote)
-    }
+    let (quote, report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
+        log::error!("get_quote_with_retry failed: {:?}\n", e);
+        MigrationResult::MutualAttestationError
+    })?;
+    crate::quote::verify_local_quote(&quote, &report).map_err(|e| {
+        log::error!(
+            "Local quote does not match the generated TD report: {:?}\n",
+            e
+        );
+        MigrationResult::MutualAttestationError
+    })?;
+    Ok(quote)
 }
 
 /// Verify that the peer's quote contains the expected REPORTDATA.

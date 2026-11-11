@@ -114,12 +114,14 @@ mod v2 {
     /// quote and verifying it against the policy collaterals.
     pub fn get_local_tcb_evaluation_info() -> Result<PolicyEvaluationInfo, PolicyError> {
         let policy = get_verified_policy().ok_or(PolicyError::InvalidParameter)?;
-        let (quote, _report) =
+        let (quote, report) =
             crate::quote::get_quote_with_retry(&[0u8; 64]).map_err(|err| match err {
                 crate::quote::QuoteError::ReportGenerationFailed => PolicyError::GetTdxReport,
                 _ => PolicyError::QuoteGeneration,
             })?;
         let (fmspc, suppl_data) = verify_quote(&quote, policy.get_collaterals())?;
+        crate::quote::verify_local_report(&suppl_data, &report)
+            .map_err(|_| PolicyError::QuoteVerification)?;
         setup_evaluation_data(fmspc, &suppl_data, policy, policy.get_collaterals())
     }
 
@@ -286,16 +288,12 @@ mod v2 {
         let servtd_ext_src_obj =
             ServtdExt::read_from_bytes(servtd_ext_src).ok_or(PolicyError::InvalidParameter)?;
         let init_td_info = verify_init_tdinfo(init_tdinfo, &servtd_ext_src_obj)?;
-        let _engine_svn = policy
-            .servtd_tcb_mapping
-            .get_engine_svn_by_measurements(&Measurements::new_from_bytes(
-                &init_td_info.mrtd,
-                &init_td_info.rtmr0,
-                &init_td_info.rtmr1,
-                None,
-                None,
-            ))
-            .ok_or(PolicyError::SvnMismatch)?;
+
+        // migtdengine check: enginesvnsrc >= enginesvninit
+        policy.servtd_tcb_mapping.check_engine_not_older(
+            &engine_measurements_of(&tdx_report.td_info),
+            &engine_measurements_of(&init_td_info),
+        )?;
 
         // If backward policy exists, evaluate the migration src based on it.
         let relative_reference = get_local_tcb_evaluation_info()?;
@@ -541,6 +539,16 @@ mod v2 {
             u64::from_le_bytes(servtd_ext.init_attr),
             &servtd_ext.init_servtd_info_hash,
         )
+    }
+
+    /// `getengineinfo` measurement scope: the design guide classifies a MigTD
+    /// engine by `mrtd||rtmr[0-1]` only.
+    fn engine_measurements(mrtd: &[u8], rtmr0: &[u8], rtmr1: &[u8]) -> Measurements {
+        Measurements::new_from_bytes(mrtd, rtmr0, rtmr1, None, None)
+    }
+
+    fn engine_measurements_of(td_info: &TdInfo) -> Measurements {
+        engine_measurements(&td_info.mrtd, &td_info.rtmr0, &td_info.rtmr1)
     }
 
     #[cfg(test)]
@@ -892,17 +900,18 @@ mod v2 {
                 ServtdExt::read_from_bytes(servtd_ext_src).ok_or(PolicyError::InvalidParameter)?;
             let init_td_info = verify_init_tdinfo(init_tdinfo, &servtd_ext_obj)?;
 
-            // Allowlist gate: init MigTD measurements must be in servtd_tcb_mapping
-            let _engine_svn = policy
+            let slice = |range: core::ops::Range<usize>| {
+                suppl_data.get(range).ok_or(PolicyError::InvalidParameter)
+            };
+            let peer = engine_measurements(
+                slice(Report::R_MIGTD_MRTD)?,
+                slice(Report::R_MIGTD_RTMR0)?,
+                slice(Report::R_MIGTD_RTMR1)?,
+            );
+            // migtdengine check: enginesvnsrc >= enginesvninit
+            policy
                 .servtd_tcb_mapping
-                .get_engine_svn_by_measurements(&Measurements::new_from_bytes(
-                    &init_td_info.mrtd,
-                    &init_td_info.rtmr0,
-                    &init_td_info.rtmr1,
-                    None,
-                    None,
-                ))
-                .ok_or(PolicyError::SvnMismatch)?;
+                .check_engine_not_older(&peer, &engine_measurements_of(&init_td_info))?;
         }
 
         Ok(suppl_data)
