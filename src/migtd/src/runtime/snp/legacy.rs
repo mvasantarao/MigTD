@@ -18,6 +18,7 @@ use spdmlib::{
     config,
     error::*,
     message::*,
+    protocol::{SpdmDigestStruct, SPDM_MAX_HASH_SIZE},
     requester::RequesterContext,
     responder::ResponderContext,
 };
@@ -195,13 +196,25 @@ fn header(writer: &mut Writer, opcode: VdmMessageOpCode, count: u8) -> SpdmResul
     Ok(())
 }
 
+/// Build the legacy compatibility report-data preimage as `prefix || TH1`.
+fn build_legacy_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Vec<u8>> {
+    let th1_len = th1.data_size as usize;
+    if th1_len > SPDM_MAX_HASH_SIZE {
+        return Err(SPDM_STATUS_BUFFER_FULL);
+    }
+    let mut report_data = vec![0u8; prefix.len() + th1_len];
+    report_data[..prefix.len()].copy_from_slice(prefix);
+    report_data[prefix.len()..].copy_from_slice(&th1.data[..th1_len]);
+    Ok(report_data)
+}
+
 fn evidence(
     prefix: &[u8],
-    th1: &spdmlib::protocol::SpdmDigestStruct,
+    th1: &SpdmDigestStruct,
     providers: &SnpRuntimeProviders,
 ) -> SpdmResult<Vec<u8>> {
-    let hash =
-        digest_sha384(&build_report_data(prefix, th1)?).map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?;
+    let hash = digest_sha384(&build_legacy_report_data(prefix, th1)?)
+        .map_err(|_| SPDM_STATUS_CRYPTO_ERROR)?;
     let mut nonce = [0; 64];
     nonce[..48].copy_from_slice(&hash);
     providers.legacy_report_blob(&nonce).map_err(|error| {

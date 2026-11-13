@@ -3,9 +3,15 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 #[cfg(not(feature = "SnpEmu"))]
 use crate::mig_policy;
+#[cfg(feature = "tdx-platform")]
+use crate::migration::rebinding::verify_tdreport_data_binding;
 #[cfg(not(feature = "SnpEmu"))]
 use crate::migration::{
     data::MigrationSessionKey, session::ExchangeInformation, MigtdMigrationInformation,
+};
+#[cfg(feature = "tdx-platform")]
+use crate::quote::{
+    build_report_data, gen_quote_spdm, spdm_verify_quote, verify_report_data_binding,
 };
 #[cfg(feature = "SnpEmu")]
 use crate::runtime::snp::{
@@ -14,11 +20,10 @@ use crate::runtime::snp::{
     },
     requests::LegacyOperation as MigtdMigrationInformation,
 };
-#[cfg(not(feature = "SnpEmu"))]
-use crate::spdm::{gen_quote_spdm, verify_report_data_binding, verify_tdreport_data_binding};
 use crate::spdm::{spdm_rsp::SECRET_ASYM_IMPL_INSTANCE, vmcall_msg::VmCallTransportEncap, *};
 #[cfg(not(feature = "SnpEmu"))]
 use crate::status::MigrationResult;
+use alloc::vec::Vec;
 use async_io::{AsyncRead, AsyncWrite};
 use codec::{Codec, Reader, Writer};
 use crypto::{ecdsa::EcdsaPk, hash::digest_sha384};
@@ -485,23 +490,13 @@ pub async fn send_and_receive_sdm_migration_attest_info(
     let report_data = build_report_data(b"MigTDReq", &th1)?;
 
     //quote src
-    let quote_src = gen_quote_spdm(
-        &report_data,
-        #[cfg(feature = "SnpEmu")]
-        providers,
-    )?;
+    let quote_src = gen_quote_spdm(&report_data)?;
     // Self-quote verification is only needed for policy v1, which uses
     // verified_report_local in authenticate_policy(). Policy v2 re-verifies
     // the quote internally via authenticate_remote().
     #[cfg(not(feature = "policy_v2"))]
     let verified_report_local = {
-        let res = spdm_verify_quote(
-            quote_src.as_slice(),
-            #[cfg(feature = "SnpEmu")]
-            &operation_context,
-            #[cfg(feature = "SnpEmu")]
-            providers,
-        );
+        let res = spdm_verify_quote(quote_src.as_slice());
         if res.is_err() {
             error!("mutual attestation failed, end the session!\n");
             let session = spdm_requester
@@ -802,13 +797,7 @@ fn verify_peer_attestation_v1(
     ),
 ) -> SpdmResult {
     // 1. Verify peer's quote
-    let res = spdm_verify_quote(
-        quote_peer,
-        #[cfg(feature = "SnpEmu")]
-        operation_context,
-        #[cfg(feature = "SnpEmu")]
-        providers,
-    );
+    let res = spdm_verify_quote(quote_peer);
     if res.is_err() {
         error!("mutual attestation failed, end the session!\n");
         let session = spdm_requester

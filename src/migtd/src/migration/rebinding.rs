@@ -5,12 +5,20 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::mem::MaybeUninit;
 use core::time::Duration;
+#[cfg(feature = "spdm_attestation")]
+use crypto::hash::digest_sha384;
 #[cfg(not(feature = "spdm_attestation"))]
 use crypto::{
     tls::SecureChannel,
     x509::{Certificate, Decode},
 };
 use ring::rand::{SecureRandom, SystemRandom};
+#[cfg(feature = "spdm_attestation")]
+use scroll::Pread;
+#[cfg(feature = "spdm_attestation")]
+use spdmlib::protocol::SpdmDigestStruct;
+#[cfg(feature = "spdm_attestation")]
+use tdx_tdcall::tdreport::TdxReport;
 use tdx_tdcall::tdx::{tdcall_servtd_rebind_approve, tdcall_vm_write};
 
 use crate::migration::transport::*;
@@ -43,6 +51,69 @@ const TDCS_FIELD_WRITE_MASK: u64 = u64::MAX;
 #[cfg(not(feature = "spdm_attestation"))]
 const TLS_TIMEOUT: Duration = Duration::from_secs(60); // 60 seconds
                                                        // FIXME: Need VMM provide socket information
+
+/// Verify that a TDX rebinding TDREPORT is bound to the SPDM transcript.
+#[cfg(feature = "spdm_attestation")]
+pub(crate) fn verify_tdreport_data_binding(
+    tdreport_bytes: &[u8],
+    peer_prefix: &[u8],
+    th1: &SpdmDigestStruct,
+) -> Result<(), MigrationResult> {
+    const REPORT_DATA_HASH_SIZE: usize = 48;
+
+    let tdreport: TdxReport = tdreport_bytes.pread(0).map_err(|_| {
+        log::error!("Failed to parse TDREPORT\n");
+        MigrationResult::InvalidParameter
+    })?;
+
+    let expected_report_data = crate::quote::build_report_data(peer_prefix, th1)
+        .map_err(|_| MigrationResult::InvalidParameter)?;
+    let expected_hash = digest_sha384(&expected_report_data)?;
+    let actual = &tdreport.report_mac.report_data[..REPORT_DATA_HASH_SIZE];
+
+    if actual != expected_hash.as_slice() {
+        return Err(MigrationResult::InvalidParameter);
+    }
+
+    Ok(())
+}
+
+#[cfg(all(test, feature = "spdm_attestation"))]
+mod tests {
+    use super::*;
+
+    fn bound_report(prefix: &[u8], th1: &SpdmDigestStruct) -> Vec<u8> {
+        let mut report = TdxReport::read_from_bytes(&vec![0u8; size_of::<TdxReport>()]).unwrap();
+        let report_data = crate::quote::build_report_data(prefix, th1).unwrap();
+        let hash = digest_sha384(&report_data).unwrap();
+        report.report_mac.report_data[..hash.len()].copy_from_slice(hash.as_ref());
+        report.as_bytes().to_vec()
+    }
+
+    #[test]
+    fn verifies_tdreport_spdm_transcript_binding() {
+        let prefix = b"MigTDReq";
+        let th1 = SpdmDigestStruct::from(&[0x5a; 48][..]);
+        let mut report = bound_report(prefix, &th1);
+
+        assert!(verify_tdreport_data_binding(&report, prefix, &th1).is_ok());
+
+        report[128] ^= 1;
+        assert_eq!(
+            verify_tdreport_data_binding(&report, prefix, &th1),
+            Err(MigrationResult::InvalidParameter)
+        );
+    }
+
+    #[test]
+    fn rejects_truncated_tdreport_binding() {
+        let th1 = SpdmDigestStruct::from(&[0x5a; 48][..]);
+        assert_eq!(
+            verify_tdreport_data_binding(&[0u8; 16], b"MigTDReq", &th1),
+            Err(MigrationResult::InvalidParameter)
+        );
+    }
+}
 
 #[repr(C)]
 pub struct RebindingToken {

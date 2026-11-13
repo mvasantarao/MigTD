@@ -2,12 +2,20 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-//! Quote generation with retry logic for handling transient errors
+//! TDX quote generation, verification, and SPDM transcript binding.
 #![cfg(feature = "attestation")]
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::mem::size_of;
+use crypto::hash::digest_sha384;
+use log::error;
+use spdmlib::{
+    error::{SpdmResult, SPDM_STATUS_BUFFER_FULL, SPDM_STATUS_INVALID_MSG_FIELD},
+    protocol::{SpdmDigestStruct, SPDM_MAX_HASH_SIZE},
+};
 use tdx_tdcall::tdreport::TdxReport;
+
+use crate::status::MigrationResult;
 
 #[cfg(not(feature = "AzCVMEmu"))]
 use tdx_tdcall::tdreport::tdcall_report;
@@ -182,6 +190,90 @@ fn delay_milliseconds(ms: u64) {
     }
 }
 
+/// Build the TDX report-data preimage as `prefix || TH1`.
+pub(crate) fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Vec<u8>> {
+    let th1_len = th1.data_size as usize;
+    if th1_len > SPDM_MAX_HASH_SIZE {
+        error!("th1 length is too large: {}\n", th1_len);
+        return Err(SPDM_STATUS_BUFFER_FULL);
+    }
+    let mut report_data = vec![0u8; prefix.len() + th1_len];
+    report_data[..prefix.len()].copy_from_slice(prefix);
+    report_data[prefix.len()..].copy_from_slice(&th1.data[..th1_len]);
+    Ok(report_data)
+}
+
+/// Generate a TDX quote bound to the supplied SPDM report-data preimage.
+pub(crate) fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
+    let hash = digest_sha384(report_data)?;
+    let mut additional_data = [0u8; 64];
+    additional_data[..hash.len()].copy_from_slice(hash.as_ref());
+
+    let (quote, report) = get_quote_with_retry(&additional_data).map_err(|e| {
+        log::error!("get_quote_with_retry failed: {:?}\n", e);
+        MigrationResult::MutualAttestationError
+    })?;
+    verify_local_quote(&quote, &report).map_err(|e| {
+        log::error!(
+            "Local quote does not match the generated TD report: {:?}\n",
+            e
+        );
+        MigrationResult::MutualAttestationError
+    })?;
+    Ok(quote)
+}
+
+/// Verify a TDX quote and return its QVL supplemental report data.
+pub(crate) fn spdm_verify_quote(quote: &[u8]) -> SpdmResult<Vec<u8>> {
+    #[cfg(not(feature = "test_disable_ra_and_accept_all"))]
+    let result = attestation::verify_quote(quote);
+    #[cfg(feature = "test_disable_ra_and_accept_all")]
+    let result: Result<Vec<u8>, ()> = Ok(vec![]);
+
+    result.map_err(|_| {
+        error!("Quote verification failed!\n");
+        SPDM_STATUS_INVALID_MSG_FIELD
+    })
+}
+
+/// Verify the TDX QVL supplemental REPORTDATA against the expected preimage.
+pub(crate) fn verify_peer_report_data(
+    supplemental_data: &[u8],
+    expected_report_data: &[u8],
+) -> Result<(), MigrationResult> {
+    const REPORT_DATA_SIZE: usize = 48;
+
+    if supplemental_data.len() < VERIFIED_REPORT_DATA.start + REPORT_DATA_SIZE {
+        return Err(MigrationResult::InvalidParameter);
+    }
+
+    let hash = digest_sha384(expected_report_data)?;
+    let actual = &supplemental_data
+        [VERIFIED_REPORT_DATA.start..VERIFIED_REPORT_DATA.start + REPORT_DATA_SIZE];
+    if actual != hash.as_slice() {
+        return Err(MigrationResult::InvalidParameter);
+    }
+    Ok(())
+}
+
+/// Verify that a TDX peer quote is bound to the SPDM transcript.
+pub(crate) fn verify_report_data_binding(
+    supplemental_data: &[u8],
+    peer_prefix: &[u8],
+    th1: &SpdmDigestStruct,
+) -> Result<(), MigrationResult> {
+    if cfg!(feature = "use-mock-quote") {
+        log::warn!(
+            "use-mock-quote mode: Skipping REPORTDATA TH1 binding verification. This is NOT secure for production use.\n"
+        );
+        return Ok(());
+    }
+
+    let report_data =
+        build_report_data(peer_prefix, th1).map_err(|_| MigrationResult::InvalidParameter)?;
+    verify_peer_report_data(supplemental_data, &report_data)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +362,30 @@ mod tests {
         td_info.reserved = [0xbb; 64];
         parsed.td_info = td_info;
         assert!(verify_local_report(&verified, parsed.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn verifies_tdx_spdm_report_data_binding() {
+        let expected = b"MigTDReq transcript";
+        let hash = digest_sha384(expected).unwrap();
+        let mut supplemental = vec![0u8; VERIFIED_REPORT_DATA.end];
+        supplemental[VERIFIED_REPORT_DATA.start..VERIFIED_REPORT_DATA.start + hash.len()]
+            .copy_from_slice(hash.as_ref());
+
+        assert!(verify_peer_report_data(&supplemental, expected).is_ok());
+
+        supplemental[VERIFIED_REPORT_DATA.start] ^= 1;
+        assert_eq!(
+            verify_peer_report_data(&supplemental, expected),
+            Err(MigrationResult::InvalidParameter)
+        );
+    }
+
+    #[test]
+    fn rejects_truncated_tdx_spdm_supplemental_data() {
+        assert_eq!(
+            verify_peer_report_data(&vec![0u8; VERIFIED_REPORT_DATA.start], b"expected"),
+            Err(MigrationResult::InvalidParameter)
+        );
     }
 }

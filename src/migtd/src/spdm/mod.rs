@@ -17,8 +17,6 @@ mod vmcall_msg;
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
 use async_trait::async_trait;
 use codec::Codec;
 use codec::Reader;
@@ -26,15 +24,12 @@ use codec::Writer;
 use log::error;
 use spdmlib::common::{SpdmContext, SpdmDeviceIo};
 use spdmlib::error::*;
-use spdmlib::protocol::{SpdmDigestStruct, SPDM_MAX_HASH_SIZE};
 use spin::Mutex;
 use zeroize::Zeroize;
 use zeroize::ZeroizeOnDrop;
 
 use async_io::AsyncRead;
 use async_io::AsyncWrite;
-#[cfg(not(feature = "SnpEmu"))]
-use crypto::hash::digest_sha384;
 #[cfg(feature = "SnpEmu")]
 pub use snp_vdm::*;
 #[cfg(all(feature = "main", feature = "policy_v2", feature = "vmcall-raw"))]
@@ -171,162 +166,6 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send> SpdmDeviceIo for MigtdTransport<T
     async fn flush_all(&mut self) -> SpdmResult {
         Ok(())
     }
-}
-
-#[cfg(not(feature = "SnpEmu"))]
-pub fn gen_quote_spdm(report_data: &[u8]) -> Result<Vec<u8>, MigrationResult> {
-    let hash = digest_sha384(report_data)?;
-
-    // Build 64-byte additional_data: SHA384(report_data) padded to 64 bytes.
-    // This is the nonce embedded in the attestation report, binding it to the
-    // SPDM handshake transcript (TH1).
-    let mut additional_data = [0u8; 64];
-    additional_data[..hash.len()].copy_from_slice(hash.as_ref());
-
-    let (quote, report) = crate::quote::get_quote_with_retry(&additional_data).map_err(|e| {
-        log::error!("get_quote_with_retry failed: {:?}\n", e);
-        MigrationResult::MutualAttestationError
-    })?;
-    crate::quote::verify_local_quote(&quote, &report).map_err(|e| {
-        log::error!(
-            "Local quote does not match the generated TD report: {:?}\n",
-            e
-        );
-        MigrationResult::MutualAttestationError
-    })?;
-    Ok(quote)
-}
-
-/// Verify that the peer's quote contains the expected REPORTDATA.
-///
-/// The REPORTDATA in the verified report should equal SHA384(expected_report_data),
-/// mirroring the binding created by gen_quote_spdm().
-///
-/// `supplemental_data` is the output of verify_quote() (774 bytes),
-/// which contains the REPORTDATA at offset 520..568 (48 bytes).
-///
-/// **TDX-ONLY.** This function reads the TDX supplemental_data layout (QvlResult, 774 bytes).
-/// TODO(Phase-3b/3b-binding): SNP reports carry report_data at report[0x50..0x90] (bytes 80..144
-/// of the raw 1184-byte ATTESTATION_REPORT, not in a QvlResult supplemental blob).
-/// Phase 3b must add `verify_snp_report_data_binding()` reading that offset, and remove
-/// the #[cfg(SnpEmu)] bypass in spdm_req.rs / spdm_rsp.rs verify_report_data_binding() calls.
-#[cfg(not(feature = "SnpEmu"))]
-pub fn verify_peer_report_data(
-    supplemental_data: &[u8],
-    expected_report_data: &[u8],
-) -> Result<(), MigrationResult> {
-    const REPORT_DATA_OFFSET: usize = 520;
-    const REPORT_DATA_SIZE: usize = 48;
-
-    if supplemental_data.len() < REPORT_DATA_OFFSET + REPORT_DATA_SIZE {
-        return Err(MigrationResult::InvalidParameter);
-    }
-
-    let hash = digest_sha384(expected_report_data)?;
-    let actual = &supplemental_data[REPORT_DATA_OFFSET..REPORT_DATA_OFFSET + REPORT_DATA_SIZE];
-
-    if actual != hash.as_slice() {
-        return Err(MigrationResult::InvalidParameter);
-    }
-
-    Ok(())
-}
-
-/// Build report data by concatenating a prefix and the TH1 digest.
-///
-/// Returns a `Vec<u8>` containing `prefix || th1.data[..th1.data_size]`.
-pub fn build_report_data(prefix: &[u8], th1: &SpdmDigestStruct) -> SpdmResult<Vec<u8>> {
-    let th1_len = th1.data_size as usize;
-    if th1_len > SPDM_MAX_HASH_SIZE {
-        error!("th1 length is too large: {}\n", th1_len);
-        return Err(SPDM_STATUS_BUFFER_FULL);
-    }
-    let mut report_data = vec![0u8; prefix.len() + th1_len];
-    report_data[..prefix.len()].copy_from_slice(prefix);
-    report_data[prefix.len()..].copy_from_slice(&th1.data[..th1_len]);
-    Ok(report_data)
-}
-
-/// Verify a quote, returning the supplemental data on success.
-///
-/// Legacy SNP verifies captured signatures/certificates through its selected
-/// compatibility bridge, without claiming live REPORTDATA binding. Only the
-/// explicit test bypass skips that verification.
-#[cfg(not(feature = "SnpEmu"))]
-pub fn spdm_verify_quote(
-    #[allow(unused_variables)] quote: &[u8],
-    #[cfg(feature = "SnpEmu")]
-    #[allow(unused_variables)]
-    context: &pal::types::SnpOperationContext,
-    #[cfg(feature = "SnpEmu")] _providers: &crate::snp_composition::SnpRuntimeProviders,
-) -> SpdmResult<Vec<u8>> {
-    #[cfg(not(any(feature = "SnpEmu", feature = "test_disable_ra_and_accept_all")))]
-    let res = attestation::verify_quote(quote);
-    #[cfg(all(feature = "SnpEmu", not(feature = "test_disable_ra_and_accept_all")))]
-    let res = verify_snp_fixture_quote(quote, context, _providers);
-    #[cfg(feature = "test_disable_ra_and_accept_all")]
-    let res: Result<Vec<u8>, ()> = Ok(vec![]);
-
-    res.map_err(|_| {
-        error!("Quote verification failed!\n");
-        SPDM_STATUS_INVALID_MSG_FIELD
-    })
-}
-
-/// Verify that the peer's REPORTDATA is bound to the expected prefix and TH1.
-#[cfg(not(feature = "SnpEmu"))]
-pub fn verify_report_data_binding(
-    supplemental_data: &[u8],
-    peer_prefix: &[u8],
-    th1: &SpdmDigestStruct,
-) -> Result<(), MigrationResult> {
-    if cfg!(feature = "use-mock-quote") {
-        // The mock quote is static test data and does not embed the live
-        // SHA384(prefix || TH1) binding for the current SPDM handshake.
-        // Skip this check in that development-only mode.
-        log::warn!(
-            "use-mock-quote mode: Skipping REPORTDATA TH1 binding verification. This is NOT secure for production use.\n"
-        );
-        return Ok(());
-    }
-
-    let report_data =
-        build_report_data(peer_prefix, th1).map_err(|_| MigrationResult::InvalidParameter)?;
-    verify_peer_report_data(supplemental_data, &report_data)
-}
-
-/// Verify that a TDREPORT's REPORTDATA is bound to the expected prefix and TH1.
-///
-/// This is the rebind-path counterpart of [`verify_report_data_binding`], which
-/// operates on quote supplemental data.  In the rebind flow the peer provides a
-/// raw TDREPORT instead of a quote; the REPORTDATA field is accessed via the
-/// parsed `TdxReport.report_mac.report_data` struct field.
-#[cfg(not(feature = "SnpEmu"))]
-pub fn verify_tdreport_data_binding(
-    tdreport_bytes: &[u8],
-    peer_prefix: &[u8],
-    th1: &SpdmDigestStruct,
-) -> Result<(), MigrationResult> {
-    use scroll::Pread;
-    use tdx_tdcall::tdreport::TdxReport;
-
-    const REPORT_DATA_HASH_SIZE: usize = 48;
-
-    let tdreport: TdxReport = tdreport_bytes.pread(0).map_err(|_| {
-        error!("Failed to parse TDREPORT\n");
-        MigrationResult::InvalidParameter
-    })?;
-
-    let expected_report_data =
-        build_report_data(peer_prefix, th1).map_err(|_| MigrationResult::InvalidParameter)?;
-    let expected_hash = digest_sha384(&expected_report_data)?;
-    let actual = &tdreport.report_mac.report_data[..REPORT_DATA_HASH_SIZE];
-
-    if actual != expected_hash.as_slice() {
-        return Err(MigrationResult::InvalidParameter);
-    }
-
-    Ok(())
 }
 
 const ECDSA_P384_SHA384_PRIVATE_KEY_LENGTH: usize = 0xb9;
